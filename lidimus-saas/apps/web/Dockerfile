@@ -4,7 +4,7 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Instala dependências
-COPY pnpm-workspace.yaml package.json ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
 COPY packages/queue/package.json ./packages/queue/
