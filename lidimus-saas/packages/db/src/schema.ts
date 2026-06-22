@@ -5,10 +5,16 @@ import {
   timestamp,
   pgEnum,
   jsonb,
-  bytea,
   index,
+  customType,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+
+const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
+  dataType() {
+    return 'bytea'
+  },
+})
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
