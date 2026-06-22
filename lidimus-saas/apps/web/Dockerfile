@@ -17,9 +17,9 @@ COPY packages/db ./packages/db
 COPY packages/queue ./packages/queue
 
 # Build Nuxt
-WORKDIR /app/apps/web
-RUN pnpm build
+WORKDIR /app
+RUN pnpm --filter web build
 
 EXPOSE 3000
 ENV NODE_ENV=production
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "apps/web/.output/server/index.mjs"]
