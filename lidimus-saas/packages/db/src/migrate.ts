@@ -1,3 +1,11 @@
+import { config } from 'dotenv'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dir = dirname(__filename)
+config({ path: resolve(__dir, '../../../.env') })
+
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'

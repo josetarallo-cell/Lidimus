@@ -60,6 +60,9 @@ importers:
 
   packages/db:
     dependencies:
+      dotenv:
+        specifier: ^16.0.0
+        version: 16.6.1
       drizzle-orm:
         specifier: ^0.41.0
         version: 0.41.0(gel@2.2.0)(kysely@0.29.2)(postgres@3.4.9)
@@ -3037,6 +3040,10 @@ packages:
   dot-prop@10.1.0:
     resolution: {integrity: sha512-MVUtAugQMOff5RnBy2d9N31iG0lNwg1qAoAOn7pOK5wf94WIaE3My2p3uwTQuvS2AcqchkcR3bHByjaM0mmi7Q==}
     engines: {node: '>=20'}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -7926,6 +7933,8 @@ snapshots:
   dot-prop@10.1.0:
     dependencies:
       type-fest: 5.7.0
+
+  dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
 
