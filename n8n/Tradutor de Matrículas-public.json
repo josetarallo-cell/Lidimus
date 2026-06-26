@@ -1,0 +1,1101 @@
+{
+  "name": "Tradutor de Matrículas-public",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tradutor-matriculas-public",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "991999f7-7612-467b-92bd-6857a142bfc4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        11904,
+        5792
+      ],
+      "webhookId": "tradutor-matriculas-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nconst pdf_url = body.fileUrl || body.pdf_url || 'https://gvlar.com.br/matriculas/matricula%2015.727.pdf';\nconst params = body.params || {};\nconst incluir_memorial = String(params.incluirMemorial ?? params.incluir_memorial ?? body.incluir_memorial ?? false).toLowerCase() === 'true';\nconst job_id = body.jobId || body.job_id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 9));\nconst callback_url = body.callbackUrl || body.callback_url || '';\nconst callback_secret = body.callbackSecret || body.callback_secret || '';\nreturn [{ json: { pdf_url, incluir_memorial, job_id, callback_url, callback_secret } }];"
+      },
+      "id": "d308937f-2a3c-437d-9d50-36c61110d854",
+      "name": "Preparar URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12128,
+        5792
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({ status: 'processing', job_id: $('Preparar URL').first().json.job_id }) }}",
+        "options": {}
+      },
+      "id": "98cf0b6d-911a-4ed2-a461-b8f5a06305e0",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        12352,
+        6016
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://gvlar.com.br/pdf-base64.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.pdf_url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8a8b51cc-a102-40a8-81a6-fadbae5963f7",
+      "name": "Baixar PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12352,
+        5792
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-gerar-croqui",
+              "leftValue": "={{ $json.incluir_memorial }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6b7b5310-1f6b-451b-81f9-326832371f06",
+      "name": "IF Gerar Croqui",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        12352,
+        5456
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://gvlar.com.br/skills/croqui-matricula-skill.md",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "e43aaf35-68cd-4d6b-9019-8a520b4359e6",
+      "name": "Carregar Skill",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12576,
+        5296
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { skill_content: null } }];"
+      },
+      "id": "f02c8f72-1914-4306-92f9-41da91ba92b7",
+      "name": "Skill Não Carregada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12576,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst pdf_url = $('Preparar URL').first().json.pdf_url;\nconst pdf_base64 = $input.first().json.base64;\nconst _saRaw = (typeof $vars !== 'undefined' && $vars.GOOGLE_CLOUD_SA_KEY_JSON) ? $vars.GOOGLE_CLOUD_SA_KEY_JSON : process.env.GOOGLE_CLOUD_SA_KEY_JSON;\nif (!_saRaw) throw new Error('GOOGLE_CLOUD_SA_KEY_JSON não encontrado. Configure em n8n Settings → Variables ou no docker-compose.');\nconst saKey = JSON.parse(_saRaw);\nconst privateKey = saKey.private_key;\nconst clientEmail = saKey.client_email;\nfunction b64url(x){const s=typeof x==='string'?x:JSON.stringify(x);return Buffer.from(s).toString('base64').replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');}\nconst now=Math.floor(Date.now()/1000);\nconst header={alg:'RS256',typ:'JWT'};\nconst payload={iss:clientEmail,sub:clientEmail,aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600,scope:'https://www.googleapis.com/auth/cloud-platform'};\nconst unsigned=`${b64url(header)}.${b64url(payload)}`;\nconst signer=crypto.createSign('RSA-SHA256');\nsigner.update(unsigned);\nconst sig=signer.sign(privateKey).toString('base64').replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');\nconst jwt=`${unsigned}.${sig}`;\nreturn [{json:{pdf_url,pdf_base64,jwt}}];"
+      },
+      "id": "3500545d-7c0d-4600-82b7-d1d586ed30dc",
+      "name": "Gerar JWT + Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12528,
+        6064
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "urn:ietf:params:oauth:grant-type:jwt-bearer"
+            },
+            {
+              "name": "assertion",
+              "value": "={{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d69b45b-7a24-44f9-b15a-d0e34ebff0b1",
+      "name": "Google Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12752,
+        6080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://us-documentai.googleapis.com/v1/projects/106018180847/locations/us/processors/1952a4c94e316472:process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ rawDocument: { mimeType: 'application/pdf', content: $('Gerar JWT + Base64').first().json.pdf_base64 }, processOptions: { fromStart: 30 } }) }}",
+        "options": {}
+      },
+      "id": "f8681837-8e5a-422c-90fc-1d558d4284a7",
+      "name": "Google Document AI Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12976,
+        6064
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pdf_url = $('Preparar URL').first().json.pdf_url;\nconst docAiResp = $input.first().json;\nif (docAiResp.error) { const e = docAiResp.error; throw new Error('Erro Document AI: ' + (e.message || JSON.stringify(e))); }\nconst documento = docAiResp.document || {};\nconst HOMOGLIFOS = {'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N','Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X','А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','Х':'X','У':'Y','а':'a','е':'e','о':'o','р':'p','с':'c','у':'y','х':'x'};\nconst texto_ocr = (documento.text || '').replace(/[Ͱ-ϿЀ-ӿ]/g, ch => HOMOGLIFOS[ch] || ch);\nif (!texto_ocr.trim()) { const dump = JSON.stringify(docAiResp).slice(0, 500); throw new Error('Document AI retornou texto vazio. Resposta: ' + dump); }\nconst total_paginas = (documento.pages || []).length;\nreturn [{ json: { pdf_url, texto_ocr, total_paginas } }];"
+      },
+      "id": "efb57529-3ce6-49de-88ac-e09cafa2e792",
+      "name": "Google Document AI OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13200,
+        6032
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $('Google Document AI OCR').first().json.texto_ocr }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "numero_matricula",
+              "description": "Número da matrícula imobiliária. Ex: 15.727 ou 123456. Geralmente aparece após a palavra 'matrícula' ou 'MATRICULA'."
+            },
+            {
+              "name": "cartorio",
+              "description": "Nome completo do Cartório de Registro de Imóveis onde a matrícula está registrada."
+            },
+            {
+              "name": "data_abertura",
+              "description": "Data de abertura ou instituição da matrícula no formato DD/MM/AAAA."
+            },
+            {
+              "name": "livro_folha",
+              "description": "Referência do livro e folha da matrícula. Ex: 'Livro 2, Folha 157'."
+            },
+            {
+              "name": "matricula_anterior",
+              "description": "Número da matrícula ou transcrição anterior de onde este imóvel se originou."
+            },
+            {
+              "name": "endereco",
+              "description": "Endereço completo do imóvel conforme descrito na matrícula, incluindo logradouro, número, bairro, cidade e CEP se disponíveis."
+            },
+            {
+              "name": "sql_iptu",
+              "description": "Número SQL ou código IPTU do imóvel. Formato típico: xxx.xxx.xxxx.x (10 dígitos separados por pontos)."
+            },
+            {
+              "name": "area_total_m2",
+              "description": "Área total do terreno ou imóvel em metros quadrados, exatamente como consta no documento."
+            },
+            {
+              "name": "area_construida_m2",
+              "description": "Área construída, edificada ou de construção em metros quadrados."
+            },
+            {
+              "name": "testada",
+              "description": "Medida da testada ou frente do lote em metros lineares."
+            },
+            {
+              "name": "confrontante_norte",
+              "description": "Descrição do confrontante ao Norte do imóvel (quem faz divisa ao norte)."
+            },
+            {
+              "name": "confrontante_sul",
+              "description": "Descrição do confrontante ao Sul do imóvel (quem faz divisa ao sul)."
+            },
+            {
+              "name": "confrontante_leste",
+              "description": "Descrição do confrontante ao Leste do imóvel (quem faz divisa ao leste)."
+            },
+            {
+              "name": "confrontante_oeste",
+              "description": "Descrição do confrontante ao Oeste do imóvel (quem faz divisa ao oeste)."
+            },
+            {
+              "name": "endereco_curto",
+              "description": "Endereço RESUMIDO do imóvel para exibição e geocodificação: logradouro ou rodovia (com número ou km), bairro, cidade e UF. Ex: \"Rodovia Raposo Tavares, Km 64,5, Bairro Marmeleiro, Mairinque - SP\". NÃO incluir descrição de divisas, rumos, medidas ou confrontações."
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Você é um especialista em matrículas imobiliárias brasileiras. Extraia com precisão os campos solicitados do texto de matrícula fornecido. Se um campo não estiver presente no documento, retorne null. Mantenha os valores exatamente como aparecem no documento, preservando formatação original, pontuação e acentos.\n\n{format_instructions}\n\nTexto da Matrícula:\n{text}"
+        }
+      },
+      "id": "141e8543-d446-4898-aabd-20eecfdd86c3",
+      "name": "Extração de Campos",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        13408,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-latest",
+        "options": {}
+      },
+      "id": "21c770f5-eed1-4e2e-93c3-f1a0a00cb885",
+      "name": "Mistral Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        13392,
+        5824
+      ],
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "hzQgrXg6Fw5ZxPLQ",
+          "name": "Mistral API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── CONVERTER PALAVRAS NUMÉRICAS EM NÚMEROS ─────────────────────────\nconst dados = $input.first().json;\nfunction normalizarSimbolosAngulo(t) {\n  t = t.replace(/[\\u2018\\u2019\\u201a\\u201b\\u2032\\u02bc\\u00b4]/g, \"'\");\n  t = t.replace(/[\\u201c\\u201d\\u201e\\u201f\\u2033]/g, '\"');\n  t = t.replace(/\\b(\\d{1,3})2(\\d{2})'(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'\\u00b0'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/\\b(\\d{1,3})2(\\d{2})\"(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'\\u00b0'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/(\\d{1,3})[°º](\\d{1,2})\"(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'\\u00b0'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/(\\d{1,3})\\u00ba(\\d{1,2})'(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'\\u00b0'+min+\"'\"+seg+'\"' : m);\n  return t;\n}\nlet texto = normalizarSimbolosAngulo(dados.texto_ocr || '');\nconst UNIDADES = {'zero':0,'um':1,'uma':1,'dois':2,'duas':2,'três':3,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10,'onze':11,'doze':12,'treze':13,'quatorze':14,'catorze':14,'quinze':15,'dezesseis':16,'dezessete':17,'dezoito':18,'dezenove':19,'vinte':20,'trinta':30,'quarenta':40,'cinquenta':50,'sessenta':60,'setenta':70,'oitenta':80,'noventa':90,'cem':100,'cento':100,'duzentos':200,'duzentas':200,'trezentos':300,'trezentas':300,'quatrocentos':400,'quatrocentas':400,'quinhentos':500,'quinhentas':500,'seiscentos':600,'seiscentas':600,'setecentos':700,'setecentas':700,'oitocentos':800,'oitocentas':800,'novecentos':900,'novecentas':900,'mil':1000,'milhão':1000000,'milhao':1000000};\nfunction palavrasParaNumero(expr){const tokens=expr.toLowerCase().replace(/\\be\\b/g,' ').replace(/[,]/g,'.').trim().split(/\\s+/);let total=0,atual=0,temDecimal=false,parteDecimal='',i=0;while(i<tokens.length){const t=tokens[i];if(UNIDADES[t]!==undefined){const v=UNIDADES[t];if(v===1000){atual=atual===0?1000:atual*1000;}else if(v>=1000000){total=(total+atual)*v;atual=0;}else if(v>=100){atual=atual===0?v:atual*v;}else{atual+=v;}}else if(/^vírgula$|^virgula$/.test(t)){temDecimal=true;total+=atual;atual=0;}else if(temDecimal&&/^\\d+$/.test(t)){parteDecimal=t;}i++;}total+=atual;if(temDecimal&&parteDecimal)return parseFloat(total+'.'+parteDecimal);return total;}\nconst palavrasNum=Object.keys(UNIDADES).join('|');\nconst RE=new RegExp(`\\\\b((${palavrasNum})(?:\\\\s+e\\\\s+(${palavrasNum}))*(?:\\\\s+vírgula\\\\s+\\\\d+)?(?:\\\\s+(${palavrasNum})(?:\\\\s+e\\\\s+(${palavrasNum}))*)*)\\\\b`,'gi');\ntexto=texto.replace(RE,(match)=>{const temEspaco=match.includes(' ');const num=palavrasParaNumero(match);if(num>0)return temEspaco?String(num):match;return match;});\nreturn [{json:{...dados,texto_ocr:texto}}];"
+      },
+      "id": "eb844f53-4bbe-466a-962b-44ff1a1ece52",
+      "name": "Converter Palavras Numéricas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13712,
+        5792
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── PROCESSAR ATOS DOMINIAIS E COORDENADAS (v2) ──────────────────────\n// (código completo — ver n8n para versão com comentários detalhados)\nconst campos=$input.first().json.output||{};\nconst texto=$input.first().json.texto_ocr||$('Google Document AI OCR').first().json.texto_ocr||'';\nconst pdf_url=$('Preparar URL').first().json.pdf_url;\nif(!texto.trim())throw new Error('Texto OCR vazio.');\nfunction matchAll(regex,text){return[...text.matchAll(regex)];}\nfunction normalizarValor(raw){if(!raw)return null;const digits=String(raw).replace(/\\D/g,'');if(digits.length<3)return null;const cents=digits.slice(-2);const int=digits.slice(0,-2).replace(/^0+(?=\\d)/,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');return int+','+cents;}\nconst fimAtosM=texto.match(/O\\s+ATO\\s+ACIMA\\s+[ÉE]\\s+O\\s+[ÚU]LTIMO|CERTIFICO\\s+que\\s+em\\s+atendimento/i);\nconst fimAtos=fimAtosM?fimAtosM.index:texto.length;\nconst actPattern=/\\b(R|AV|Av|r|av)\\s*[-.]?\\s*(\\d{1,3})\\s*[-:,./]/gim;\nconst actStarts=[...texto.matchAll(actPattern)].filter(m=>m.index<fimAtos);\nconst blocosPorSeq={};\nconst atos=actStarts.map((m,idx)=>{const nextStart=idx+1<actStarts.length?actStarts[idx+1].index:fimAtos;const fullBlock=texto.slice(m.index,Math.min(nextStart,fimAtos)).replace(/\\s+/g,' ').trim();const block=fullBlock.slice(0,800);const tipoNorm=m[1].toUpperCase().startsWith('AV')?'AV':'R';const sequencia=tipoNorm+'-'+m[2];if(!(sequencia in blocosPorSeq))blocosPorSeq[sequencia]=fullBlock;const dataM=block.match(/\\bem\\s+(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})\\b/)||block.match(/\\b(\\d{1,2}\\s+de\\s+\\w+\\s+de\\s+\\d{4})\\b/i)||block.match(/\\b(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})\\b/);const data=dataM?dataM[1]:null;const header=block.slice(0,120);const isTransporte=/transporte\\s+de\\s+[^\\s]*nus/i.test(header);const isCancelOnus=/cancelamento\\s+de\\s+[^\\s]*nus/i.test(header);const tipoOnus=(txt)=>/hipoteca/i.test(txt)?'hipoteca':/penhora/i.test(txt)?'penhora':/arresto/i.test(txt)?'arresto':null;const tipoAto=(()=>{if(/matr[íi]cula\\s+aberta/i.test(header))return'abertura_matricula';if(isTransporte){const t=tipoOnus(header)||tipoOnus(block);return t?'transporte_onus_'+t:'transporte_onus';}if(isCancelOnus)return'cancelamento_onus';if(/adjudica[cç][aã]o/i.test(header))return'adjudicacao';if(/arremata[cç][aã]o/i.test(header))return'arrematacao';if(/r[ée]tifica[cç][aã]o/i.test(header))return'retificacao';if(/destacamento|desapropria/i.test(header))return'destacamento';if(/compra\\s+e\\s+venda/i.test(header))return'compra_e_venda';if(/aliena[cç][aã]o\\s+fiduc/i.test(header))return'alienacao_fiduciaria';if(/permuta/i.test(header))return'permuta';if(/cess[aã]o/i.test(header))return'cessao';if(/servi[dg][aã]o/i.test(header))return'servidao';if(/compromisso\\s+de\\s+venda/i.test(header))return'compromisso_venda_compra';if(/indisponibilidade/i.test(header))return'indisponibilidade';if(/sobrepartilha/i.test(header))return'sobrepartilha';if(/transforma[cç][aã]o\\s+societ|denomina[cç][aã]o\\s+social/i.test(header))return'transformacao_societaria';if(/loca[cç][aã]o/i.test(header))return'locacao';{const t=tipoOnus(header);if(t)return t;}if(/compra\\s+e\\s+venda/i.test(block))return'compra_e_venda';if(/aliena[cç][aã]o\\s+fiduc|alienou\\s+fiduc/i.test(block))return'alienacao_fiduciaria';if(/adjudica[cç][aã]o/i.test(block))return'adjudicacao';if(/arremata[cç][aã]o/i.test(block))return'arrematacao';if(/destacamento|desapropria/i.test(block))return'destacamento';if(/r[ée]tifica[cç][aã]o/i.test(block))return'retificacao';if(/partilha/i.test(block))return'partilha';if(/averba[cç][aã]o\\s+de\\s+constru/i.test(block))return'averbacao_construcao';{const t=tipoOnus(block);if(t)return t;}if(/permuta/i.test(block))return'permuta';if(/cess[aã]o\\s+de\\s+direitos|cedeu\\s+e\\s+transferiu/i.test(block))return'cessao';if(/servi[dg][aã]o/i.test(block))return'servidao';if(/compromisso\\s+de\\s+venda/i.test(block))return'compromisso_venda_compra';if(/indisponibilidade/i.test(block))return'indisponibilidade';if(/sobrepartilha/i.test(block))return'sobrepartilha';if(/loca[cç][aã]o/i.test(block))return'locacao';if(/transforma[cç][aã]o|denomina[cç][aã]o/i.test(block))return'transformacao_societaria';if(/cancel/i.test(block))return'cancelamento';if(/usufruto/i.test(block))return'usufruto';if(/doa[cç][aã]o/i.test(block))return'doacao';if(/heran[cç]a|invent[áa]rio|arrolamento/i.test(block))return'heranca';if(/averba[cç][aã]o/i.test(block))return'averbacao';return tipoNorm==='AV'?'averbacao':'registro';})();const valorPrefM=fullBlock.match(/(?:pelo\\s+valor|valor\\s+total(?:\\s+atualizado)?|valor\\s+da\\s+d[íi]vida|condena[cç][aã]o\\s+atinge\\s+o\\s+valor(?:\\s+total)?(?:\\s+atualizado)?)[^]{0,60}?R\\$\\s*([\\d.,\\s]*\\d)/i);const valorM=valorPrefM||fullBlock.match(/R\\$\\s*([\\d.,\\s]*\\d)/);const valor=valorM?normalizarValor(valorM[1]):null;function limparParte(s){return s.replace(/^\\s*(?:a|o|as|os|da|do|de)\\s+/i,'').replace(/\\s+que\\s*$/i,'').trim();}const partesArr=[];const emFavorM=fullBlock.match(/em favor de[^:]*:([\\s\\S]+?)(?=para garantia|para dar|pelo valor|e demais|\\.\\s+Mairinque|$)/i);if(emFavorM){const reNome=/\\d+\\)\\s+([A-ZÀ-ž][^,;(\\n]{3,80}?)(?=[,;(]|\\s+(?:que\\s|tamb|também|brasileiro|brasileira|portador|inscrit|italian|casad|menor|nascid))/gi;let mn;while((mn=reNome.exec(fullBlock))!==null){partesArr.push(limparParte(mn[1]));}}if(partesArr.length===0){const exM=fullBlock.match(/figura como exequente\\s+([A-ZÀ-ž][^,\\n;]{3,70})(?=[,;\\n]|\\s+(?:brasileiro|brasileira|portador|inscrit|já qual))/i);if(exM)partesArr.push(limparParte(exM[1]));}if(partesArr.length===0){const adjM=fullBlock.match(/ADJUDICADO\\s+a\\s+([A-ZÀ-ž][^,\\n.;]{3,70})(?=[,;\\n.]|\\s+(?:pessoa jur|CNPJ|inscrit))/i);if(adjM)partesArr.push(limparParte(adjM[1]));}if(partesArr.length===0){const outM=fullBlock.match(/outorgante(?:s)?\\s+(?:vendedor|adquirente|comprador|transmitente)[a-záàâãéêíóôõúç\\s]*[,:]?\\s*([A-ZÀ-Ü][^,;(\\n]{4,80}?)(?=[,;(]|\\s+(?:brasileiro|brasileira|portador|inscrit|casad|CPF|CNPJ|RG))/i);if(outM)partesArr.push(limparParte(outM[1]));}if(partesArr.length===0){const meeM=fullBlock.match(/(?:meeiro[a]?|herdeiro[a]?|c[oô]njuge\\s+sup[eé]rstite)[^,;\\n]{0,50}?([A-ZÀ-Üa-záàâãéêíóôõúç]+(?:\\s+[A-ZÀ-Üa-záàâãéêíóôõúç]+){1,7})(?=[,;(\\n]|\\s+(?:brasileiro|brasileira|portador|inscrit))/i);if(meeM)partesArr.push(limparParte(meeM[1]));}let cancela_sequencias=[];if(tipoAto==='cancelamento_onus'||tipoAto==='cancelamento'){const alvoM=fullBlock.match(/CANCELAD[AO]S?\\b([\\s\\S]{0,1200})/i);const alvoTxt=alvoM?alvoM[1]:fullBlock;const refs=[...alvoTxt.matchAll(/\\b(R|AV|Av|av|r)\\s*[-.]?\\s*(\\d{1,3})\\b/gi)].map(r=>(r[1].toUpperCase().startsWith('AV')?'AV':'R')+'-'+r[2]).filter(s=>s!==sequencia);cancela_sequencias=[...new Set(refs)];}let area_destacada_m2=null,beneficiario=null;if(tipoAto==='destacamento'){const areaM=fullBlock.match(/([\\d.]+,\\d{1,2})\\s*(?:\\([^)]{0,160}\\)\\s*)?metros?\\s+quadrados?/i);if(areaM)area_destacada_m2=parseFloat(areaM[1].replace(/\\./g,'').replace(',','.'));const benM=fullBlock.match(/em\\s+favor\\s+d[oa]s?\\s+([A-ZÀ-ž][^,;.]{3,90})/);if(benM)beneficiario=benM[1].trim();if(partesArr.length===0&&beneficiario)partesArr.push(beneficiario);}const partes=partesArr.length>0?partesArr.join('; '):null;return{sequencia,tipo:tipoNorm,data,tipo_ato:tipoAto,valor,partes,status:'ativo',cancelado_por:null,cancela_sequencias:cancela_sequencias.length>0?cancela_sequencias:undefined,area_destacada_m2:area_destacada_m2||undefined,beneficiario:beneficiario||undefined,texto_resumo:partes?block.slice(0,120)+' | Partes: '+partes.slice(0,100):block.slice(0,200)};});\nconst seenSeq=new Set();const atosUnicos=atos.filter(a=>{if(seenSeq.has(a.sequencia))return false;seenSeq.add(a.sequencia);return true;});\nconst cancelamentos=atosUnicos.filter(a=>['cancelamento','cancelamento_onus'].includes(a.tipo_ato));const canceladaPor=new Map();for(const c of cancelamentos){for(const seq of(c.cancela_sequencias||[])){if(seq!==c.sequencia&&!canceladaPor.has(seq))canceladaPor.set(seq,c.sequencia);}}for(const a of atosUnicos){if(canceladaPor.has(a.sequencia)){a.status='cancelado';a.cancelado_por=canceladaPor.get(a.sequencia);}}\nconst tiposGravame=new Set(['alienacao_fiduciaria','hipoteca','penhora','usufruto','arresto','transporte_onus_hipoteca','transporte_onus_penhora','transporte_onus_arresto','transporte_onus','servidao','compromisso_venda_compra','cessao','indisponibilidade']);const gravames=atosUnicos.filter(a=>tiposGravame.has(a.tipo_ato));const onus_ativos=gravames.filter(g=>g.status!=='cancelado');\nconst TIPOS_DOMINIAIS={compra_e_venda:'Compra e Venda',adjudicacao:'Adjudicação',arrematacao:'Arrematação',partilha:'Partilha',doacao:'Doação',heranca:'Herança',permuta:'Permuta'};let ultimoDominial=null;let _ultimoRValor=null;for(const a of atosUnicos){if(TIPOS_DOMINIAIS[a.tipo_ato])ultimoDominial=a;if(a.tipo==='R'&&a.valor&&a.status!=='cancelado')_ultimoRValor=a;}if(_ultimoRValor&&TIPOS_DOMINIAIS[_ultimoRValor.tipo_ato]&&(!ultimoDominial||atosUnicos.indexOf(_ultimoRValor)>atosUnicos.indexOf(ultimoDominial)))ultimoDominial=_ultimoRValor;const ultimo_ato_tipo=ultimoDominial?TIPOS_DOMINIAIS[ultimoDominial.tipo_ato]+' ('+ultimoDominial.sequencia+')':null;const texto_apos_ultimo_ato=ultimoDominial?(blocosPorSeq[ultimoDominial.sequencia]||''):((texto.match(/Propriet[áa]ri[oa]s?\\s*:?[\\s\\S]{0,800}/i)||[''])[0]).replace(/\\s+/g,' ');\nconst areas_destacadas=atosUnicos.filter(a=>a.area_destacada_m2).map(a=>({sequencia:a.sequencia,area_m2:a.area_destacada_m2,beneficiario:a.beneficiario||null,data:a.data}));\nlet data_abertura=campos.data_abertura||null;if(!data_abertura){const MESES={janeiro:'01',fevereiro:'02',marco:'03','março':'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12'};const dm=texto.slice(0,3000).match(/\\b(\\d{1,2})\\s+de\\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\\s+de\\s+(\\d{4})\\b/i);if(dm)data_abertura=dm[1].padStart(2,'0')+'/'+MESES[dm[2].toLowerCase()]+'/'+dm[3];}if(!data_abertura){const aberturaAto=atosUnicos.find(a=>a.tipo_ato==='abertura_matricula');if(aberturaAto&&aberturaAto.data)data_abertura=aberturaAto.data;}\nconst bearings=matchAll(/(NSEWnsew)?\\s*(\\d{1,3})[º°]\\s*(\\d{1,2})'(?:\\s*(\\d{1,2}(?:[.,]\\d+)?)\")?\\s*([NSEWnsew]{1,2})?/g,texto).map(m=>({raw:m[0].trim(),graus:parseInt(m[2]),minutos:parseInt(m[3]),segundos:m[4]?parseFloat(m[4].replace(',','.')):0,direcao:(m[1]||m[5]||'').toUpperCase()}));const utmPoints=matchAll(/(\\d{6,7})(?:\\s*m?)?\\s*[EeLlOo]\\s+(\\d{6,7})(?:\\s*m?)?\\s*[NnSs]/g,texto).map(m=>({easting:parseInt(m[1]),northing:parseInt(m[2])}));const tipo_coordenada=utmPoints.length>0?'utm':bearings.length>0?'bearing_only':'sem_coordenadas';\nreturn[{json:{texto_ocr:texto,pdf_url,numero_matricula:campos.numero_matricula||null,cartorio:campos.cartorio||null,data_abertura,livro_folha:campos.livro_folha||null,matricula_anterior:campos.matricula_anterior||null,endereco:campos.endereco||null,endereco_curto:campos.endereco_curto||null,sql_iptu:campos.sql_iptu||null,area_total_m2:campos.area_total_m2||null,area_construida_m2:campos.area_construida_m2||null,testada:campos.testada||null,confrontantes:{norte:campos.confrontante_norte||null,sul:campos.confrontante_sul||null,leste:campos.confrontante_leste||null,oeste:campos.confrontante_oeste||null},atos:atosUnicos,onus_ativos,areas_destacadas,ultimo_ato_tipo,ultimo_ato_sequencia:ultimoDominial?ultimoDominial.sequencia:null,texto_apos_ultimo_ato,coordenadas_raw:{bearings,utmPoints},tipo_coordenada}}];"
+      },
+      "id": "9887dba8-e7a7-4a35-8374-b482d1bb7a61",
+      "name": "Processar Atos e Coords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13984,
+        5840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── EXTRAÇÃO DE PROPRIETÁRIOS ────────────────────────────────────────\nconst dados=$input.first().json;const texto=dados.texto_apos_ultimo_ato||dados.texto_ocr||'';\nfunction limpar(s){return(s||'').replace(/\\s+/g,' ').trim();}\nconst CPF_RE=/(\\d{3}[.\\s]\\d{3}[.\\s]\\d{3}[-\\s]\\d{2}|\\d{11})/g;const CNPJ_RE=/\\d{2}\\.?\\d{3}\\.?\\d{3}\\/\\d{4}-?\\d{2}/g;const SEDE_RE=/com\\s+sede\\s+(?:na|no|em|à|a)?\\s*([^;.]{8,140}?)(?=\\s*[;.]|,\\s*pelo\\b|$)/i;const RG_RE=/(?:rg|r\\.g\\.|identidade|cédula)[^\\d]{0,15}([\\d./-]{7,20})/gi;const ESTADO_CIVIL_RE=/(solteiro|casado|viúvo|divorciado|separado|uni[aã]o\\s+est[áa]vel)[a]?/i;const REGIME_RE=/(comunh[aã]o\\s+(?:parcial|universal)\\s+de\\s+bens|separa[cç][aã]o\\s+(?:total|absoluta|de\\s+bens)|participa[cç][aã]o\\s+final\\s+nos\\s+aqu[eê]stos)/i;const DOM_RE=/domiciliad[ao]s?\\s+(?:e\\s+residente?s?\\s+)?(?:na|no|em|à|a)\\s+([^,;.\\n]{10,120})/i;\nconst blocos=texto.split(/(?:\\b(?:e\\s+sua|e\\s+seu|e\\s+outr[ao]s?|outorgante[s]?|outorgad[ao]s?|comprador|vendedor|donatário|meeiro|herdeiro)\\b)/i);const proprietarios=[];\nconst aquisM=texto.match(/\\b(?:ADJUDICAD[OA]|ARREMATAD[OA])\\s+(?:a|para|por)\\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\\s&.\\-']{4,80}?)(?=,|\\s+pessoa\\s+jur|\\s+inscrit|\\s+CNPJ|\\s+CPF)/);\nif(aquisM){const ctx=limpar(texto.slice(aquisM.index,aquisM.index+600));const ctxCnpjM=ctx.match(CNPJ_RE),ctxCpfM=ctx.match(CPF_RE),ctxSedeM=ctx.match(SEDE_RE)||ctx.match(DOM_RE);proprietarios.push({ordem:1,nome:limpar(aquisM[1]),documento_tipo:ctxCnpjM?'CNPJ':(ctxCpfM?'CPF':null),documento_numero:ctxCnpjM?ctxCnpjM[0].replace(/[^\\d]/g,'').replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5'):(ctxCpfM?ctxCpfM[0].replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4'):null),estado_civil:null,regime_bens:null,endereco_domicilio:ctxSedeM?limpar(ctxSedeM[1]):null});}\nif(proprietarios.length===0){const permM=texto.match(/cederam\\s+e\\s+transferiram[^\\u00e0]{0,120}\\u00e0\\s+([A-Z\\u00c0-\\u00dc][A-Z\\u00c0-\\u00dc0-9\\s&.,\\-']{4,100}?)(?=,|\\s+CNPJ|\\s+CPF)/i);if(permM){const ctx=limpar(texto.slice(permM.index,permM.index+500));const ctxCnpjM=ctx.match(CNPJ_RE),ctxSedeM=ctx.match(SEDE_RE);proprietarios.push({ordem:1,nome:limpar(permM[1]),documento_tipo:ctxCnpjM?'CNPJ':null,documento_numero:ctxCnpjM?ctxCnpjM[0].replace(/[^\\d]/g,'').replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3\\/$4-$5'):null,estado_civil:null,regime_bens:null,endereco_domicilio:ctxSedeM?limpar(ctxSedeM[1]):null});}}if(proprietarios.length===0){const cessM=texto.match(/cedeu\\s+e\\s+transferiu[\\s\\S]{0,300}?a\\s+([A-Z\\u00c0-\\u00dc][A-Z\\u00c0-\\u00dc0-9\\s&.,\\-']{4,100}?)(?=,|\\s+CNPJ|\\s+CPF)/i);if(cessM){const ctx=limpar(texto.slice(cessM.index,cessM.index+500));const ctxCnpjM=ctx.match(CNPJ_RE),ctxSedeM=ctx.match(SEDE_RE);proprietarios.push({ordem:1,nome:limpar(cessM[1])+'  (titular de direitos contratuais)',documento_tipo:ctxCnpjM?'CNPJ':null,documento_numero:ctxCnpjM?ctxCnpjM[0].replace(/[^\\d]/g,'').replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3\\/$4-$5'):null,estado_civil:null,regime_bens:null,endereco_domicilio:ctxSedeM?limpar(ctxSedeM[1]):null});}}if(proprietarios.length===0)blocos.forEach((bloco,idx)=>{bloco=limpar(bloco);if(bloco.length<10)return;const nomeM=bloco.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç]+(?:\\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç]+){1,8})/);const nome=nomeM?limpar(nomeM[1]):null;if(!nome||nome.length<5)return;const cpfM=bloco.match(CPF_RE),cnpjM=bloco.match(CNPJ_RE);let documento_tipo=null,documento_numero=null;if(cnpjM){documento_tipo='CNPJ';documento_numero=cnpjM[0].replace(/[^\\d]/g,'').replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5');}else if(cpfM){documento_tipo='CPF';documento_numero=cpfM[0].replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4');}else{const rgM=bloco.match(RG_RE);if(rgM){documento_tipo='RG';documento_numero=limpar(rgM[1]);}}const estado_civil=(bloco.match(ESTADO_CIVIL_RE)||[])[0]||null;const regime_bens=(bloco.match(REGIME_RE)||[])[0]||null;const domicilioM=bloco.match(DOM_RE)||bloco.match(SEDE_RE);proprietarios.push({ordem:proprietarios.length+1,nome,documento_tipo,documento_numero,estado_civil:estado_civil?limpar(estado_civil):null,regime_bens:regime_bens?limpar(regime_bens):null,endereco_domicilio:domicilioM?limpar(domicilioM[1]):null});});\nfunction escapeHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nconst proprietarios_html=proprietarios.map(p=>{const meta=[p.documento_tipo&&p.documento_numero?`📄 ${p.documento_tipo}: ${escapeHtml(p.documento_numero)}`:null,p.estado_civil?`💍 ${escapeHtml(p.estado_civil)}${p.regime_bens?' — '+escapeHtml(p.regime_bens):''}`:null,p.endereco_domicilio?`📍 Domicílio: ${escapeHtml(p.endereco_domicilio)}`:null].filter(Boolean).map(s=>`<span>${s}</span>`).join('');return`<div class=\"prop-card\"><h4>${p.ordem}. ${escapeHtml(p.nome)}</h4><div class=\"prop-meta\">${meta}</div></div>`;}).join('');\nreturn[{json:{...dados,proprietarios,proprietarios_html:proprietarios_html||'<p style=\"color:#888;font-size:13px;\">Não foi possível identificar proprietários automaticamente. Consulte o documento original.</p>'}}];"
+      },
+      "id": "07a23d91-4dcc-4b2d-8639-c2c01af16d12",
+      "name": "Extração de Proprietários",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14240,
+        5840
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://maps.googleapis.com/maps/api/geocode/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "address",
+              "value": "={{ ($json.endereco_curto || $json.endereco || '').replace(/,?\\s*esquina\\s+com[\\s\\S]*/i,'').replace(/,?\\s*n[oº°]\\s*\\d+[ºo°]\\s*subdistr[\\s\\S]*/i,'').replace(/,?\\s*no\\s+\\d+[ºo°][\\s\\S]*/i,'').trim() }}, São Paulo, SP, Brasil"
+            },
+            {
+              "name": "key",
+              "value": "AIzaSyChEbqvHe4R8obxi7KA7cUTKuj1ZImBzu0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f71b5967-9907-4307-9756-59581af96089",
+      "name": "Geocodificar Endereço",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        14544,
+        5840
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-incluir-memorial",
+              "leftValue": "={{ $('Preparar URL').first().json.incluir_memorial }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3276f442-0a87-4cc4-8dca-b26050476089",
+      "name": "IF incluir_memorial",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        14864,
+        5840
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": {{ JSON.stringify($('Carregar Skill').first()?.json?.data || 'Você é especialista em matrículas imobiliárias. Extraia os segmentos do perímetro e retorne apenas JSON válido.') }} },\n    { \"role\": \"user\", \"content\": {{ JSON.stringify(String($('Extração de Proprietários').first().json.texto_ocr || '').slice(0, 12000)) }} }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"max_tokens\": 3000\n}",
+        "options": {}
+      },
+      "id": "831153f8-5a2b-4355-aabb-bd934b8b6c8e",
+      "name": "IA Interpretar Perímetro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        14992,
+        5584
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "a3DkELcl5jrfSMWc",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── EXTRAIR SEGMENTOS DO PERÍMETRO (v4) — ver n8n para código completo\nconst geoResp=$('Geocodificar Endereço').first().json;const geoResults=geoResp.results||[];const geoLoc=(geoResults[0]||{}).geometry?.location||null;const lat_principal=geoLoc?geoLoc.lat:null;const lng_principal=geoLoc?geoLoc.lng:null;const dados=$('Extração de Proprietários').first().json;const endereco_base=dados.endereco||'';\nreturn[{json:{...dados,segmentos_perimetro:[],pontos_ordem:[],marcos_ordem:[],sentido_poligono:'horario',vias_mencionadas:[],pracas_mencionadas:[],enderecos_confrontantes:[],enderecos_para_geocod:[endereco_base].filter(Boolean),endereco_ancora:endereco_base,lat:lat_principal,lng:lng_principal,rua_frente:null,area_calculada_m2:null,area_descrita_m2:null,perimetro_formato:'nao_calculado',perimetro_observacoes:null}}];"
+      },
+      "id": "576764c1-541c-4f43-a66b-c74e058c8813",
+      "name": "Extrair Segmentos Perímetro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15216,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── GEOCODIFICAR CONFRONTANTES (v2) — ver n8n para código completo\nconst dados=$input.first().json;\nreturn[{json:{...dados,geocodificacoes:[],geocod_map:{},ref_lat:dados.lat||-23.55,ref_lng:dados.lng||-46.63,geocod_ancora:null,pracas_nao_resolvidas:[]}}];"
+      },
+      "id": "8481683f-dc7a-4589-8b35-9ffc8d57e635",
+      "name": "Geocodificar Confrontantes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15408,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── GERAR CROQUI SVG (v4) — ver n8n para código completo\nconst dados=$input.first().json;\nreturn[{json:{...dados,lat:dados.ref_lat||0,lng:dados.ref_lng||0,map_zoom:18,croqui_svg:'',croqui_data_uri:'',croqui_precisao:'N/D',croqui_valido:false,croqui_falta_info:false,geojson_data:{type:'FeatureCollection',features:[]},poligono_vertices:[]}}];"
+      },
+      "id": "80ba4bd1-0410-40bc-a04d-91534d8d16a3",
+      "name": "Gerar Croqui SVG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15584,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://gvlar.com.br/skills/tradutor-matriculas-analise-juridica/SKILL.md",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "03edfd4f-5eda-4125-9dbe-a29f41c1ce43",
+      "name": "Carregar Skill Analise Juridica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        15744,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, system: $('Carregar Skill Analise Juridica').first()?.json?.data || 'Você é um advogado especializado em direito imobiliário e registral brasileiro. Retorne JSON estruturado incluindo o bloco legacy_compatibility.', messages: [{ role: 'user', content: 'Analise a matrícula imobiliária abaixo e retorne o JSON completo conforme as instruções da Skill.\\n\\nREGRAS OBRIGATÓRIAS (não negociáveis):\\n1. A linha_tempo DEVE conter TODOS os atos visíveis no texto OCR — incluindo atos no formato R.NN/matrícula e Av.NN/matrícula que o parser pode ter falhado em detectar. Varra o texto OCR por completo. É proibido omitir atos.\\n2. Para cada ato, inclua o campo partes com os nomes das partes (vendedor/comprador, cedente/cessionário, locador/locatário, promitente vendedor/comprador, credor/devedor). Extraia os nomes diretamente do texto OCR usando o bloco do ato.\\n3. O campo proprietarios_atuais em legacy_compatibility DEVE ser preenchido. Identifique o proprietário formal (último ato de TRANSFERENCIA dominial: compra e venda, permuta, adjudicação, arrematação) e, se houver, o titular de direitos contratuais (último compromisso ou cessão ativo). Inclua CNPJ/CPF quando disponível.\\n4. Não confunda a data do instrumento com a data de registro. A data do ato é a data de registro, indicada após \"em NN de mês de AAAA\" no cabeçalho do ato.\\n5. Não atribua o valor monetário de um ato a outro ato diferente. Cada valor pertence exclusivamente ao ato onde aparece.\\n6. Para atos de servidão, cessão e compromisso, classifique corretamente: servidão = DIREITO_REAL, cessão de direitos = RESTRICAO, compromisso de venda = RESTRICAO.\\n\\nInclua obrigatoriamente o bloco legacy_compatibility com os campos: cadeia_dominial, proprietarios_atuais, riscos, inconsistencias, onus, gravames, possiveis_problemas, classificacao_risco e parecer_geral.\\n\\nATOS DETECTADOS (parser determinístico — pode estar incompleto; use o OCR como fonte primária):\\n' + JSON.stringify($('Gerar Croqui SVG').first().json.atos || []) + '\\n\\nÔNUS ATIVOS (DETERMINÍSTICO):\\n' + JSON.stringify(($('Gerar Croqui SVG').first().json.onus_ativos || []).map(o => o.sequencia)) + '\\n\\nÁREAS DESTACADAS:\\n' + JSON.stringify($('Gerar Croqui SVG').first().json.areas_destacadas || []) + '\\n\\nTEXTO COMPLETO DA MATRÍCULA (OCR) — use este como fonte primária para identificar TODOS os atos:\\n' + String($('Gerar Croqui SVG').first().json.texto_ocr || '').slice(0, 40000) }] }) }}",
+        "options": {}
+      },
+      "id": "70fa7d4d-b065-4159-b550-8ffca6cada02",
+      "name": "Análise Jurídica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        15920,
+        5616
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "zFz3yevxjq1CrKUn",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── RESUMO JURÍDICO ──────────────────────────────────────────────────\nconst analiseNode=$('Análise Jurídica').first().json;\nconst croquiDados=$('Gerar Croqui SVG').first().json;\nlet analise={};\nlet rawText='';try{rawText=(analiseNode.content||[]).find(b=>b.type==='text')?.text||((analiseNode.choices||[])[0]||{}).message?.content||'';if(!rawText.trim())throw new Error('Resposta vazia da API Anthropic.');const raw=rawText.replace(/^```(?:json)?\\s*/,'').replace(/\\s*```\\s*$/,'').trim();analise=JSON.parse(raw||'{}');}catch(e){throw new Error('Análise Jurídica retornou JSON inválido: '+String(e)+' | Resposta bruta (500 chars): '+String(rawText).slice(0,500));}const legacy=analise.legacy_compatibility||analise;const requiredKeys=['linha_tempo','estado_atual','riscos'];const missingKeys=requiredKeys.filter(k=>!analise[k]&&!legacy[k]);if(missingKeys.length>0)throw new Error('Análise Jurídica com schema incompleto — chaves obrigatórias ausentes: '+missingKeys.join(', '));\nfunction esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nfunction asArray(v){if(Array.isArray(v))return v;if(v==null||v==='')return[];return[v];}\nfunction itemToText(item){if(item==null)return'';if(typeof item==='string'||typeof item==='number')return esc(item);if(typeof item==='object'){const titulo=item.titulo||item.tipo||item.tipo_ato||item.nome||item.sequencia||'';const sev=item.severidade||item.gravidade||item.nivel||item.classificacao||item.risco||'';const desc=item.descricao||item.detalhe||item.texto||item.observacao||item.recomendacao||item.parecer||'';const parts=[];if(titulo)parts.push('<strong>'+esc(titulo)+'</strong>');if(sev)parts.push('<em style=\"color:#b45309\">('+esc(sev)+')</em>');if(desc)parts.push(esc(desc));if(parts.length)return parts.join(' ');const vals=Object.values(item).filter(x=>typeof x==='string'||typeof x==='number').map(x=>esc(x));return vals.join(' — ')||esc(JSON.stringify(item));}return esc(item);}\nfunction listHtml(arr,vazio){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'<p style=\"color:#888;font-size:13px;\">'+esc(vazio)+'</p>';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\nfunction listOrEmpty(arr){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\nconst risco=String(legacy.classificacao_risco||'indeterminado').toLowerCase().trim();\nconst RISCO_COR={'baixo':'#16a34a','baixíssimo':'#16a34a','medio':'#d97706','médio':'#d97706','moderado':'#d97706','alto':'#dc2626','altíssimo':'#991b1b','altissimo':'#991b1b','indeterminado':'#6b7280'};\nconst cor=RISCO_COR[risco]||'#6b7280';\nconst badge_risco_html='<span style=\"display:inline-block;background:'+cor+';color:#fff;font-weight:600;font-size:13px;padding:4px 14px;border-radius:14px;text-transform:capitalize\">'+esc(legacy.classificacao_risco||'Indeterminado')+'</span>';\nconst parecer=legacy.parecer_geral||legacy.parecer||analise.parecer_geral||'';\nconst parecer_juridico_html=parecer?'<p style=\"line-height:1.7;margin:0\">'+esc(parecer)+'</p>':'<p style=\"color:#888;font-size:13px;\">Parecer não disponível.</p>';\nconst riscos_html=listHtml(legacy.riscos||analise.riscos,'Nenhum risco identificado.');\nconst inconsistencias_html=listHtml(legacy.inconsistencias||analise.inconsistencias,'Nenhuma inconsistência identificada.');\nconst problemas_html=listHtml(legacy.possiveis_problemas||legacy.problemas||analise.possiveis_problemas,'Nenhum problema identificado.');\nconst onus_juridico_html=listHtml(legacy.onus||analise.onus,'Nenhum ônus identificado na análise jurídica.');\nconst gravames_juridico_html=listHtml(legacy.gravames||analise.gravames,'Nenhum gravame identificado.');\nconst cadeia_dominial_html=listHtml(legacy.cadeia_dominial||analise.cadeia_dominial,'Cadeia dominial não detalhada.');\nconst total_riscos=asArray(legacy.riscos||analise.riscos).length;\nreturn[{json:{...croquiDados,analise_juridica:analise,resumo_juridico:{classificacao_risco:legacy.classificacao_risco||'indeterminado',parecer_geral:parecer,total_riscos,total_onus_ativos:(croquiDados.onus_ativos||[]).length},badge_risco_html,cadeia_dominial_html,riscos_html,inconsistencias_html,problemas_html,onus_juridico_html,gravames_juridico_html,parecer_juridico_html,analise_fundamentacao_html:listOrEmpty(analise.fundamentacao||analise.fundamentacao_legal),analise_classes_juridicas_html:listOrEmpty(analise.classes_juridicas),analise_regras_html:listOrEmpty(analise.regras||analise.regras_aplicadas),analise_resumo_executivo:analise.resumo_executivo||parecer,analise_estado_atual_json:JSON.stringify(analise.estado_atual||{}),analise_documento_json:JSON.stringify(analise.documento||{}),analise_linha_tempo_json:JSON.stringify(analise.linha_tempo||[]),analise_classes_juridicas_json:JSON.stringify(analise.classes_juridicas||[]),analise_outras_classes_json:JSON.stringify(analise.outras_classes||[]),analise_regras_json:JSON.stringify(analise.regras||[]),analise_fundamentacao_json:JSON.stringify(analise.fundamentacao||[]),analise_json_final_json:JSON.stringify(analise),analise_legacy_json:JSON.stringify(legacy)}}];"
+      },
+      "id": "e8eee51d-261d-4fd6-9067-881f3fc72898",
+      "name": "Resumo Jurídico",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16096,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://gvlar.com.br/matriculas/template-analise-matricula.php",
+        "options": {}
+      },
+      "id": "5edeac4d-1e07-4f78-ac52-dd2b2968c07f",
+      "name": "Obter Template Matrícula",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        16272,
+        5616
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── MONTAR DOCUMENTO FINAL ──────────────────────────────────────────\nconst templateNode=$input.first().json;\nlet template=String(templateNode.data||templateNode.body||templateNode.content||'');\nconst dados=$('Resumo Jurídico').first().json;\nif(!template.trim())throw new Error('Template vazio.');\nconst num_slug=String(dados.numero_matricula||'sem-numero').replace(/[^a-z0-9]/gi,'');\nconst tem_onus=(dados.onus_ativos||[]).length>0;\nconst cartorio_curto=(dados.cartorio||'').replace(/\\s*de\\s+registro\\s+de\\s+im[oó]veis\\b.*/i,'').trim();\nfunction esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nfunction fmtArea(v){if(!v)return'';return String(v).replace('.',',');}\nconst LABEL_TIPO={abertura_matricula:'Abertura de Matrícula',compra_e_venda:'Compra e Venda',alienacao_fiduciaria:'Alienação Fiduciária',adjudicacao:'Adjudicação',arrematacao:'Arrematação',partilha:'Partilha',sobrepartilha:'Sobrepartilha',doacao:'Doação',heranca:'Herança',permuta:'Permuta',cessao:'Cessão de Direitos',locacao:'Locação',servidao:'Servidão de Passagem',compromisso_venda_compra:'Compromisso de Venda e Compra',indisponibilidade:'Indisponibilidade',cancelamento_indisponibilidade:'Cancelamento de Indisponibilidade',transformacao_societaria:'Transformação / Alteração de Denominação Social',hipoteca:'Hipoteca',penhora:'Penhora',arresto:'Arresto',usufruto:'Usufruto',cancelamento:'Cancelamento',cancelamento_onus:'Cancelamento de Ônus',retificacao:'Retificação',destacamento:'Destacamento',averbacao:'Averbação',averbacao_construcao:'Averbação de Construção',registro:'Registro',transporte_onus:'Transporte de Ônus'};\nconst atos_html=(dados.atos||[]).map(a=>{const tipo_label=LABEL_TIPO[a.tipo_ato]||a.tipo_ato||a.tipo;const is_av=a.tipo==='AV';const badge=is_av?`<span class=\"badge-AV\">${esc(a.sequencia)}</span>`:`<span class=\"badge-R\">${esc(a.sequencia)}</span>`;const cancelado_badge=a.status==='cancelado'?' <span style=\"background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px\">Cancelado</span>':'';const partes_str=a.partes?`<br><span style=\"font-size:11px;color:#555\">${esc(a.partes)}</span>`:'';const cancel_str=a.cancelado_por?`<br><span style=\"font-size:11px;color:#dc2626\">Cancelado por: ${esc(a.cancelado_por)}</span>`:'';return`<tr${a.status==='cancelado'?' style=\"opacity:0.65;background:#fef2f2\"':''}><td>${badge}</td><td>${esc(a.sequencia)}</td><td style=\"white-space:nowrap\">${esc(a.data||'—')}</td><td><strong>${esc(tipo_label)}</strong>${cancelado_badge}${partes_str}${cancel_str}</td><td style=\"white-space:nowrap\">${a.valor?'R$ '+esc(a.valor):'—'}</td></tr>`;}).join('')||\"<tr><td colspan='5' style='color:#888;font-size:13px;padding:12px'>Nenhum ato registrado.</td></tr>\";\nconst onus_html=(dados.onus_ativos||[]).map(o=>{const tipo_label=LABEL_TIPO[o.tipo_ato]||o.tipo_ato;const valor_str=o.valor?` — R$ ${esc(o.valor)}`:'';const partes_str=o.partes?`<div style=\"font-size:12px;color:#555;margin-top:4px\">Partes: ${esc(o.partes)}</div>`:'';return`<div style=\"border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:8px;background:#fff7f7\"><strong>${esc(o.sequencia)}</strong> — ${esc(tipo_label)}${valor_str}${o.data?` (${esc(o.data)})`:''}${partes_str}</div>`;}).join('')||\"<p style='color:#888;font-size:13px;'>Nenhum ônus ativo.</p>\";\nconst subs={NUMERO_MATRICULA:esc(dados.numero_matricula||''),ENDERECO:esc(dados.endereco||''),CARTORIO:esc(dados.cartorio||''),DATA_ABERTURA:esc(dados.data_abertura||''),LIVRO_FOLHA:esc(dados.livro_folha||''),SQL_IPTU:esc(dados.sql_iptu||''),ULTIMO_ATO_TIPO:esc(dados.ultimo_ato_tipo||''),TEM_ONUS:tem_onus?'true':'false',TEM_ONUS_DISPLAY:tem_onus?'flex':'none',MAP_CENTER_LAT:String(dados.lat??-23.55),MAP_CENTER_LNG:String(dados.lng??-46.63),MARKER_LABEL:esc(dados.numero_matricula||''),MAP_ZOOM:String(dados.map_zoom||18),GOOGLE_MAPS_API_KEY:'AIzaSyChEbqvHe4R8obxi7KA7cUTKuj1ZImBzu0',CROQUI_DATA_URI:dados.croqui_data_uri||'',CROQUI_PRECISAO:esc(dados.croqui_precisao||'N/D'),AREA_TOTAL_M2:esc(fmtArea(dados.area_total_m2)),AREA_CONSTRUIDA_M2:esc(fmtArea(dados.area_construida_m2)),TESTADA:esc(dados.testada||''),CARTORIO_CURTO:esc(cartorio_curto),CONFRONTANTE_NORTE:esc((dados.confrontantes||{}).norte||''),CONFRONTANTE_SUL:esc((dados.confrontantes||{}).sul||''),CONFRONTANTE_LESTE:esc((dados.confrontantes||{}).leste||''),CONFRONTANTE_OESTE:esc((dados.confrontantes||{}).oeste||''),PROPRIETARIOS_HTML:dados.proprietarios_html||'',ATOS_HTML:atos_html,ONUS_HTML:onus_html,TEXTO_IMOVEL_OCR:esc(dados.texto_ocr||''),BADGE_RISCO_HTML:dados.badge_risco_html||'',PARECER_JURIDICO_HTML:dados.parecer_juridico_html||'',RISCOS_HTML:dados.riscos_html||'',INCONSISTENCIAS_HTML:dados.inconsistencias_html||'',ONUS_JURIDICO_HTML:dados.onus_juridico_html||'',GRAVAMES_JURIDICO_HTML:dados.gravames_juridico_html||'',PROBLEMAS_HTML:dados.problemas_html||'',ANALISE_FUNDAMENTACAO_HTML:dados.analise_fundamentacao_html||'',ANALISE_CLASSES_JURIDICAS_HTML:dados.analise_classes_juridicas_html||'',ANALISE_REGRAS_HTML:dados.analise_regras_html||'',MATRICULA_ANTERIOR:esc(dados.matricula_anterior||''),PDF_URL:esc(dados.pdf_url||''),DATA_EXTRACAO:esc(dados.data_extracao||new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})),CADEIA_DOMINIAL_HTML:dados.cadeia_dominial_html||'',ANALISE_RESUMO_EXECUTIVO:esc(dados.analise_resumo_executivo||''),ANALISE_ESTADO_ATUAL_JSON:dados.analise_estado_atual_json||'{}',ANALISE_LINHA_TEMPO_JSON:dados.analise_linha_tempo_json||'[]',ANALISE_CLASSES_JURIDICAS_JSON:dados.analise_classes_juridicas_json||'[]',ANALISE_OUTRAS_CLASSES_JSON:dados.analise_outras_classes_json||'[]',ANALISE_REGRAS_JSON:dados.analise_regras_json||'[]',ANALISE_FUNDAMENTACAO_JSON:dados.analise_fundamentacao_json||'[]',ANALISE_JSON_FINAL:dados.analise_json_final_json||'{}',ANALISE_LEGACY_JSON:dados.analise_legacy_json||'{}'};\ntemplate=template.replace(/\\{\\{([A-Z0-9_]+)\\}\\}/g,(match,key)=>subs.hasOwnProperty(key)?subs[key]:match);\nreturn[{json:{filename:`matricula${num_slug}.php`,content:template,slug:`matricula${num_slug}`,confirm_existing_folder:true,confirm_overwrite:true,numero_matricula:dados.numero_matricula,endereco:dados.endereco,sql_iptu:dados.sql_iptu,area_total_m2:dados.area_total_m2,area_construida_m2:dados.area_construida_m2,testada:dados.testada,cartorio:dados.cartorio,proprietarios:dados.proprietarios,atos:dados.atos,onus_ativos:dados.onus_ativos,croqui_precisao:dados.croqui_precisao,resumo_juridico:dados.resumo_juridico,analise_juridica:dados.analise_juridica,pdf_url:dados.pdf_url,data_extracao:dados.data_extracao||new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}),texto_ocr:dados.texto_ocr||'',lat:dados.lat??null,lng:dados.lng??null,data_abertura:dados.data_abertura||null,confrontantes:dados.confrontantes||null,areas_destacadas:dados.areas_destacadas||[],ultimo_ato_tipo:dados.ultimo_ato_tipo||null,endereco_curto:dados.endereco_curto||null}}];"
+      },
+      "id": "6e37730a-b51b-4c07-8814-808d8abd838f",
+      "name": "Montar Documento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16464,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── VALIDAR DOCUMENTO ───────────────────────────────────────────────\nconst doc=$input.first().json;const erros=[],avisos=[];const orfaos=[...new Set([...String(doc.content||'').matchAll(/\\{\\{[A-Z0-9_]+\\}\\}/g)].map(m=>m[0]))];if(orfaos.length)erros.push('Placeholders não substituídos: '+orfaos.join(', '));for(const a of(doc.atos||[])){if(a.valor&&!/^\\d{1,3}(\\.\\d{3})*,\\d{2}$/.test(a.valor)){avisos.push('Valor fora do padrão em '+a.sequencia+': '+a.valor);}}if(!doc.numero_matricula)erros.push('Número da matrícula ausente.');if(!doc.data_abertura)avisos.push('Data de abertura não identificada.');if((doc.areas_destacadas||[]).length&&doc.area_total_m2){avisos.push('Há destacamento de área registrado — confirme se a área total exibida está atualizada.');}if(erros.length)throw new Error('Validação do documento falhou: '+erros.join(' | '));\nreturn[{json:{...doc,validacao:{erros,avisos}}}];"
+      },
+      "id": "c53dd766-4512-4b3c-acc0-8db5717505ff",
+      "name": "Validar Documento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16640,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gvlar.com.br/api/matriculas/publicar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "filename",
+              "value": "={{ $json.filename }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "name": "confirm_overwrite",
+              "value": "={{ $json.confirm_overwrite }}"
+            },
+            {
+              "name": "numero_matricula",
+              "value": "={{ $json.numero_matricula }}"
+            },
+            {
+              "name": "cartorio",
+              "value": "={{ $json.cartorio }}"
+            },
+            {
+              "name": "endereco",
+              "value": "={{ $json.endereco_curto || ($json.endereco || '').slice(0, 500) }}"
+            },
+            {
+              "name": "sql_iptu",
+              "value": "={{ $json.sql_iptu }}"
+            },
+            {
+              "name": "area_total_m2",
+              "value": "={{ $json.area_total_m2 }}"
+            },
+            {
+              "name": "area_construida_m2",
+              "value": "={{ $json.area_construida_m2 }}"
+            },
+            {
+              "name": "testada",
+              "value": "={{ $json.testada }}"
+            },
+            {
+              "name": "pdf_url",
+              "value": "={{ $json.pdf_url }}"
+            },
+            {
+              "name": "total_atos",
+              "value": "={{ ($json.atos || []).length }}"
+            },
+            {
+              "name": "tem_onus",
+              "value": "={{ ($json.onus_ativos || []).length > 0 }}"
+            },
+            {
+              "name": "onus_ativos",
+              "value": "={{ $json.onus_ativos }}"
+            },
+            {
+              "name": "proprietarios",
+              "value": "={{ $json.proprietarios }}"
+            },
+            {
+              "name": "texto_ocr",
+              "value": "={{ $json.texto_ocr }}"
+            },
+            {
+              "name": "lat",
+              "value": "={{ $json.lat }}"
+            },
+            {
+              "name": "lng",
+              "value": "={{ $json.lng }}"
+            },
+            {
+              "name": "data_abertura",
+              "value": "={{ $json.data_abertura }}"
+            },
+            {
+              "name": "confrontantes",
+              "value": "={{ $json.confrontantes }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8d80f9d5-acb3-4ad2-81ff-df6f6b4c8ef0",
+      "name": "Publicar Arquivo PHP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        16800,
+        5632
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "Up3oXOC9UtJoibas",
+          "name": "Bearer Auth account Laravel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pub=$('Publicar Arquivo PHP').first().json;const doc=$('Montar Documento').first().json;let validacao=null;try{validacao=$('Validar Documento').first().json.validacao||null;}catch(e){}\nreturn[{json:{success:true,url:pub.url||`https://gvlar.com.br/matriculas/${doc.filename}`,filename:doc.filename,numero_matricula:doc.numero_matricula,endereco:doc.endereco,sql_iptu:doc.sql_iptu,area_total_m2:doc.area_total_m2,area_construida_m2:doc.area_construida_m2,testada:doc.testada,cartorio:doc.cartorio,proprietarios:doc.proprietarios,total_atos:(doc.atos||[]).length,atos:doc.atos||[],areas_destacadas:doc.areas_destacadas||[],ultimo_ato_tipo:doc.ultimo_ato_tipo||null,data_abertura:doc.data_abertura||null,validacao,onus_ativos:doc.onus_ativos,croqui_precisao:doc.croqui_precisao,resumo_juridico:doc.resumo_juridico,analise_juridica:doc.analise_juridica,pdf_url:doc.pdf_url,data_extracao:doc.data_extracao,publish_response:pub}}];"
+      },
+      "id": "68318a3b-bb53-4dc0-9239-00995e58ea07",
+      "name": "Resposta Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        5616
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar URL').first().json.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Lidimus-Secret",
+              "value": "={{ $('Preparar URL').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar URL').first().json.job_id, result: $('Resposta Final').first().json }) }}",
+        "options": {}
+      },
+      "id": "80be321f-25fa-44b4-b0d0-82c3a72c891a",
+      "name": "Callback Nuxt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        17216,
+        5616
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar URL": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder Webhook": {
+      "main": [
+        [
+          {
+            "node": "Baixar PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Gerar Croqui",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Gerar Croqui": {
+      "main": [
+        [
+          {
+            "node": "Carregar Skill",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skill Não Carregada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar PDF": {
+      "main": [
+        [
+          {
+            "node": "Gerar JWT + Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar JWT + Base64": {
+      "main": [
+        [
+          {
+            "node": "Google Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Token": {
+      "main": [
+        [
+          {
+            "node": "Google Document AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Document AI Request": {
+      "main": [
+        [
+          {
+            "node": "Google Document AI OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Document AI OCR": {
+      "main": [
+        [
+          {
+            "node": "Extração de Campos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extração de Campos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extração de Campos": {
+      "main": [
+        [
+          {
+            "node": "Converter Palavras Numéricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Converter Palavras Numéricas": {
+      "main": [
+        [
+          {
+            "node": "Processar Atos e Coords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Atos e Coords": {
+      "main": [
+        [
+          {
+            "node": "Extração de Proprietários",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extração de Proprietários": {
+      "main": [
+        [
+          {
+            "node": "Geocodificar Endereço",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geocodificar Endereço": {
+      "main": [
+        [
+          {
+            "node": "IF incluir_memorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF incluir_memorial": {
+      "main": [
+        [
+          {
+            "node": "IA Interpretar Perímetro",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extrair Segmentos Perímetro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA Interpretar Perímetro": {
+      "main": [
+        [
+          {
+            "node": "Extrair Segmentos Perímetro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Segmentos Perímetro": {
+      "main": [
+        [
+          {
+            "node": "Geocodificar Confrontantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geocodificar Confrontantes": {
+      "main": [
+        [
+          {
+            "node": "Gerar Croqui SVG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Croqui SVG": {
+      "main": [
+        [
+          {
+            "node": "Carregar Skill Analise Juridica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar Skill Analise Juridica": {
+      "main": [
+        [
+          {
+            "node": "Análise Jurídica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise Jurídica": {
+      "main": [
+        [
+          {
+            "node": "Resumo Jurídico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumo Jurídico": {
+      "main": [
+        [
+          {
+            "node": "Obter Template Matrícula",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obter Template Matrícula": {
+      "main": [
+        [
+          {
+            "node": "Montar Documento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Documento": {
+      "main": [
+        [
+          {
+            "node": "Validar Documento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Documento": {
+      "main": [
+        [
+          {
+            "node": "Publicar Arquivo PHP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Arquivo PHP": {
+      "main": [
+        [
+          {
+            "node": "Resposta Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta Final": {
+      "main": [
+        [
+          {
+            "node": "Callback Nuxt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "a096e8b5-ff8b-4991-8dab-f72ac418b146",
+  "meta": {
+    "instanceId": "05fbe759e6272eb8ff1764e7ac30148627c8bbdd9e2dc520b857ec85c7ea4e23"
+  },
+  "id": "DWlUswTcDiXM9D1G",
+  "tags": []
+}
