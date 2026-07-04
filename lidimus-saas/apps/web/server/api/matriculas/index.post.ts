@@ -55,8 +55,8 @@ export default defineEventHandler(async (event) => {
 
   const callbackUrl = `${config.publicBaseUrl}/api/webhooks/n8n-callback`
 
-  const { matriculaQueue } = useQueues()
-  await matriculaQueue.add('process', {
+  const { matriculaOcrQueue } = useQueues()
+  await matriculaOcrQueue.add('process', {
     jobId: job.id,
     fileAccessToken: accessToken,
     callbackUrl,

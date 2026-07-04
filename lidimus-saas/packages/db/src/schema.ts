@@ -6,15 +6,8 @@ import {
   pgEnum,
   jsonb,
   index,
-  customType,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
-
-const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
-  dataType() {
-    return 'bytea'
-  },
-})
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +22,9 @@ export const jobStatusEnum = pgEnum('job_status', [
   'done',
   'error',
 ])
+
+// Etapas do pipeline de matrícula (jobs de outros tipos não usam stage)
+export const jobStageEnum = pgEnum('job_stage', ['ocr', 'juridico', 'doc'])
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +120,8 @@ export const jobs = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     type: jobTypeEnum('type').notNull(),
     status: jobStatusEnum('status').notNull().default('pending'),
+    stage: jobStageEnum('stage'),
+    stageData: jsonb('stage_data').$type<Record<string, unknown>>(),
     inputMeta: jsonb('input_meta').$type<Record<string, unknown>>(),
     result: jsonb('result').$type<Record<string, unknown>>(),
     errorMessage: text('error_message'),
@@ -140,10 +138,9 @@ export const jobFiles = pgTable('job_files', {
   jobId: uuid('job_id')
     .notNull()
     .references(() => jobs.id, { onDelete: 'cascade' }),
-  content: bytea('content').notNull(),
+  gcsPath: text('gcs_path').notNull(),
   mimeType: text('mime_type').notNull(),
   originalName: text('original_name').notNull(),
-  // token de acesso único para o n8n baixar o arquivo
   accessToken: text('access_token').notNull().unique(),
   deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

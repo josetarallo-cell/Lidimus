@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
       id: jobs.id,
       type: jobs.type,
       status: jobs.status,
+      stage: jobs.stage,
       inputMeta: jobs.inputMeta,
       result: jobs.result,
       errorMessage: jobs.errorMessage,

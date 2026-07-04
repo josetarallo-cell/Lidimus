@@ -26,6 +26,8 @@ export default defineNuxtConfig({
     betterAuthSecret: process.env.BETTER_AUTH_SECRET,
     n8nCallbackSecret: process.env.N8N_CALLBACK_SECRET,
     publicBaseUrl: process.env.PUBLIC_BASE_URL,
+    googleCloudSaKeyJson: process.env.GOOGLE_CLOUD_SA_KEY_JSON,
+    gcsBucketName: process.env.GCS_BUCKET_NAME || 'lidimus-job-files',
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {

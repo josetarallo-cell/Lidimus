@@ -7,6 +7,12 @@ const typeLabel: Record<string, string> = {
   injection: 'Detector',
 }
 
+const stageLabel: Record<string, string> = {
+  ocr: 'OCR',
+  juridico: 'Análise Jurídica',
+  doc: 'Documento',
+}
+
 onMounted(() => {
   const timer = setInterval(refresh, 10_000)
   onUnmounted(() => clearInterval(timer))
@@ -54,7 +60,8 @@ onMounted(() => {
                 : 'yellow'
             "
           >
-            {{ row.status }}
+            {{ row.status }}<template v-if="row.stage && !['done', 'error'].includes(row.status)">
+              · {{ stageLabel[row.stage] ?? row.stage }}</template>
           </UBadge>
         </template>
         <template #createdAt-data="{ row }">

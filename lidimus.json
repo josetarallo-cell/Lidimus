@@ -1,0 +1,110 @@
+﻿{
+  "id": "MPmlcKYyq4dcgJ9U",
+  "name": "lidimus-OCR",
+  "active": false,
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lidimus-ocr",
+        "responseMode": "lastNode",
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "webhookId": "f03b43ff-d57c-4166-8bcf-c631b0c51a44"
+    },
+    {
+      "id": "node-docai",
+      "name": "Google Document AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://us-documentai.googleapis.com/v1/projects/106018180847/locations/us/processors/a02f03278cbcdc35:process",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json; charset=utf-8",
+        "body": "={{ JSON.stringify({ rawDocument: { content: $binary.data.data, mimeType: 'application/pdf' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "cWFvav5uTN3bnhJO",
+          "name": "Google Document AI - lidimus"
+        }
+      }
+    },
+    {
+      "id": "node-set",
+      "name": "Texto OCR",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [760, 300],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "fields": {
+          "values": [
+            {
+              "name": "texto_ocr",
+              "type": "string",
+              "string": "={{ $json.document.text }}"
+            },
+            {
+              "name": "paginas",
+              "type": "number",
+              "numberValue": "={{ $json.document.pages?.length ?? 0 }}"
+            },
+            {
+              "name": "idioma_detectado",
+              "type": "string",
+              "string": "={{ $json.document.pages?.[0]?.detectedLanguages?.[0]?.languageCode ?? 'pt-BR' }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Google Document AI", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Google Document AI": {
+      "main": [
+        [
+          { "node": "Texto OCR", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "meta": {
+    "instanceId": "n8n.gvlar.com",
+    "templateId": "lidimus-OCR"
+  }
+}

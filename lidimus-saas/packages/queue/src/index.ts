@@ -3,16 +3,35 @@ import IORedis from 'ioredis'
 
 // ─── Tipos de payload por fila ────────────────────────────────────────────────
 
-export type MatriculaJobPayload = {
+export type MatriculaParams = {
+  incluirMemorial?: boolean
+  incluirCroqui?: boolean
+  geocodificar?: boolean
+}
+
+// Etapa 1: OCR — n8n baixa o PDF via fileUrl e devolve texto_ocr
+export type MatriculaOcrJobPayload = {
   jobId: string
   fileAccessToken: string
   callbackUrl: string
   fileUrl: string
-  params: {
-    incluirMemorial?: boolean
-    incluirCroqui?: boolean
-    geocodificar?: boolean
-  }
+  params: MatriculaParams
+}
+
+// Etapa 2: análise jurídica — recebe o texto extraído (sem PDF)
+export type MatriculaJuridicoJobPayload = {
+  jobId: string
+  callbackUrl: string
+  textoOcr: string
+  totalPaginas?: number
+  params: MatriculaParams
+}
+
+// Etapa 3: montagem do documento — recebe os dados consolidados das etapas anteriores
+export type MatriculaDocJobPayload = {
+  jobId: string
+  callbackUrl: string
+  dadosConsolidados: Record<string, unknown>
 }
 
 export type KmlJobPayload = {
@@ -38,7 +57,9 @@ export type InjectionJobPayload = {
 // ─── Nomes de filas ───────────────────────────────────────────────────────────
 
 export const QUEUE_NAMES = {
-  MATRICULA: 'matricula',
+  MATRICULA_OCR: 'matricula-ocr',
+  MATRICULA_JURIDICO: 'matricula-juridico',
+  MATRICULA_DOC: 'matricula-doc',
   KML: 'kml',
   INJECTION: 'injection',
 } as const
@@ -63,7 +84,15 @@ export function createQueues(redisUrl: string) {
 
   return {
     connection,
-    matriculaQueue: new Queue<MatriculaJobPayload>(QUEUE_NAMES.MATRICULA, {
+    matriculaOcrQueue: new Queue<MatriculaOcrJobPayload>(QUEUE_NAMES.MATRICULA_OCR, {
+      connection,
+      defaultJobOptions,
+    }),
+    matriculaJuridicoQueue: new Queue<MatriculaJuridicoJobPayload>(QUEUE_NAMES.MATRICULA_JURIDICO, {
+      connection,
+      defaultJobOptions,
+    }),
+    matriculaDocQueue: new Queue<MatriculaDocJobPayload>(QUEUE_NAMES.MATRICULA_DOC, {
       connection,
       defaultJobOptions,
     }),
