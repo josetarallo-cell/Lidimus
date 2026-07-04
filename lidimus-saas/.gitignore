@@ -8,3 +8,6 @@ dist/
 
 # Drizzle
 drizzle/meta/
+
+# Estado da ferramenta impeccable
+.impeccable/

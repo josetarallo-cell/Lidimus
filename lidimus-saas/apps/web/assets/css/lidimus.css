@@ -1,0 +1,156 @@
+/* ============================================================
+   Lidimus — "A Prancha Viva"
+   Tokens e primitivas globais. Fonte normativa: DESIGN.md
+   ============================================================ */
+
+:root {
+  /* Cores — canônicos OKLCH no DESIGN.md */
+  --ld-verde: #0c5c3c;          /* verde-registro (marca) */
+  --ld-verde-profundo: #00482a; /* hover/active */
+  --ld-verde-selo: #e4f3ea;     /* fundo calmo / sucesso */
+  --ld-tinta: #171c19;          /* texto principal */
+  --ld-tinta-suave: #4e5852;    /* texto secundário (piso de contraste) */
+  --ld-papel: #f8fbf9;          /* fundo do corpo */
+  --ld-bancada: #f1f4f2;        /* 2ª camada neutra */
+  --ld-filete: #d3d9d6;         /* bordas 1px, réguas */
+  --ld-carimbo: #c92f33;        /* risco jurídico — exclusivo */
+  --ld-carimbo-tinta: #a51e24;  /* texto sobre carimbo-selo */
+  --ld-carimbo-selo: #ffedeb;   /* fundo de alerta */
+  --ld-ocre: #8a5f18;           /* aviso intermediário */
+  --ld-ocre-selo: #faf1df;      /* fundo de aviso */
+  --ld-folha: #ffffff;          /* a folha do documento sobre o papel */
+
+  /* Tipografia */
+  --ld-font-serif: 'Besley', Georgia, 'Times New Roman', serif;
+  --ld-font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ld-font-mono: 'Fragment Mono', ui-monospace, 'Cascadia Mono', monospace;
+
+  /* Espaçamento (base 4pt) */
+  --ld-space-xs: 4px;
+  --ld-space-sm: 8px;
+  --ld-space-md: 16px;
+  --ld-space-lg: 24px;
+  --ld-space-xl: 40px;
+  --ld-space-2xl: 64px;
+
+  /* Raios — retangular como um documento */
+  --ld-r-xs: 2px;
+  --ld-r-sm: 4px;
+  --ld-r-md: 8px;
+
+  /* Sombras — só para o que flutua de verdade */
+  --ld-shadow-flutuante: 0 4px 16px -4px rgba(23, 28, 25, 0.16);
+  --ld-shadow-sobreposto: 0 24px 48px -16px rgba(23, 28, 25, 0.28);
+
+  /* Motion */
+  --ld-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ld-dur-estado: 180ms;
+  --ld-dur-superficie: 240ms;
+
+  /* Escala z semântica */
+  --ld-z-dropdown: 10;
+  --ld-z-sticky: 20;
+  --ld-z-backdrop: 30;
+  --ld-z-modal: 40;
+  --ld-z-toast: 50;
+  --ld-z-tooltip: 60;
+}
+
+::selection {
+  background: var(--ld-verde);
+  color: var(--ld-papel);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ld-verde);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Primitivas ──────────────────────────────────────────── */
+
+.ld-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ld-space-sm);
+  height: 44px;
+  padding: 0 var(--ld-space-lg);
+  border-radius: var(--ld-r-sm);
+  font-family: var(--ld-font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--ld-dur-estado) var(--ld-ease),
+    color var(--ld-dur-estado) var(--ld-ease),
+    border-color var(--ld-dur-estado) var(--ld-ease);
+}
+.ld-btn:disabled {
+  background: var(--ld-bancada);
+  border-color: var(--ld-filete);
+  color: var(--ld-tinta-suave);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.ld-btn--primary {
+  background: var(--ld-verde);
+  color: var(--ld-papel);
+}
+.ld-btn--primary:hover:not(:disabled) {
+  background: var(--ld-verde-profundo);
+}
+.ld-btn--primary:active:not(:disabled) {
+  background: var(--ld-verde-profundo);
+  transform: translateY(1px);
+}
+
+.ld-btn--secondary {
+  background: transparent;
+  border-color: var(--ld-tinta);
+  color: var(--ld-tinta);
+}
+.ld-btn--secondary:hover:not(:disabled) {
+  background: var(--ld-tinta);
+  color: var(--ld-papel);
+}
+
+.ld-btn--ghost {
+  background: transparent;
+  color: var(--ld-tinta-suave);
+  padding: 0 var(--ld-space-md);
+}
+.ld-btn--ghost:hover:not(:disabled) {
+  color: var(--ld-tinta);
+  background: var(--ld-bancada);
+}
+
+/* Selos de status (badges) */
+.ld-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--ld-r-xs);
+  padding: 4px 10px;
+  font-family: var(--ld-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.ld-selo--verde { background: var(--ld-verde-selo); color: var(--ld-verde-profundo); }
+.ld-selo--ocre { background: var(--ld-ocre-selo); color: var(--ld-ocre); }
+.ld-selo--carimbo { background: var(--ld-carimbo-selo); color: var(--ld-carimbo-tinta); }
+.ld-selo--neutro { background: var(--ld-bancada); color: var(--ld-tinta-suave); }

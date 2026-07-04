@@ -18,6 +18,8 @@ export function useJobPoller(jobId: Ref<string | null>, intervalMs = 3000) {
   }
 
   function start() {
+    // Polling é exclusivo do cliente; no SSR a página renderiza o estado inicial
+    if (import.meta.server) return
     if (polling.value) return
     polling.value = true
     fetch()
