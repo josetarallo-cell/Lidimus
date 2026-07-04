@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DOMPurify from 'isomorphic-dompurify'
+
 const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
@@ -66,6 +68,17 @@ const temConfrontantes = computed(() => {
   const c = doc.value?.imovel?.confrontantes
   return c && Object.values(c).some(Boolean)
 })
+
+// O HTML da análise e o SVG do croqui vêm do pipeline (n8n/LLM), que processa
+// texto controlado pelo cliente — sanitizar antes de renderizar
+function sanitizar(html: unknown): string {
+  return html ? DOMPurify.sanitize(String(html)) : ''
+}
+function sanitizarSvg(svg: unknown): string {
+  return svg
+    ? DOMPurify.sanitize(String(svg), { USE_PROFILES: { svg: true, svgFilters: true } })
+    : ''
+}
 
 function exportarPdf() {
   window.print()
@@ -237,7 +250,7 @@ function exportarPdf() {
             alt="Croqui do terreno gerado a partir das medidas descritas na matrícula"
             loading="lazy"
           />
-          <div v-else class="croqui-svg" v-html="doc.croqui.svg" />
+          <div v-else class="croqui-svg" v-html="sanitizarSvg(doc.croqui.svg)" />
         </figure>
       </section>
 
@@ -316,23 +329,23 @@ function exportarPdf() {
           </div>
           <div v-if="doc.analise_juridica.riscos_html">
             <h3>Riscos</h3>
-            <div class="prosa analise-html" v-html="doc.analise_juridica.riscos_html" />
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.riscos_html)" />
           </div>
           <div v-if="doc.analise_juridica.inconsistencias_html">
             <h3>Inconsistências</h3>
-            <div class="prosa analise-html" v-html="doc.analise_juridica.inconsistencias_html" />
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.inconsistencias_html)" />
           </div>
           <div v-if="doc.analise_juridica.problemas_html">
             <h3>Possíveis problemas</h3>
-            <div class="prosa analise-html" v-html="doc.analise_juridica.problemas_html" />
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.problemas_html)" />
           </div>
           <div v-if="doc.analise_juridica.cadeia_dominial_html">
             <h3>Cadeia dominial</h3>
-            <div class="prosa analise-html" v-html="doc.analise_juridica.cadeia_dominial_html" />
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.cadeia_dominial_html)" />
           </div>
           <div v-if="doc.analise_juridica.fundamentacao_html">
             <h3>Fundamentação legal</h3>
-            <div class="prosa analise-html" v-html="doc.analise_juridica.fundamentacao_html" />
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.fundamentacao_html)" />
           </div>
         </div>
       </section>
