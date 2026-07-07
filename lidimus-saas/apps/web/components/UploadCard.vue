@@ -12,6 +12,7 @@ const emit = defineEmits<{
 
 const file = ref<File | null>(null)
 const dragOver = ref(false)
+const inputEl = ref<HTMLInputElement | null>(null)
 
 function onFile(e: Event) {
   const input = e.target as HTMLInputElement
@@ -23,44 +24,190 @@ function onDrop(e: DragEvent) {
   file.value = e.dataTransfer?.files?.[0] ?? null
 }
 
+function limpar() {
+  file.value = null
+  if (inputEl.value) inputEl.value.value = ''
+}
+
+function tamanho(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function submit() {
   if (file.value) emit('submit', file.value)
 }
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <h2 class="text-xl font-semibold">{{ title }}</h2>
-      <p class="text-sm text-gray-500 mt-1">{{ description }}</p>
-    </template>
+  <section class="ld-painel envio">
+    <header class="envio-cabecalho">
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+    </header>
 
     <div
-      class="border-2 border-dashed rounded-lg p-8 text-center transition-colors"
-      :class="dragOver ? 'border-primary-500 bg-primary-50' : 'border-gray-300'"
+      class="envio-zona"
+      :class="{ 'envio-zona--ativa': dragOver, 'envio-zona--pronta': file }"
       @dragover.prevent="dragOver = true"
       @dragleave="dragOver = false"
       @drop.prevent="onDrop"
     >
-      <p v-if="!file" class="text-gray-400">
-        Arraste o arquivo aqui ou
-        <label class="text-primary-500 cursor-pointer underline">
-          clique para selecionar
-          <input type="file" :accept="accept" class="hidden" @change="onFile" />
-        </label>
-      </p>
-      <p v-else class="text-gray-700 font-medium">{{ file.name }}</p>
+      <template v-if="!file">
+        <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true" class="envio-losango">
+          <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
+          <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
+        </svg>
+        <p class="envio-instrucao">
+          Arraste o arquivo aqui ou
+          <label class="envio-selecionar">
+            clique para selecionar
+            <input
+              ref="inputEl"
+              type="file"
+              :accept="accept"
+              class="envio-input"
+              @change="onFile"
+            />
+          </label>
+        </p>
+      </template>
+      <template v-else>
+        <p class="envio-arquivo">
+          {{ file.name }}
+          <span class="envio-tamanho">{{ tamanho(file.size) }}</span>
+        </p>
+        <button type="button" class="envio-trocar" :disabled="uploading" @click="limpar">
+          Trocar arquivo
+        </button>
+      </template>
     </div>
 
-    <template #footer>
-      <UButton
-        :loading="uploading"
+    <footer class="envio-rodape">
+      <button
+        type="button"
+        class="ld-btn ld-btn--primary"
         :disabled="!file || uploading"
         @click="submit"
-        block
       >
-        Enviar
-      </UButton>
-    </template>
-  </UCard>
+        <span v-if="uploading" class="ld-spinner" aria-hidden="true" />
+        {{ uploading ? 'Enviando…' : 'Enviar para análise' }}
+      </button>
+    </footer>
+  </section>
 </template>
+
+<style scoped>
+.envio-cabecalho {
+  padding: var(--ld-space-lg) var(--ld-space-lg) 0;
+}
+.envio-cabecalho h2 {
+  margin: 0 0 var(--ld-space-xs);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.envio-cabecalho p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+  max-width: 60ch;
+}
+
+.envio-zona {
+  margin: var(--ld-space-lg);
+  border: 1px dashed var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-papel);
+  padding: var(--ld-space-xl) var(--ld-space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ld-space-md);
+  text-align: center;
+  transition: border-color var(--ld-dur-estado) var(--ld-ease),
+    background var(--ld-dur-estado) var(--ld-ease);
+}
+.envio-zona--ativa {
+  border-color: var(--ld-verde);
+  background: var(--ld-verde-selo);
+}
+.envio-zona--pronta {
+  border-style: solid;
+  border-color: var(--ld-verde);
+}
+.envio-losango {
+  color: var(--ld-verde);
+}
+.envio-instrucao {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+}
+.envio-selecionar {
+  color: var(--ld-verde);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.envio-selecionar:hover {
+  color: var(--ld-verde-profundo);
+}
+.envio-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.envio-input:focus-visible + *,
+.envio-selecionar:has(.envio-input:focus-visible) {
+  outline: 2px solid var(--ld-verde);
+  outline-offset: 2px;
+}
+.envio-arquivo {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.envio-tamanho {
+  margin-left: var(--ld-space-sm);
+  font-weight: 400;
+  color: var(--ld-tinta-suave);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.envio-trocar {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  font-family: var(--ld-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ld-tinta-suave);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.envio-trocar:hover:not(:disabled) {
+  color: var(--ld-tinta);
+}
+.envio-trocar:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.envio-rodape {
+  border-top: 1px solid var(--ld-filete);
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  display: flex;
+  justify-content: flex-end;
+}
+</style>

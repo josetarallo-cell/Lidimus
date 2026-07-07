@@ -1,21 +1,24 @@
 <script setup lang="ts">
+useHead({ title: 'Memorial descritivo — Lidimus' })
+
 const uploading = ref(false)
-const jobId = ref<string | null>(null)
-const { job, polling } = useJobPoller(jobId)
+const erro = ref('')
 
 async function onSubmit(file: File) {
   uploading.value = true
+  erro.value = ''
   try {
     const form = new FormData()
     form.append('file', file)
     form.append('params', JSON.stringify({}))
 
-    const { jobId: id } = await $fetch<{ jobId: string }>('/api/kml', {
+    const { jobId } = await $fetch<{ jobId: string }>('/api/kml', {
       method: 'POST',
       body: form,
     })
-    jobId.value = id
-  } finally {
+    await navigateTo(`/kml/${jobId}`)
+  } catch {
+    erro.value = 'Não foi possível enviar o arquivo. Verifique sua conexão e tente novamente.'
     uploading.value = false
   }
 }
@@ -23,29 +26,44 @@ async function onSubmit(file: File) {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-6">Memorial Descritivo de Terreno</h1>
+    <header class="pagina-cabecalho">
+      <h1>Memorial descritivo de terreno</h1>
+      <p>
+        Envie o KML com a poligonal do terreno e receba o memorial técnico-jurídico pronto para
+        o registro de imóveis — vértices, azimutes, distâncias e confrontações.
+      </p>
+    </header>
 
     <UploadCard
       title="Enviar arquivo KML"
-      description="Envie o arquivo KML do terreno. O memorial descritivo é gerado automaticamente no padrão do cartório."
+      description="Arquivo KML do Google Earth com o desenho do terreno. O memorial é redigido automaticamente no padrão do cartório."
       accept=".kml,application/vnd.google-earth.kml+xml"
       :uploading="uploading"
       @submit="onSubmit"
     />
 
-    <JobStatus :job="job" :polling="polling">
-      <template #result="{ result }">
-        <div v-if="result.memorial_descritivo">
-          <h3 class="font-semibold mb-2">Memorial Descritivo</h3>
-          <pre class="whitespace-pre-wrap text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded">{{ result.memorial_descritivo }}</pre>
-        </div>
-
-        <div v-if="result.area_m2" class="mt-4 flex gap-6 text-sm">
-          <div><span class="text-gray-500">Área:</span> {{ result.area_m2 }} m²</div>
-          <div><span class="text-gray-500">Perímetro:</span> {{ result.perimetro_m }} m</div>
-          <div><span class="text-gray-500">Vértices:</span> {{ result.vertices?.length }}</div>
-        </div>
-      </template>
-    </JobStatus>
+    <p v-if="erro" class="ld-erro pagina-erro" role="alert">{{ erro }}</p>
   </div>
 </template>
+
+<style scoped>
+.pagina-cabecalho {
+  margin-bottom: var(--ld-space-lg);
+}
+.pagina-cabecalho h1 {
+  margin: 0 0 var(--ld-space-xs);
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+.pagina-cabecalho p {
+  margin: 0;
+  color: var(--ld-tinta-suave);
+  font-size: 0.9375rem;
+  max-width: 60ch;
+}
+.pagina-erro {
+  margin-top: var(--ld-space-md);
+}
+</style>

@@ -1,20 +1,23 @@
 <script setup lang="ts">
+useHead({ title: 'Verificar PDF — Lidimus' })
+
 const uploading = ref(false)
-const jobId = ref<string | null>(null)
-const { job, polling } = useJobPoller(jobId)
+const erro = ref('')
 
 async function onSubmit(file: File) {
   uploading.value = true
+  erro.value = ''
   try {
     const form = new FormData()
     form.append('file', file)
 
-    const { jobId: id } = await $fetch<{ jobId: string }>('/api/injection', {
+    const { jobId } = await $fetch<{ jobId: string }>('/api/injection', {
       method: 'POST',
       body: form,
     })
-    jobId.value = id
-  } finally {
+    await navigateTo(`/injection/${jobId}`)
+  } catch {
+    erro.value = 'Não foi possível enviar o arquivo. Verifique sua conexão e tente novamente.'
     uploading.value = false
   }
 }
@@ -22,43 +25,44 @@ async function onSubmit(file: File) {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-6">Detector de Prompt Injection</h1>
+    <header class="pagina-cabecalho">
+      <h1>Verificar integridade de PDF</h1>
+      <p>
+        O Lidimus varre o arquivo em busca de instruções ocultas — texto invisível, fontes
+        minúsculas, metadados suspeitos — e sinaliza o risco.
+      </p>
+    </header>
 
     <UploadCard
-      title="Enviar PDF para análise"
-      description="Detecta texto oculto, imagens escondidas, metadados suspeitos e tentativas de prompt injection em PDFs."
+      title="Enviar PDF para verificação"
+      description="Qualquer PDF, não só matrículas. O laudo aponta o conteúdo oculto encontrado e o nível de risco."
       accept=".pdf,application/pdf"
       :uploading="uploading"
       @submit="onSubmit"
     />
 
-    <JobStatus :job="job" :polling="polling">
-      <template #result="{ result }">
-        <div class="space-y-3">
-          <div v-if="result.risk_level">
-            <UBadge
-              :color="result.risk_level === 'high' ? 'red' : result.risk_level === 'medium' ? 'yellow' : 'green'"
-              size="lg"
-            >
-              Risco: {{ result.risk_level }}
-            </UBadge>
-          </div>
-
-          <div v-if="result.findings?.length">
-            <h3 class="font-semibold mb-2">Achados</h3>
-            <ul class="text-sm space-y-1">
-              <li v-for="(f, i) in result.findings" :key="i" class="text-gray-700">
-                • {{ f }}
-              </li>
-            </ul>
-          </div>
-
-          <details class="mt-4">
-            <summary class="cursor-pointer text-sm text-gray-500">Ver relatório completo</summary>
-            <pre class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto max-h-96">{{ JSON.stringify(result, null, 2) }}</pre>
-          </details>
-        </div>
-      </template>
-    </JobStatus>
+    <p v-if="erro" class="ld-erro pagina-erro" role="alert">{{ erro }}</p>
   </div>
 </template>
+
+<style scoped>
+.pagina-cabecalho {
+  margin-bottom: var(--ld-space-lg);
+}
+.pagina-cabecalho h1 {
+  margin: 0 0 var(--ld-space-xs);
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+.pagina-cabecalho p {
+  margin: 0;
+  color: var(--ld-tinta-suave);
+  font-size: 0.9375rem;
+  max-width: 60ch;
+}
+.pagina-erro {
+  margin-top: var(--ld-space-md);
+}
+</style>

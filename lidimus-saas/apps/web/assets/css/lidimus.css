@@ -3,6 +3,12 @@
    Tokens e primitivas globais. Fonte normativa: DESIGN.md
    ============================================================ */
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Cores — canônicos OKLCH no DESIGN.md */
   --ld-verde: #0c5c3c;          /* verde-registro (marca) */
@@ -135,6 +141,80 @@
 .ld-btn--ghost:hover:not(:disabled) {
   color: var(--ld-tinta);
   background: var(--ld-bancada);
+}
+
+.ld-btn--sm {
+  height: 36px;
+  padding: 0 var(--ld-space-md);
+  font-size: 0.875rem;
+}
+
+/* Spinner de carregamento (16px, herda a cor do texto) */
+.ld-spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: ld-girar 0.7s linear infinite;
+}
+@keyframes ld-girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Campos de formulário */
+.ld-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ld-label {
+  font-family: var(--ld-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ld-tinta);
+}
+.ld-input {
+  width: 100%;
+  background: var(--ld-folha);
+  color: var(--ld-tinta);
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  padding: 12px 14px;
+  font-family: var(--ld-font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  transition: border-color var(--ld-dur-estado) var(--ld-ease),
+    box-shadow var(--ld-dur-estado) var(--ld-ease);
+}
+.ld-input::placeholder {
+  color: var(--ld-tinta-suave);
+}
+.ld-input:focus {
+  outline: none;
+  border-color: var(--ld-verde);
+  box-shadow: 0 0 0 3px var(--ld-verde-selo);
+}
+.ld-input:disabled {
+  background: var(--ld-bancada);
+  color: var(--ld-tinta-suave);
+}
+.ld-input--erro {
+  border-color: var(--ld-carimbo);
+}
+.ld-erro {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ld-carimbo-tinta);
+}
+
+/* Painel folha sobre papel — a moldura é a identidade */
+.ld-painel {
+  background: var(--ld-folha);
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-md);
 }
 
 /* Selos de status (badges) */
