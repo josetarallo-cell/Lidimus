@@ -25,6 +25,17 @@ export function useAuth() {
       emailAndPassword: {
         enabled: true,
       },
+      user: {
+        additionalFields: {
+          isPlatformAdmin: {
+            type: 'boolean',
+            required: false,
+            defaultValue: false,
+            // nunca aceito via input do usuário (sign-up/update-profile) — só promovido manualmente
+            input: false,
+          },
+        },
+      },
     })
   }
   return _auth

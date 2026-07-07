@@ -28,6 +28,8 @@ export default defineNuxtConfig({
     publicBaseUrl: process.env.PUBLIC_BASE_URL,
     googleCloudSaKeyJson: process.env.GOOGLE_CLOUD_SA_KEY_JSON,
     gcsBucketName: process.env.GCS_BUCKET_NAME || 'lidimus-job-files',
+    uploadRateLimitPerHour: Number(process.env.UPLOAD_RATE_LIMIT_PER_HOUR || 20),
+    maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 25),
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {

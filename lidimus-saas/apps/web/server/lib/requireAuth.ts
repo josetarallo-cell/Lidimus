@@ -5,5 +5,5 @@ export function requireAuth(event: H3Event) {
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-  return user as { id: string; email: string; name: string }
+  return user as { id: string; email: string; name: string; isPlatformAdmin: boolean }
 }

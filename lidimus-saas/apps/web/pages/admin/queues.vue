@@ -1,64 +1,18 @@
-<template>
-  <div class="p-8 max-w-4xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">Monitoramento de Filas</h1>
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-gray-500">Atualizado: {{ lastUpdated }}</span>
-        <UButton size="sm" variant="outline" @click="refresh">Atualizar</UButton>
-        <UButton
-          size="sm"
-          :color="autoRefresh ? 'primary' : 'neutral'"
-          variant="outline"
-          @click="toggleAutoRefresh"
-        >
-          {{ autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF' }}
-        </UButton>
-      </div>
-    </div>
-
-    <div v-if="pending" class="text-center py-12 text-gray-400">Carregando...</div>
-
-    <div v-else-if="data" class="grid grid-cols-1 gap-6">
-      <div
-        v-for="(counts, queue) in data.queues"
-        :key="queue"
-        class="border rounded-xl p-6 bg-white shadow-sm"
-      >
-        <h2 class="text-lg font-semibold capitalize mb-4 flex items-center gap-2">
-          <span
-            :class="[
-              'w-2 h-2 rounded-full',
-              counts.active > 0 ? 'bg-green-500' : 'bg-gray-300',
-            ]"
-          />
-          Fila: {{ queue }}
-        </h2>
-        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
-          <div
-            v-for="(value, status) in counts"
-            :key="status"
-            :class="[
-              'rounded-lg p-3 text-center',
-              status === 'active' && value > 0 ? 'bg-blue-50 border border-blue-200' : '',
-              status === 'failed' && value > 0 ? 'bg-red-50 border border-red-200' : '',
-              status === 'waiting' && value > 0 ? 'bg-yellow-50 border border-yellow-200' : '',
-              !['active', 'failed', 'waiting'].includes(status) || value === 0 ? 'bg-gray-50' : '',
-            ]"
-          >
-            <div class="text-2xl font-bold">{{ value }}</div>
-            <div class="text-xs text-gray-500 mt-1 capitalize">{{ status }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-definePageMeta({ layout: false })
+useHead({ title: 'Filas — Lidimus' })
 
+// Restrito a administradores da plataforma — a API já reforça isso, mas sem esta
+// checagem a página tentaria renderizar e só falharia silenciosamente na busca de dados.
+const { data: me } = await useFetch('/api/me')
+if (!me.value?.isPlatformAdmin) {
+  await navigateTo('/dashboard')
+}
+
+// server: false — as estatísticas dependem do Redis; se ele estiver fora do ar,
+// a página ainda renderiza e mostra o estado de carregamento no cliente
 const { data, pending, refresh } = await useFetch('/api/admin/queue-stats', {
   lazy: true,
+  server: false,
 })
 
 const lastUpdated = computed(() => {
@@ -81,4 +35,160 @@ function toggleAutoRefresh() {
 onUnmounted(() => {
   if (intervalId) clearInterval(intervalId)
 })
+
+// Página administrativa: os nomes técnicos das filas/estados são o vocabulário certo aqui
+function classeContagem(status: string, value: number): string {
+  if (value === 0) return ''
+  if (status === 'failed') return 'contagem--falha'
+  if (status === 'active') return 'contagem--ativa'
+  if (status === 'waiting') return 'contagem--espera'
+  return ''
+}
 </script>
+
+<template>
+  <div>
+    <header class="filas-cabecalho">
+      <h1>Monitoramento de filas</h1>
+      <div class="filas-acoes">
+        <span class="filas-atualizado">Atualizado: {{ lastUpdated }}</span>
+        <button class="ld-btn ld-btn--secondary ld-btn--sm" @click="refresh()">Atualizar</button>
+        <button
+          class="ld-btn ld-btn--sm"
+          :class="autoRefresh ? 'ld-btn--primary' : 'ld-btn--secondary'"
+          :aria-pressed="autoRefresh"
+          @click="toggleAutoRefresh"
+        >
+          {{ autoRefresh ? 'Atualização automática: ligada' : 'Atualização automática: desligada' }}
+        </button>
+      </div>
+    </header>
+
+    <p v-if="pending" class="filas-carregando">Carregando…</p>
+
+    <div v-else-if="data" class="filas-lista">
+      <section v-for="(counts, queue) in data.queues" :key="queue" class="ld-painel fila">
+        <h2 class="fila-nome">
+          <span
+            class="fila-indicador"
+            :class="{ 'fila-indicador--ativa': counts.active > 0 }"
+            aria-hidden="true"
+          />
+          {{ queue }}
+        </h2>
+        <div class="fila-contagens">
+          <div
+            v-for="(value, status) in counts"
+            :key="status"
+            class="contagem"
+            :class="classeContagem(String(status), Number(value))"
+          >
+            <span class="contagem-valor">{{ value }}</span>
+            <span class="contagem-status">{{ status }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.filas-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--ld-space-lg);
+}
+.filas-cabecalho h1 {
+  margin: 0;
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+.filas-acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
+  flex-wrap: wrap;
+}
+.filas-atualizado {
+  font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+.filas-carregando {
+  margin: var(--ld-space-2xl) 0;
+  text-align: center;
+  color: var(--ld-tinta-suave);
+}
+
+.filas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ld-space-lg);
+}
+.fila {
+  padding: var(--ld-space-lg);
+}
+.fila-nome {
+  margin: 0 0 var(--ld-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: var(--ld-font-mono);
+}
+.fila-indicador {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ld-filete);
+  flex: none;
+}
+.fila-indicador--ativa {
+  background: var(--ld-verde);
+}
+.fila-contagens {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--ld-space-sm);
+}
+.contagem {
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-papel);
+  padding: var(--ld-space-md) var(--ld-space-sm);
+  text-align: center;
+}
+.contagem--ativa {
+  background: var(--ld-verde-selo);
+  border-color: var(--ld-verde);
+}
+.contagem--falha {
+  background: var(--ld-carimbo-selo);
+  border-color: var(--ld-carimbo);
+}
+.contagem--espera {
+  background: var(--ld-ocre-selo);
+  border-color: var(--ld-ocre);
+}
+.contagem-valor {
+  display: block;
+  font-family: var(--ld-font-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.contagem-status {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--ld-tinta-suave);
+  font-family: var(--ld-font-mono);
+}
+</style>

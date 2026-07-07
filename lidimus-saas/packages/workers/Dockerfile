@@ -14,4 +14,7 @@ COPY packages/db ./packages/db
 COPY packages/queue ./packages/queue
 COPY packages/workers ./packages/workers
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node packages/workers/healthcheck.js
+
 CMD ["pnpm", "--filter", "workers", "start"]

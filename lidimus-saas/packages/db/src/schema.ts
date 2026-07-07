@@ -6,6 +6,7 @@ import {
   pgEnum,
   jsonb,
   index,
+  boolean,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -32,8 +33,12 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: timestamp('email_verified'),
+  // better-auth trata emailVerified como boolean, não timestamp — manter timestamp
+  // quebra o sign-up (o adapter tenta .toISOString() em `false`)
+  emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  // Acesso às telas /admin/* — distinto do org_role, que é por organização
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

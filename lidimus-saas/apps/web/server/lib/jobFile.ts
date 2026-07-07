@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto'
+import { randomBytes, timingSafeEqual } from 'crypto'
 import { eq } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
 import { jobFiles } from '@lidimus/db'
@@ -6,6 +6,13 @@ import { uploadToGcs, generateSignedUrl, deleteFromGcs } from './gcs'
 
 export function generateAccessToken(): string {
   return randomBytes(32).toString('hex')
+}
+
+function tokensMatch(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected)
+  const b = Buffer.from(provided)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
 }
 
 export function buildFileUrl(baseUrl: string, jobId: string, token: string): string {
@@ -46,7 +53,8 @@ export async function getJobFileSignedUrl(
     .where(eq(jobFiles.jobId, jobId))
     .limit(1)
 
-  if (!file || file.accessToken !== token || file.deletedAt) return null
+  if (!file || file.deletedAt) return null
+  if (!tokensMatch(file.accessToken, token)) return null
 
   const signedUrl = await generateSignedUrl(file.gcsPath)
   return { signedUrl, mimeType: file.mimeType, originalName: file.originalName }

@@ -22,6 +22,12 @@ services:
     ports:
       - "3000:3000"
     env_file: .env.prod
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       - postgres
       - redis
@@ -30,6 +36,12 @@ services:
     image: lidimus-worker:latest
     restart: always
     env_file: .env.prod
+    healthcheck:
+      test: ["CMD", "node", "packages/workers/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       - postgres
       - redis

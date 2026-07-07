@@ -37,6 +37,12 @@ services:
     ports:
       - "3000:3000"
     env_file: .env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     environment:
       NUXT_DATABASE_URL: ${DATABASE_URL}
       NUXT_REDIS_URL: ${REDIS_URL}
@@ -57,6 +63,12 @@ services:
       dockerfile: packages/workers/Dockerfile
     restart: unless-stopped
     env_file: .env
+    healthcheck:
+      test: ["CMD", "node", "packages/workers/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,8 +89,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
 
 volumes:
   pgdata:
   redisdata:
   n8ndata:
+

@@ -5,6 +5,7 @@ import { useQueues } from '../../lib/queue'
 import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { checkRateLimit } from '../../lib/rateLimit'
 import { jobs } from '@lidimus/db'
 
 const paramsSchema = z.object({
@@ -33,6 +34,14 @@ export default defineEventHandler(async (event) => {
 
   const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
 
+  const { connection, matriculaOcrQueue } = useQueues()
+  await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
+
+  const maxBytes = config.maxUploadSizeMb * 1024 * 1024
+  if (filePart.data.length > maxBytes) {
+    throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
+  }
+
   const [job] = await db
     .insert(jobs)
     .values({
@@ -55,7 +64,6 @@ export default defineEventHandler(async (event) => {
 
   const callbackUrl = `${config.publicBaseUrl}/api/webhooks/n8n-callback`
 
-  const { matriculaOcrQueue } = useQueues()
   await matriculaOcrQueue.add('process', {
     jobId: job.id,
     fileAccessToken: accessToken,

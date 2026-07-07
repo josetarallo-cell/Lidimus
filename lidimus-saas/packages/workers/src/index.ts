@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { createDb } from '@lidimus/db'
 import { startMatriculaOcrWorker } from './matricula-ocr.worker.ts'
 import { startMatriculaJuridicoWorker } from './matricula-juridico.worker.ts'
@@ -38,8 +39,17 @@ const workers = [
 
 console.log('Workers started: matricula-ocr, matricula-juridico, matricula-doc, kml, injection')
 
+// Heartbeat lido por healthcheck.js (Docker HEALTHCHECK) — sem porta HTTP exposta pelo worker
+const HEARTBEAT_PATH = process.env.WORKER_HEARTBEAT_PATH || '/tmp/worker-heartbeat'
+function touchHeartbeat() {
+  writeFileSync(HEARTBEAT_PATH, String(Date.now()))
+}
+touchHeartbeat()
+const heartbeatInterval = setInterval(touchHeartbeat, 15_000)
+
 async function shutdown() {
   console.log('Shutting down workers...')
+  clearInterval(heartbeatInterval)
   await Promise.all(workers.map((w) => w.close()))
   process.exit(0)
 }

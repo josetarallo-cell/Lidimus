@@ -1,8 +1,10 @@
 import { useQueues } from '../../lib/queue'
+import { requirePlatformAdmin } from '../../lib/requirePlatformAdmin'
 
-// Retorna contagem de jobs por status em cada fila — sem autenticação de usuário
-// (proteger com IP allowlist ou Basic Auth em produção se necessário)
-export default defineEventHandler(async () => {
+// Retorna contagem de jobs por status em cada fila — restrito a administradores da plataforma
+export default defineEventHandler(async (event) => {
+  requirePlatformAdmin(event)
+
   const { matriculaOcrQueue, matriculaJuridicoQueue, matriculaDocQueue, kmlQueue, injectionQueue } =
     useQueues()
 
