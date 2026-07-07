@@ -230,10 +230,18 @@ provedor oferecer HMAC nativo). Tratar no mínimo:
 
 ### Checklist de aceite — Fase 2
 
-- [ ] Upload sem saldo suficiente retorna 402 com mensagem clara, sem criar job "fantasma"
-- [ ] Pagamento confirmado no gateway reflete no saldo em poucos segundos
-- [ ] Job que termina em erro devolve o crédito automaticamente
-- [ ] Administrador vê todas as organizações e concede créditos manualmente sem acessar o banco
+- [x] Upload sem saldo suficiente retorna 402 com mensagem clara, sem criar job "fantasma"
+- [ ] Pagamento confirmado no gateway reflete no saldo em poucos segundos — código pronto
+      (webhook `/api/webhooks/stripe` com validação de assinatura e crédito idempotente via
+      `provider_ref`), aguardando as chaves de teste do Stripe (`STRIPE_SECRET_KEY` +
+      `STRIPE_WEBHOOK_SECRET` no `.env`) para o teste de ponta a ponta
+- [x] Job que termina em erro devolve o crédito automaticamente — verificado nos dois caminhos
+      (callback de erro do n8n e handler `failed` do worker), com estorno idempotente
+- [x] Administrador vê todas as organizações e concede créditos manualmente sem acessar o banco
+
+Implementação concluída em 07/07/2026 (gateway: Stripe, modo de teste). Decisões: ciclo anual
+credita os 12 meses de uma vez no `invoice.paid`; preços enviados inline ao checkout (a tabela
+`plans` é a fonte da verdade — não é preciso cadastrar produtos no dashboard do Stripe).
 
 ---
 

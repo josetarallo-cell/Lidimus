@@ -48,6 +48,8 @@ function classeContagem(status: string, value: number): string {
 
 <template>
   <div>
+    <AdminNav />
+
     <header class="filas-cabecalho">
       <h1>Monitoramento de filas</h1>
       <div class="filas-acoes">

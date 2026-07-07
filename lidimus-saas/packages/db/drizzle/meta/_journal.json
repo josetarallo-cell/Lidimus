@@ -36,6 +36,27 @@
       "when": 1782190000000,
       "tag": "0004_email_verified_boolean",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782200000000,
+      "tag": "0005_billing_credits",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783442213879,
+      "tag": "0006_wealthy_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783450875883,
+      "tag": "0007_eager_sue_storm",
+      "breakpoints": true
     }
   ]
 }

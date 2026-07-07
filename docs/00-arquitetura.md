@@ -69,6 +69,14 @@ Monitoramento: página `/admin/queues` no app web.
 - `organizations`, `org_members` — multi-tenant (todo job pertence a uma org)
 - `jobs` — uma análise: `type` (matricula/kml/injection), `status` (pending/queued/processing/done/error), `stage`, `result` (JSONB), `error_message`
 - `job_files` — ponteiro para o arquivo no GCS + `access_token` de download
+- `plans`, `subscriptions`, `credit_transactions` — monetização (Fase 2): planos com preço/créditos por ciclo, assinatura Stripe por org, e ledger de créditos (saldo = SUM(delta); upload debita, erro estorna, webhook do Stripe credita a renovação)
+
+## Créditos e assinaturas (Fase 2)
+
+- Custo por análise: matrícula 20, memorial KML 50, verificação de PDF 5 (`packages/db/src/credits.ts`). Cadastro concede 100 créditos.
+- Upload sem saldo → 402, sem criar job. O débito (`consumption`) entra na mesma transação que cria o job; job que termina em `error` recebe `refund` automático e idempotente (índice único parcial), tanto pelo callback do n8n quanto pelo handler `failed` dos workers.
+- Stripe (checkout de assinatura, Customer Portal e webhook em `/api/webhooks/stripe`): preços enviados inline a partir da tabela `plans` — não é preciso cadastrar produtos no dashboard. `invoice.paid` credita `credits_per_cycle` (×12 no ciclo anual) com `provider_ref` único para reenvios não creditarem duas vezes.
+- Páginas: `/conta` (perfil/senha/orgs), `/conta/creditos` (saldo + histórico), `/conta/assinatura` (planos/portal); admin: `/admin/clientes` (saldo, conceder créditos, suspender) e `/admin/faturamento` (MRR, distribuição).
 
 ## Variáveis de ambiente (resumo)
 
@@ -83,6 +91,7 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 | `PUBLIC_BASE_URL` | URL pública do web (n8n usa para baixar arquivo e responder) |
 | `GOOGLE_CLOUD_SA_KEY_JSON`, `GCS_BUCKET_NAME` | armazenamento de arquivos |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` (padrão 20), `MAX_UPLOAD_SIZE_MB` (padrão 25) | limites por organização nos endpoints de upload (429/413) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | pagamentos (Fase 2) — chaves de teste `sk_test_...`/`whsec_...` até existir conta definitiva; sem elas o app funciona e só o checkout responde 503 |
 
 ## Healthchecks
 

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
-import { jobs } from '@lidimus/db'
+import { jobs, refundJobCredits } from '@lidimus/db'
 import { createHmac, timingSafeEqual } from 'crypto'
 
 const bodySchema = z.object({
@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
         completedAt: new Date(),
       })
       .where(eq(jobs.id, body.jobId))
+    await refundJobCredits(db, body.jobId)
     return { ok: true }
   }
 
@@ -90,6 +91,7 @@ export default defineEventHandler(async (event) => {
             completedAt: new Date(),
           })
           .where(eq(jobs.id, body.jobId))
+        await refundJobCredits(db, body.jobId)
         return { ok: true }
       }
 

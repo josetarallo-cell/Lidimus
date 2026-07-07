@@ -2,6 +2,7 @@
 useHead({ title: 'Painel — Lidimus' })
 
 const { data: jobList, refresh } = await useFetch('/api/jobs')
+const { data: creditos } = await useFetch('/api/account/credits')
 
 const typeLabel: Record<string, string> = {
   matricula: 'Matrícula',
@@ -46,6 +47,9 @@ onMounted(() => {
     <header class="painel-cabecalho">
       <h1>Painel</h1>
       <div class="painel-acoes">
+        <NuxtLink to="/conta/creditos" class="painel-saldo" title="Ver histórico de créditos">
+          <span class="painel-saldo-valor">{{ creditos?.balance ?? 0 }}</span> créditos
+        </NuxtLink>
         <NuxtLink to="/matriculas" class="ld-btn ld-btn--secondary ld-btn--sm">Nova matrícula</NuxtLink>
         <NuxtLink to="/kml" class="ld-btn ld-btn--secondary ld-btn--sm">Novo memorial</NuxtLink>
         <NuxtLink to="/injection" class="ld-btn ld-btn--secondary ld-btn--sm">Verificar PDF</NuxtLink>
@@ -115,8 +119,33 @@ onMounted(() => {
 }
 .painel-acoes {
   display: flex;
+  align-items: center;
   gap: var(--ld-space-sm);
   flex-wrap: wrap;
+}
+
+.painel-saldo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-folha);
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+  text-decoration: none;
+  transition: border-color var(--ld-dur-estado) var(--ld-ease);
+}
+.painel-saldo:hover {
+  border-color: var(--ld-verde);
+}
+.painel-saldo-valor {
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ld-tinta);
+  font-variant-numeric: tabular-nums;
 }
 
 .tabela-titulo {

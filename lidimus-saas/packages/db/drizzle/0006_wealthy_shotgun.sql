@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "credit_tx_one_refund_per_job_idx" ON "credit_transactions" USING btree ("job_id") WHERE "credit_transactions"."reason" = 'refund';

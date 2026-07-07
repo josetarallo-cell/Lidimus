@@ -15,6 +15,7 @@
           <NuxtLink to="/matriculas" class="app-nav-link">Matrículas</NuxtLink>
           <NuxtLink to="/kml" class="app-nav-link">Memoriais</NuxtLink>
           <NuxtLink to="/injection" class="app-nav-link">Detector</NuxtLink>
+          <NuxtLink to="/conta" class="app-nav-link">Conta</NuxtLink>
         </nav>
       </div>
     </header>

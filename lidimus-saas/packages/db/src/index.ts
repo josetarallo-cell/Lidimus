@@ -10,6 +10,7 @@ import * as schema from './schema.ts'
 setDefaultResultOrder('ipv4first')
 
 export * from './schema.ts'
+export * from './credits.ts'
 export { schema }
 
 export function createDb(connectionString: string) {

@@ -44,6 +44,31 @@ Schema completo em `packages/db/src/schema.ts`.
 | `organizations`, `org_members` | organizações — todo `job` pertence a uma org |
 | `jobs` | cada análise enviada: `type`, `status`, `stage`, `result` (JSONB), `error_message` |
 | `job_files` | arquivo original no GCS (`gcs_path`) + `access_token` de download temporário |
+| `plans` | catálogo de planos (preço mensal/anual em centavos, créditos por ciclo, máx. usuários) — seed na migration 0005 |
+| `subscriptions` | assinatura por org: status, `provider_customer_id`/`provider_subscription_id` (Stripe), fim do período |
+| `credit_transactions` | ledger append-only de créditos — saldo = `SUM(delta)` por org; `reason` ∈ signup_grant/purchase/consumption/refund/admin_adjustment |
+
+## Créditos: consultas úteis
+
+Saldo por organização:
+
+```sql
+select o.name, coalesce(sum(ct.delta), 0) as saldo
+from organizations o
+left join credit_transactions ct on ct.org_id = o.id
+group by o.id, o.name
+order by saldo;
+```
+
+Jobs consumidos sem estorno apesar de erro (não deveria retornar nada — o estorno é automático):
+
+```sql
+select j.id, j.type, j.status
+from jobs j
+join credit_transactions c on c.job_id = j.id and c.reason = 'consumption'
+where j.status = 'error'
+  and not exists (select 1 from credit_transactions r where r.job_id = j.id and r.reason = 'refund');
+```
 
 ## Consultas úteis
 
@@ -95,7 +120,7 @@ Fluxo para alterar o schema:
 
 **Regra de ouro:** nunca edite manualmente uma migration já aplicada em qualquer ambiente (nem local, nem produção) — o Drizzle rastreia migrations aplicadas por nome de arquivo e hash; editar depois do fato causa dessincronia. Se errou algo, gere uma nova migration corretiva.
 
-Migrations existentes até agora: `0000_nervous_khan` (schema inicial), `0001_job_files_gcs`, `0002_job_stages`, `0003_add_is_platform_admin` (coluna `users.is_platform_admin`), `0004_email_verified_boolean` (`users.email_verified` de timestamp para boolean — o better-auth trata o campo como boolean e o tipo antigo quebrava o cadastro).
+Migrations existentes até agora: `0000_nervous_khan` (schema inicial), `0001_job_files_gcs`, `0002_job_stages`, `0003_add_is_platform_admin` (coluna `users.is_platform_admin`), `0004_email_verified_boolean` (`users.email_verified` de timestamp para boolean — o better-auth trata o campo como boolean e o tipo antigo quebrava o cadastro), `0005_billing_credits` (tabelas `plans`/`subscriptions`/`credit_transactions` + seed dos 3 planos), `0006_wealthy_shotgun` (índice único parcial — no máximo um estorno por job), `0007_eager_sue_storm` (`credit_transactions.provider_ref` UNIQUE — idempotência do webhook do Stripe).
 
 ## Promover um administrador da plataforma
 

@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq'
 import { eq } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
-import { jobs } from '@lidimus/db'
+import { jobs, refundJobCredits } from '@lidimus/db'
 import type { MatriculaJuridicoJobPayload } from '@lidimus/queue'
 import { QUEUE_NAMES } from '@lidimus/queue'
 import { triggerN8nWebhook } from './lib/n8n.ts'
@@ -48,6 +48,10 @@ export function startMatriculaJuridicoWorker(
       .update(jobs)
       .set({ status: 'error', errorMessage: `[juridico] ${err.message}` })
       .where(eq(jobs.id, job.data.jobId))
+    // 'failed' dispara a cada tentativa — só estorna quando os retries acabaram
+    if (job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      await refundJobCredits(db, job.data.jobId)
+    }
   })
 
   return worker

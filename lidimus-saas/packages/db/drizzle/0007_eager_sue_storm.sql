@@ -1,0 +1,2 @@
+ALTER TABLE "credit_transactions" ADD COLUMN "provider_ref" text;--> statement-breakpoint
+ALTER TABLE "credit_transactions" ADD CONSTRAINT "credit_transactions_provider_ref_unique" UNIQUE("provider_ref");

@@ -30,6 +30,8 @@ export default defineNuxtConfig({
     gcsBucketName: process.env.GCS_BUCKET_NAME || 'lidimus-job-files',
     uploadRateLimitPerHour: Number(process.env.UPLOAD_RATE_LIMIT_PER_HOUR || 20),
     maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 25),
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {

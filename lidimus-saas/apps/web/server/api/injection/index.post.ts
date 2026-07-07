@@ -5,7 +5,7 @@ import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
 import { checkRateLimit } from '../../lib/rateLimit'
-import { jobs } from '@lidimus/db'
+import { jobs, creditTransactions, CREDIT_COST, getOrgCreditBalance } from '@lidimus/db'
 
 export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
@@ -31,16 +31,36 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
   }
 
-  const [job] = await db
-    .insert(jobs)
-    .values({
-      orgId,
-      userId: user.id,
-      type: 'injection',
-      status: 'pending',
-      inputMeta: { originalName },
+  const custo = CREDIT_COST.injection
+  const saldo = await getOrgCreditBalance(db, orgId)
+  if (saldo < custo) {
+    throw createError({
+      statusCode: 402,
+      statusMessage: `Créditos insuficientes. Saldo: ${saldo}, necessário: ${custo}.`,
     })
-    .returning({ id: jobs.id })
+  }
+
+  const job = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(jobs)
+      .values({
+        orgId,
+        userId: user.id,
+        type: 'injection',
+        status: 'pending',
+        inputMeta: { originalName },
+      })
+      .returning({ id: jobs.id })
+
+    await tx.insert(creditTransactions).values({
+      orgId,
+      delta: -custo,
+      reason: 'consumption',
+      jobId: created.id,
+    })
+
+    return created
+  })
 
   const { fileUrl, accessToken } = await storeJobFile(
     db,

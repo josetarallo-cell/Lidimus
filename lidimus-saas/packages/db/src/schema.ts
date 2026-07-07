@@ -6,9 +6,11 @@ import {
   pgEnum,
   jsonb,
   index,
+  uniqueIndex,
   boolean,
+  integer,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,21 @@ export const jobStatusEnum = pgEnum('job_status', [
 
 // Etapas do pipeline de matrícula (jobs de outros tipos não usam stage)
 export const jobStageEnum = pgEnum('job_stage', ['ocr', 'juridico', 'doc'])
+
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+])
+
+export const creditReasonEnum = pgEnum('credit_reason', [
+  'signup_grant',
+  'purchase',
+  'consumption',
+  'refund',
+  'admin_adjustment',
+])
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -151,6 +168,52 @@ export const jobFiles = pgTable('job_files', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// ─── Planos, assinaturas e créditos ───────────────────────────────────────────
+
+export const plans = pgTable('plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  monthlyPriceCents: integer('monthly_price_cents').notNull(),
+  annualPriceCents: integer('annual_price_cents').notNull(),
+  creditsPerCycle: integer('credits_per_cycle').notNull(),
+  maxUsers: integer('max_users').notNull().default(1),
+  features: jsonb('features').$type<Record<string, unknown>>(),
+})
+
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.id),
+  status: subscriptionStatusEnum('status').notNull().default('trialing'),
+  providerCustomerId: text('provider_customer_id'),
+  providerSubscriptionId: text('provider_subscription_id'),
+  currentPeriodEnd: timestamp('current_period_end'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('subscriptions_org_id_idx').on(t.orgId)])
+
+// Ledger append-only: o saldo de uma organização é SUM(delta) das suas linhas
+export const creditTransactions = pgTable('credit_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  delta: integer('delta').notNull(),
+  reason: creditReasonEnum('reason').notNull(),
+  jobId: uuid('job_id').references(() => jobs.id),
+  // Referência externa (ex.: id do invoice no Stripe) — o UNIQUE torna o webhook
+  // idempotente: reenvio do mesmo evento não credita duas vezes
+  providerRef: text('provider_ref').unique(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('credit_tx_org_id_idx').on(t.orgId),
+  // No máximo um estorno por job — torna refundJobCredits idempotente mesmo sob corrida
+  uniqueIndex('credit_tx_one_refund_per_job_idx').on(t.jobId).where(sql`${t.reason} = 'refund'`),
+])
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -164,6 +227,18 @@ export const organizationsRelations = relations(organizations, ({ many, one }) =
   members: many(orgMembers),
   jobs: many(jobs),
   owner: one(users, { fields: [organizations.ownerId], references: [users.id] }),
+  subscriptions: many(subscriptions),
+  creditTransactions: many(creditTransactions),
+}))
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  org: one(organizations, { fields: [subscriptions.orgId], references: [organizations.id] }),
+  plan: one(plans, { fields: [subscriptions.planId], references: [plans.id] }),
+}))
+
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
+  org: one(organizations, { fields: [creditTransactions.orgId], references: [organizations.id] }),
+  job: one(jobs, { fields: [creditTransactions.jobId], references: [jobs.id] }),
 }))
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({
