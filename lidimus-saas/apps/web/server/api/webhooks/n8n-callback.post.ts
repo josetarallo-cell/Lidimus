@@ -33,6 +33,19 @@ function verifyStaticSecret(secret: string, provided: string): boolean {
   }
 }
 
+// Extração de texto de PDF às vezes traz NUL (\u0000), que o JSONB/text do
+// Postgres rejeita (22P05) — sem isso o UPDATE quebra e o job fica preso
+function stripNullChars<T>(value: T): T {
+  if (typeof value === 'string') return value.replaceAll('\u0000', '') as T
+  if (Array.isArray(value)) return value.map(stripNullChars) as T
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, stripNullChars(v)]),
+    ) as T
+  }
+  return value
+}
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const rawBody = await readRawBody(event)
@@ -51,7 +64,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
   }
 
-  const body = bodySchema.parse(JSON.parse(rawBody))
+  const body = stripNullChars(bodySchema.parse(JSON.parse(rawBody)))
   const db = useDb()
 
   const [job] = await db.select().from(jobs).where(eq(jobs.id, body.jobId)).limit(1)
