@@ -231,10 +231,10 @@ provedor oferecer HMAC nativo). Tratar no mínimo:
 ### Checklist de aceite — Fase 2
 
 - [x] Upload sem saldo suficiente retorna 402 com mensagem clara, sem criar job "fantasma"
-- [ ] Pagamento confirmado no gateway reflete no saldo em poucos segundos — código pronto
-      (webhook `/api/webhooks/stripe` com validação de assinatura e crédito idempotente via
-      `provider_ref`), aguardando as chaves de teste do Stripe (`STRIPE_SECRET_KEY` +
-      `STRIPE_WEBHOOK_SECRET` no `.env`) para o teste de ponta a ponta
+- [x] Pagamento confirmado no gateway reflete no saldo em poucos segundos — verificado com
+      pagamento de teste real (cartão 4242) em 07/07/2026: assinatura ativa + 500 créditos via
+      `invoice.paid`, entregue pelo endpoint de webhook `https://lidimus.gvlar.com/api/webhooks/stripe`
+      criado na conta Stripe (test mode)
 - [x] Job que termina em erro devolve o crédito automaticamente — verificado nos dois caminhos
       (callback de erro do n8n e handler `failed` do worker), com estorno idempotente
 - [x] Administrador vê todas as organizações e concede créditos manualmente sem acessar o banco
