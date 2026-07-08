@@ -1,7 +1,57 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-useHead({ title: 'Lidimus — Inteligência documental jurídica e técnica' })
+const url = useRequestURL()
+const SITE_TITLE = 'Lidimus — Inteligência documental jurídica e técnica'
+const SITE_DESC =
+  'Pareceres de matrícula imobiliária, memoriais descritivos a partir de KML e detecção de ' +
+  'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. Comece com 100 créditos gratuitos.'
+
+useHead({
+  title: SITE_TITLE,
+  meta: [
+    { name: 'description', content: SITE_DESC },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:title', content: SITE_TITLE },
+    { property: 'og:description', content: SITE_DESC },
+    { property: 'og:url', content: url.origin },
+    { property: 'og:image', content: `${url.origin}/og.png` },
+    { property: 'og:locale', content: 'pt_BR' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: SITE_TITLE },
+    { name: 'twitter:description', content: SITE_DESC },
+    { name: 'twitter:image', content: `${url.origin}/og.png` },
+  ],
+  link: [{ rel: 'canonical', href: url.origin }],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            name: 'Lidimus',
+            url: url.origin,
+            logo: `${url.origin}/og.png`,
+          },
+          {
+            '@type': 'SoftwareApplication',
+            name: 'Lidimus',
+            description: SITE_DESC,
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            offers: [
+              { '@type': 'Offer', name: 'Amador', price: '29.00', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Profissional', price: '149.00', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Empresarial', price: '599.00', priceCurrency: 'BRL' },
+            ],
+          },
+        ],
+      }),
+    },
+  ],
+})
 
 const billing = ref<'mensal' | 'anual'>('mensal')
 const isAnual = computed(() => billing.value === 'anual')
@@ -36,6 +86,7 @@ const annualNote = computed(() =>
         <nav class="barra-nav" aria-label="Principal">
           <a href="#ferramentas" class="barra-link">Ferramentas</a>
           <a href="#planos" class="barra-link">Planos</a>
+          <a href="#faq" class="barra-link">Dúvidas</a>
           <a href="#seguranca" class="barra-link">Segurança</a>
           <NuxtLink to="/auth/login" class="barra-link barra-link--entrar">Entrar</NuxtLink>
           <NuxtLink to="/auth/register" class="ld-btn ld-btn--primary ld-btn--sm">Criar conta</NuxtLink>
@@ -283,6 +334,53 @@ const annualNote = computed(() =>
         </div>
       </section>
 
+      <!-- ── FAQ ──────────────────────────────────────────────── -->
+      <section id="faq" class="faq">
+        <div class="secao-intro">
+          <h2>Perguntas que ouvimos antes do primeiro envio.</h2>
+        </div>
+        <div class="faq-lista">
+          <details class="faq-item">
+            <summary class="faq-pergunta">Isso substitui o parecer de um profissional habilitado?</summary>
+            <p class="faq-resposta">
+              Não — e não deveria. O Lidimus organiza, traduz e destaca os pontos de atenção do
+              documento para que o profissional decida mais rápido e com mais contexto. O parecer
+              final e a responsabilidade técnica continuam sendo de quem assina.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-pergunta">Meus documentos ficam seguros?</summary>
+            <p class="faq-resposta">
+              O arquivo enviado fica em armazenamento cifrado do Google Cloud apenas durante o
+              processamento e é excluído automaticamente assim que a análise termina. O acesso à
+              sua conta é individual e as análises pertencem só à sua organização.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-pergunta">O que acontece quando meus créditos acabam?</summary>
+            <p class="faq-resposta">
+              Nada é cobrado automaticamente: novas análises ficam bloqueadas até a renovação do
+              ciclo ou a compra de créditos. Uma análise que falhe por erro nosso devolve os
+              créditos na hora, sozinha.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-pergunta">Posso cancelar quando quiser?</summary>
+            <p class="faq-resposta">
+              Sim. O cancelamento é feito por você mesmo, na área de assinatura, sem falar com
+              ninguém. Os créditos já recebidos continuam válidos até o fim do ciclo pago.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-pergunta">Preciso instalar alguma coisa?</summary>
+            <p class="faq-resposta">
+              Não. O Lidimus roda no navegador: você envia o PDF ou o KML e recebe o resultado na
+              própria tela, pronto para imprimir ou baixar.
+            </p>
+          </details>
+        </div>
+      </section>
+
       <!-- ── Planos ───────────────────────────────────────────── -->
       <section id="planos" class="planos">
         <div class="secao-intro secao-intro--planos">
@@ -305,11 +403,7 @@ const annualNote = computed(() =>
             <p class="plano-preco"><span>{{ amadorPrice }}</span>{{ period }}</p>
             <p class="plano-creditos">500 créditos / mês</p>
             <NuxtLink to="/auth/register" class="ld-btn ld-btn--secondary plano-cta">Assinar Amador</NuxtLink>
-            <ul class="plano-lista">
-              <li v-for="f in ['1 usuário', 'As três ferramentas', 'Histórico de 30 dias', 'Suporte por e-mail']" :key="f">
-                <span class="losango-mini" aria-hidden="true" />{{ f }}
-              </li>
-            </ul>
+            <p class="plano-resumo">Para profissionais autônomos: as três ferramentas, um usuário.</p>
           </article>
 
           <article class="plano plano--destaque">
@@ -319,11 +413,7 @@ const annualNote = computed(() =>
             <p class="plano-preco"><span>{{ proPrice }}</span>{{ period }}</p>
             <p class="plano-creditos">5.000 créditos / mês</p>
             <NuxtLink to="/auth/register" class="ld-btn ld-btn--primary plano-cta">Assinar Profissional</NuxtLink>
-            <ul class="plano-lista">
-              <li v-for="f in ['1 usuário', 'As três ferramentas, sem limites de fila', 'Histórico e relatórios ilimitados', 'Processamento prioritário']" :key="f">
-                <span class="losango-mini" aria-hidden="true" />{{ f }}
-              </li>
-            </ul>
+            <p class="plano-resumo">Para quem vive de documentos: prioridade na fila e histórico ilimitado.</p>
           </article>
 
           <article class="plano">
@@ -331,13 +421,78 @@ const annualNote = computed(() =>
             <p class="plano-desc">Para escritórios, construtoras e cartórios.</p>
             <p class="plano-preco"><span>{{ empPrice }}</span>{{ period }}</p>
             <p class="plano-creditos">50.000 créditos / mês</p>
-            <NuxtLink to="/auth/register" class="ld-btn ld-btn--secondary plano-cta">Falar com vendas</NuxtLink>
-            <ul class="plano-lista">
-              <li v-for="f in ['Até 5 usuários', 'Painel e documentos da equipe', 'Acesso à API', 'Suporte dedicado']" :key="f">
-                <span class="losango-mini" aria-hidden="true" />{{ f }}
-              </li>
-            </ul>
+            <a
+              href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20Empresarial%20%E2%80%94%20contato%20comercial&body=Ol%C3%A1%2C%20tenho%20interesse%20no%20plano%20Empresarial%20do%20Lidimus.%0AEscrit%C3%B3rio%2Fempresa%3A%20%0AVolume%20estimado%20de%20documentos%2Fm%C3%AAs%3A%20"
+              class="ld-btn ld-btn--secondary plano-cta"
+            >Falar com vendas</a>
+            <p class="plano-resumo">Para equipes: até 5 usuários, painel compartilhado e acesso à API.</p>
           </article>
+        </div>
+
+        <div class="comparativo">
+          <p class="comparativo-titulo">Compare os planos</p>
+          <div class="comparativo-rolagem">
+            <table class="comparativo-tabela">
+              <thead>
+                <tr>
+                  <th scope="col"><span class="sr-only">Recurso</span></th>
+                  <th scope="col">Amador</th>
+                  <th scope="col">Profissional</th>
+                  <th scope="col">Empresarial</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Créditos por mês</th>
+                  <td>500</td>
+                  <td>5.000</td>
+                  <td>50.000</td>
+                </tr>
+                <tr>
+                  <th scope="row">Usuários</th>
+                  <td>1</td>
+                  <td>1</td>
+                  <td>Até 5</td>
+                </tr>
+                <tr>
+                  <th scope="row">As três ferramentas</th>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Histórico de análises</th>
+                  <td>30 dias</td>
+                  <td>Ilimitado</td>
+                  <td>Ilimitado</td>
+                </tr>
+                <tr>
+                  <th scope="row">Processamento prioritário</th>
+                  <td><span class="comparativo-nao" aria-label="não incluído">—</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Painel e documentos da equipe</th>
+                  <td><span class="comparativo-nao" aria-label="não incluído">—</span></td>
+                  <td><span class="comparativo-nao" aria-label="não incluído">—</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Acesso à API</th>
+                  <td><span class="comparativo-nao" aria-label="não incluído">—</span></td>
+                  <td><span class="comparativo-nao" aria-label="não incluído">—</span></td>
+                  <td><span class="comparativo-sim" aria-label="incluído">◆</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Suporte</th>
+                  <td>E-mail</td>
+                  <td>E-mail</td>
+                  <td>Dedicado</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="custo-medio">
@@ -1075,23 +1230,135 @@ const annualNote = computed(() =>
   width: 100%;
   margin-bottom: var(--ld-space-lg);
 }
-.plano-lista {
-  list-style: none;
+.plano-resumo {
   margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.plano-lista li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
   font-size: 0.9375rem;
   line-height: 1.5;
+  color: var(--ld-tinta-suave);
 }
-.plano-lista .losango-mini {
-  margin-top: 7px;
+
+/* ── Matriz comparativa de planos ── */
+.comparativo {
+  margin-top: var(--ld-space-xl);
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-md);
+  background: var(--ld-folha);
+  overflow: hidden;
+}
+.comparativo-titulo {
+  margin: 0;
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  border-bottom: 1px solid var(--ld-filete);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.comparativo-rolagem {
+  overflow-x: auto;
+}
+.comparativo-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  min-width: 560px;
+}
+.comparativo-tabela thead th {
+  background: var(--ld-bancada);
+  color: var(--ld-tinta);
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1rem;
+  text-align: center;
+  padding: 12px var(--ld-space-md);
+  border-bottom: 1px solid var(--ld-filete);
+}
+.comparativo-tabela tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ld-tinta);
+  padding: 12px var(--ld-space-lg);
+  border-bottom: 1px solid var(--ld-filete);
+  white-space: nowrap;
+}
+.comparativo-tabela tbody td {
+  text-align: center;
+  color: var(--ld-tinta-suave);
+  padding: 12px var(--ld-space-md);
+  border-bottom: 1px solid var(--ld-filete);
+}
+.comparativo-tabela tbody tr:last-child th,
+.comparativo-tabela tbody tr:last-child td {
+  border-bottom: none;
+}
+.comparativo-sim {
+  color: var(--ld-verde);
+  font-size: 0.75rem;
+}
+.comparativo-nao {
+  color: var(--ld-tinta-suave);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── FAQ ── */
+.faq {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: var(--ld-space-2xl) var(--ld-space-lg);
+}
+.faq-lista {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-md);
+  background: var(--ld-folha);
+  overflow: hidden;
+}
+.faq-item + .faq-item {
+  border-top: 1px solid var(--ld-filete);
+}
+.faq-pergunta {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+  transition: background var(--ld-dur-estado) var(--ld-ease);
+}
+.faq-pergunta::-webkit-details-marker {
+  display: none;
+}
+.faq-pergunta::after {
+  content: '+';
+  flex: none;
+  font-family: var(--ld-font-mono);
+  color: var(--ld-verde);
+}
+.faq-item[open] .faq-pergunta::after {
+  content: '−';
+}
+.faq-pergunta:hover {
+  background: var(--ld-papel);
+}
+.faq-resposta {
+  margin: 0;
+  padding: 0 var(--ld-space-lg) var(--ld-space-lg);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ld-tinta-suave);
+  max-width: 62ch;
 }
 .custo-medio {
   margin-top: var(--ld-space-xl);
@@ -1284,6 +1551,7 @@ const annualNote = computed(() =>
   .ferramenta-inner,
   .imprensa,
   .planos,
+  .faq,
   .rodape-inner {
     padding-left: var(--ld-space-md);
     padding-right: var(--ld-space-md);

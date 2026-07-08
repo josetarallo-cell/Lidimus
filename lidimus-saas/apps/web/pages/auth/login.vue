@@ -8,6 +8,21 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+const { data: providers } = await useFetch('/api/auth-providers')
+
+async function entrarComGoogle() {
+  error.value = ''
+  try {
+    const { url } = await $fetch<{ url: string }>('/api/auth/sign-in/social', {
+      method: 'POST',
+      body: { provider: 'google', callbackURL: '/dashboard' },
+    })
+    window.location.href = url
+  } catch {
+    error.value = 'Não foi possível iniciar o login com Google. Tente novamente.'
+  }
+}
+
 async function login() {
   loading.value = true
   error.value = ''
@@ -71,7 +86,22 @@ async function login() {
             <span v-if="loading" class="ld-spinner" aria-hidden="true" />
             {{ loading ? 'Entrando…' : 'Entrar' }}
           </button>
+
+          <NuxtLink to="/auth/esqueci-senha" class="auth-esqueci">Esqueci minha senha</NuxtLink>
         </form>
+
+        <template v-if="providers?.google">
+          <div class="auth-separador" role="separator">ou</div>
+          <button type="button" class="ld-btn ld-btn--secondary auth-cta" @click="entrarComGoogle">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.16 3.57-8.81Z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.87-3c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.72-4.96H1.29v3.1A12 12 0 0 0 12 24Z"/>
+              <path fill="#FBBC05" d="M5.28 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.29a12 12 0 0 0 0 10.76l3.99-3.1Z"/>
+              <path fill="#EA4335" d="M12 4.76c1.76 0 3.34.6 4.59 1.79l3.44-3.44A11.98 11.98 0 0 0 1.29 6.62l3.99 3.1C6.22 6.87 8.87 4.76 12 4.76Z"/>
+            </svg>
+            Entrar com Google
+          </button>
+        </template>
       </section>
 
       <p class="auth-troca">
@@ -130,6 +160,30 @@ async function login() {
 .auth-cta {
   width: 100%;
   margin-top: var(--ld-space-sm);
+}
+.auth-esqueci {
+  align-self: center;
+  font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+  text-decoration: none;
+}
+.auth-esqueci:hover {
+  color: var(--ld-verde-profundo);
+  text-decoration: underline;
+}
+.auth-separador {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
+  margin: var(--ld-space-md) 0;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+.auth-separador::before,
+.auth-separador::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--ld-filete);
 }
 .auth-troca {
   margin: var(--ld-space-lg) 0 0;

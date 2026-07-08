@@ -32,6 +32,10 @@ export default defineNuxtConfig({
     maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 25),
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    emailFrom: process.env.EMAIL_FROM || 'Lidimus <onboarding@resend.dev>',
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {

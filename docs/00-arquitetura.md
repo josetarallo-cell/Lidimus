@@ -96,6 +96,8 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 | `WORKER_CONCURRENCY`, `WORKER_REPLICAS` | escala dos workers (Fase 3) — ver [20-deploy.md](20-deploy.md) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | rastreamento de erros em web e workers (Fase 3) — inativo se vazio |
 | `DB_DISABLE_PREPARE` | `true` quando atrás de PgBouncer em modo transaction |
+| `RESEND_API_KEY`, `EMAIL_FROM` | e-mail transacional (Fase 4 — recuperação de senha); sem chave, o link é logado no console |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | login com Google (Fase 4) — botão só aparece quando configurados |
 
 ## Healthchecks
 

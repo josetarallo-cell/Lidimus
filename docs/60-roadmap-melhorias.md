@@ -346,10 +346,17 @@ complementar as seções "Na imprensa" por depoimentos e/ou contadores de uso re
 
 ### Checklist de aceite — Fase 4
 
-- [ ] Usuário cria conta e entra com Google sem digitar senha
-- [ ] Usuário que esqueceu a senha recupera acesso sozinho, por e-mail
-- [ ] A landing responde as objeções de confiança mais prováveis do público-alvo antes da seção de
-      preços
+- [ ] Usuário cria conta e entra com Google sem digitar senha — código pronto (botão aparece
+      automaticamente quando `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` existirem no `.env`);
+      falta criar as credenciais OAuth no Google Cloud Console com redirect URI
+      `<PUBLIC_BASE_URL>/api/auth/callback/google`
+- [x] Usuário que esqueceu a senha recupera acesso sozinho, por e-mail — fluxo verificado de ponta
+      a ponta em 08/07/2026 (pedido → link → nova senha vale, antiga rejeitada). Provedor: Resend
+      (`RESEND_API_KEY`); sem a chave, o link é logado no console (só dev)
+- [x] A landing responde as objeções de confiança mais prováveis do público-alvo antes da seção de
+      preços — FAQ com 5 perguntas; também entregues: SEO/OG/Twitter/JSON-LD (com og.png), matriz
+      comparativa de planos e CTA do Empresarial apontando para contato comercial (mailto — trocar
+      por formulário/agendamento quando existir e-mail de domínio próprio)
 
 ---
 
