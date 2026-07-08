@@ -112,6 +112,16 @@ export default defineEventHandler(async (event) => {
   // ── Pagamento confirmado → credita o ciclo ──────────────────────────────────
   if (stripeEvent.type === 'invoice.paid') {
     const invoice = stripeEvent.data.object
+
+    // Só faturas de assinatura nova ou renovação creditam o ciclo. A fatura
+    // proporcional de troca de plano (subscription_update) é tratada pelo
+    // endpoint de migração, que credita apenas a DIFERENÇA — creditar aqui
+    // permitiria upgrade no fim do ciclo pagando centavos por um ciclo cheio.
+    const billingReason = (invoice as unknown as { billing_reason?: string }).billing_reason
+    if (billingReason && billingReason !== 'subscription_create' && billingReason !== 'subscription_cycle') {
+      return { received: true }
+    }
+
     const providerSubscriptionId = invoiceSubscriptionId(invoice)
     if (!providerSubscriptionId) return { received: true }
 

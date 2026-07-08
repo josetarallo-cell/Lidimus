@@ -1,10 +1,14 @@
 <script setup lang="ts">
 useHead({ title: 'Assinatura — Lidimus' })
 
-const { data: assinaturaData } = await useFetch('/api/account/subscription')
+const { data: assinaturaData, refresh: refreshAssinatura } = await useFetch('/api/account/subscription')
 const { data: planos } = await useFetch('/api/billing/plans')
 
-const assinatura = computed(() => assinaturaData.value?.subscription ?? null)
+// Cancelada conta como "sem assinatura": o usuário vê a grade de planos e assina de novo
+const assinatura = computed(() => {
+  const sub = assinaturaData.value?.subscription
+  return sub && sub.status !== 'canceled' ? sub : null
+})
 
 const statusSelo: Record<string, { classe: string; texto: string }> = {
   trialing: { classe: 'ld-selo--neutro', texto: 'Período de teste' },
@@ -58,6 +62,49 @@ async function gerenciar() {
     carregando.value = ''
   }
 }
+
+// ── Migração de plano ──────────────────────────────────────────────────────
+const alterandoPlano = ref(false)
+const mudancaOk = ref('')
+
+const outrosPlanos = computed(() => {
+  if (!planos.value || !assinatura.value) return []
+  return planos.value.filter((p) => p.name !== assinatura.value!.planName)
+})
+
+function ehUpgrade(plano: { monthlyPriceCents: number }): boolean {
+  return plano.monthlyPriceCents > (assinatura.value?.monthlyPriceCents ?? 0)
+}
+
+async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: number }) {
+  const upgrade = ehUpgrade(plano)
+  const aviso = upgrade
+    ? `Mudar para o ${plano.name} agora? A diferença proporcional do ciclo é cobrada no cartão e os créditos adicionais entram na hora.`
+    : `Mudar para o ${plano.name}? A mudança vale a partir da próxima renovação — você mantém o preço e os créditos já pagos até lá.`
+  if (!confirm(aviso)) return
+
+  erro.value = ''
+  mudancaOk.value = ''
+  carregando.value = plano.id
+  try {
+    const resp = await $fetch<{ change: string; planName: string; effective: string }>(
+      '/api/billing/change-plan',
+      { method: 'POST', body: { planId: plano.id } },
+    )
+    mudancaOk.value =
+      resp.effective === 'agora'
+        ? `Plano alterado para ${resp.planName}. Os créditos adicionais já estão no seu saldo.`
+        : `Plano alterado para ${resp.planName} a partir da próxima renovação.`
+    alterandoPlano.value = false
+    await refreshAssinatura()
+  } catch (e: unknown) {
+    erro.value =
+      (e as { data?: { statusMessage?: string } })?.data?.statusMessage ??
+      'Não foi possível alterar o plano. Tente novamente.'
+  } finally {
+    carregando.value = ''
+  }
+}
 </script>
 
 <template>
@@ -77,29 +124,78 @@ async function gerenciar() {
       Pagamento cancelado — nenhuma cobrança foi feita.
     </p>
 
-    <section v-if="assinatura" class="ld-painel atual">
-      <div class="atual-info">
-        <p class="atual-rotulo">Plano atual</p>
-        <p class="atual-plano">{{ assinatura.planName }}</p>
-        <p class="atual-detalhe">
-          <span class="ld-selo" :class="statusSelo[assinatura.status]?.classe">
-            {{ statusSelo[assinatura.status]?.texto ?? assinatura.status }}
-          </span>
-          <span v-if="assinatura.currentPeriodEnd" class="atual-renovacao">
-            Renova em {{ dataFmt(assinatura.currentPeriodEnd) }}
-          </span>
+    <p v-if="mudancaOk" class="retorno retorno--ok" role="status">{{ mudancaOk }}</p>
+
+    <template v-if="assinatura">
+      <section class="ld-painel atual">
+        <div class="atual-info">
+          <p class="atual-rotulo">Plano atual</p>
+          <p class="atual-plano">{{ assinatura.planName }}</p>
+          <p class="atual-detalhe">
+            <span class="ld-selo" :class="statusSelo[assinatura.status]?.classe">
+              {{ statusSelo[assinatura.status]?.texto ?? assinatura.status }}
+            </span>
+            <span v-if="assinatura.currentPeriodEnd" class="atual-renovacao">
+              Renova em {{ dataFmt(assinatura.currentPeriodEnd) }}
+            </span>
+          </p>
+          <p class="atual-creditos">{{ assinatura.creditsPerCycle.toLocaleString('pt-BR') }} créditos por ciclo</p>
+        </div>
+        <div class="atual-acoes">
+          <button
+            type="button"
+            class="ld-btn ld-btn--primary"
+            :aria-expanded="alterandoPlano"
+            @click="alterandoPlano = !alterandoPlano"
+          >
+            Alterar plano
+          </button>
+          <button
+            type="button"
+            class="ld-btn ld-btn--secondary"
+            :disabled="carregando === 'portal'"
+            @click="gerenciar"
+          >
+            {{ carregando === 'portal' ? 'Abrindo…' : 'Gerenciar assinatura' }}
+          </button>
+        </div>
+      </section>
+
+      <section v-if="alterandoPlano" class="ld-painel migracao">
+        <h2 class="migracao-titulo">Alterar plano</h2>
+        <p class="migracao-regras">
+          <strong>Upgrade</strong> vale na hora: a diferença proporcional do ciclo é cobrada no
+          cartão e os créditos adicionais entram imediatamente.
+          <strong>Downgrade</strong> vale na próxima renovação: você mantém o preço e os créditos
+          já pagos até lá, sem cobrança nem estorno.
         </p>
-        <p class="atual-creditos">{{ assinatura.creditsPerCycle.toLocaleString('pt-BR') }} créditos por ciclo</p>
-      </div>
-      <button
-        type="button"
-        class="ld-btn ld-btn--secondary"
-        :disabled="carregando === 'portal'"
-        @click="gerenciar"
-      >
-        {{ carregando === 'portal' ? 'Abrindo…' : 'Gerenciar assinatura' }}
-      </button>
-    </section>
+        <div class="migracao-opcoes">
+          <article v-for="plano in outrosPlanos" :key="plano.id" class="migracao-opcao">
+            <div class="migracao-opcao-info">
+              <p class="migracao-opcao-nome">
+                {{ plano.name }}
+                <span class="ld-selo" :class="ehUpgrade(plano) ? 'ld-selo--verde' : 'ld-selo--neutro'">
+                  {{ ehUpgrade(plano) ? 'Upgrade' : 'Downgrade' }}
+                </span>
+              </p>
+              <p class="migracao-opcao-detalhe">
+                {{ precoFmt(plano.monthlyPriceCents) }}/mês ·
+                {{ plano.creditsPerCycle.toLocaleString('pt-BR') }} créditos/mês
+              </p>
+            </div>
+            <button
+              type="button"
+              class="ld-btn ld-btn--sm"
+              :class="ehUpgrade(plano) ? 'ld-btn--primary' : 'ld-btn--secondary'"
+              :disabled="carregando === plano.id"
+              @click="mudarPlano(plano)"
+            >
+              {{ carregando === plano.id ? 'Alterando…' : `Mudar para ${plano.name}` }}
+            </button>
+          </article>
+        </div>
+      </section>
+    </template>
 
     <section v-else>
       <div class="escolha-cabecalho">
@@ -220,6 +316,58 @@ async function gerenciar() {
 .atual-creditos {
   margin: 0;
   font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+}
+.atual-acoes {
+  display: flex;
+  gap: var(--ld-space-sm);
+  flex-wrap: wrap;
+}
+
+.migracao {
+  margin-top: var(--ld-space-lg);
+  padding: var(--ld-space-lg);
+}
+.migracao-titulo {
+  margin: 0 0 var(--ld-space-xs);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.migracao-regras {
+  margin: 0 0 var(--ld-space-lg);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ld-tinta-suave);
+  max-width: 66ch;
+}
+.migracao-opcoes {
+  display: flex;
+  flex-direction: column;
+}
+.migracao-opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+  flex-wrap: wrap;
+  padding: var(--ld-space-md) 0;
+}
+.migracao-opcao + .migracao-opcao {
+  border-top: 1px solid var(--ld-filete);
+}
+.migracao-opcao-nome {
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+.migracao-opcao-detalhe {
+  margin: 0;
+  font-size: 0.875rem;
   color: var(--ld-tinta-suave);
 }
 

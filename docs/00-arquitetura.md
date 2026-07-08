@@ -77,7 +77,17 @@ Monitoramento: página `/admin/queues` no app web.
 - Custo por análise: matrícula 20, memorial KML 50, verificação de PDF 5 (`packages/db/src/credits.ts`). Cadastro concede 100 créditos.
 - Upload sem saldo → 402, sem criar job. O débito (`consumption`) entra na mesma transação que cria o job; job que termina em `error` recebe `refund` automático e idempotente (índice único parcial), tanto pelo callback do n8n quanto pelo handler `failed` dos workers.
 - Stripe (checkout de assinatura, Customer Portal e webhook em `/api/webhooks/stripe`): preços enviados inline a partir da tabela `plans` — não é preciso cadastrar produtos no dashboard. `invoice.paid` credita `credits_per_cycle` (×12 no ciclo anual) com `provider_ref` único para reenvios não creditarem duas vezes.
-- Páginas: `/conta` (perfil/senha/orgs), `/conta/creditos` (saldo + histórico), `/conta/assinatura` (planos/portal); admin: `/admin/clientes` (saldo, conceder créditos, suspender) e `/admin/faturamento` (MRR, distribuição).
+- Páginas: `/conta` (perfil/senha/orgs), `/conta/creditos` (saldo + histórico), `/conta/assinatura` (planos/portal/migração); admin: `/admin/clientes` (saldo, conceder créditos, suspender) e `/admin/faturamento` (MRR, distribuição).
+- **Migração de plano** (`/api/billing/change-plan`, botão "Alterar plano" em `/conta/assinatura`):
+  **upgrade** vale na hora — cobra a diferença proporcional do ciclo (`proration_behavior:
+  always_invoice`) e credita imediatamente a diferença de créditos (novo − atual, ×12 no anual);
+  **downgrade** vale na próxima renovação — `proration_behavior: none`, sem cobrança/estorno, o
+  usuário mantém preço e créditos do ciclo pago. O ciclo (mensal/anual) é preservado na troca.
+  Antiabuso: o webhook só credita faturas `subscription_create`/`subscription_cycle` — a fatura
+  proporcional do upgrade (`subscription_update`) não credita ciclo cheio (senão upgrade no fim do
+  ciclo pagaria centavos por milhares de créditos); a diferença é creditada pelo próprio endpoint,
+  com `provider_ref` idempotente. Assinatura cancelada volta a ver a grade de planos para assinar
+  de novo.
 
 ## Variáveis de ambiente (resumo)
 
