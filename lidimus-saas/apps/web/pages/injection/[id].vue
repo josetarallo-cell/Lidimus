@@ -136,9 +136,9 @@ function exportarPdf() {
       </footer>
     </article>
 
-    <details v-if="result" class="depuracao print-hidden">
-      <summary>Relatório completo da varredura (JSON)</summary>
-      <pre>{{ JSON.stringify(job?.result, null, 2) }}</pre>
+    <details v-if="result?.fullText" class="depuracao print-hidden">
+      <summary>Texto completo do documento</summary>
+      <pre>{{ result.fullText }}</pre>
     </details>
   </div>
 </template>

@@ -17,13 +17,46 @@ const stageLabel: Record<string, string> = {
   doc: 'Montagem do parecer',
 }
 
-type Job = { id: string; type: string; status: string; stage?: string | null; createdAt: string }
+type Job = {
+  id: string
+  type: string
+  status: string
+  stage?: string | null
+  result?: Record<string, any> | null
+  createdAt: string
+}
 
 function statusSelo(job: Job): { classe: string; texto: string } {
   if (job.status === 'done') return { classe: 'ld-selo--verde', texto: 'Concluído' }
   if (job.status === 'error') return { classe: 'ld-selo--carimbo', texto: 'Falhou' }
   const etapa = job.stage ? stageLabel[job.stage] ?? null : null
   return { classe: 'ld-selo--neutro', texto: etapa ? `Processando · ${etapa}` : 'Processando' }
+}
+
+// Risco só se aplica a Matrículas e Detector — Memorial Descritivo (kml) não avalia risco
+function riscoInfo(job: Job): { classe: string; texto: string } | null {
+  if (job.type === 'kml') return null
+  if (job.status !== 'done') return { classe: 'ld-selo--neutro', texto: '—' }
+
+  if (job.type === 'injection') {
+    const r = String(job.result?.risk_level ?? '').toLowerCase()
+    if (r === 'high') return { classe: 'ld-selo--carimbo', texto: 'Alto' }
+    if (r === 'medium') return { classe: 'ld-selo--ocre', texto: 'Médio' }
+    if (r === 'low') return { classe: 'ld-selo--verde', texto: 'Baixo' }
+    return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
+  }
+
+  if (job.type === 'matricula') {
+    const r = String(
+      job.result?.documento?.cabecalho?.classificacao_risco ?? job.result?.classificacao_risco ?? '',
+    ).toLowerCase()
+    if (r.startsWith('baix')) return { classe: 'ld-selo--verde', texto: 'Baixo' }
+    if (r.startsWith('alt')) return { classe: 'ld-selo--carimbo', texto: 'Alto' }
+    if (r) return { classe: 'ld-selo--ocre', texto: 'Médio' }
+    return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
+  }
+
+  return null
 }
 
 function rota(job: Job): string {
@@ -79,6 +112,7 @@ onMounted(() => {
             <tr>
               <th scope="col">Tipo</th>
               <th scope="col">Status</th>
+              <th scope="col">Risco</th>
               <th scope="col">Criado em</th>
               <th scope="col"><span class="sr-only">Ações</span></th>
             </tr>
@@ -88,6 +122,12 @@ onMounted(() => {
               <td class="celula-tipo">{{ typeLabel[job.type] ?? job.type }}</td>
               <td>
                 <span class="ld-selo" :class="statusSelo(job).classe">{{ statusSelo(job).texto }}</span>
+              </td>
+              <td>
+                <span v-if="riscoInfo(job)" class="ld-selo" :class="riscoInfo(job)!.classe">
+                  {{ riscoInfo(job)!.texto }}
+                </span>
+                <span v-else class="celula-na">N/A</span>
               </td>
               <td class="celula-data">{{ dataFmt(job.createdAt) }}</td>
               <td class="celula-acao">
@@ -232,6 +272,10 @@ onMounted(() => {
 .celula-acao {
   text-align: right;
   white-space: nowrap;
+}
+.celula-na {
+  color: var(--ld-tinta-suave);
+  font-size: 0.875rem;
 }
 
 .sr-only {

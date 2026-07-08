@@ -11,6 +11,7 @@ export async function getJobForUser(db: Db, jobId: string, userId: string) {
       status: jobs.status,
       stage: jobs.stage,
       inputMeta: jobs.inputMeta,
+      stageData: jobs.stageData,
       result: jobs.result,
       errorMessage: jobs.errorMessage,
       createdAt: jobs.createdAt,

@@ -34,6 +34,11 @@ const doc = computed(() => {
   return result?.documento ?? null
 })
 
+const textoOcr = computed(() => {
+  const stageData = job.value?.stageData as Record<string, any> | undefined
+  return stageData?.ocr?.texto_ocr ?? null
+})
+
 const processando = computed(
   () => !!job.value && job.value.status !== 'done' && job.value.status !== 'error',
 )
@@ -388,10 +393,10 @@ function exportarPdf() {
       <pre>{{ JSON.stringify(job.result, null, 2) }}</pre>
     </div>
 
-    <!-- JSON para depuração -->
-    <details v-if="doc" class="depuracao print-hidden">
-      <summary>Dados completos da análise (JSON)</summary>
-      <pre>{{ JSON.stringify(job?.result, null, 2) }}</pre>
+    <!-- Texto OCR completo -->
+    <details v-if="textoOcr" class="depuracao print-hidden">
+      <summary>Texto completo do documento</summary>
+      <pre>{{ textoOcr }}</pre>
     </details>
   </div>
 </template>
