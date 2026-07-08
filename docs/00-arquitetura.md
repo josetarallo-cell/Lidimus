@@ -104,3 +104,45 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 - `web`: endpoint `GET /api/health` (checa Postgres com `select 1` e Redis com `ping`), usado pelo `healthcheck` do compose e pelo `HEALTHCHECK` do Dockerfile.
 - `worker`: sem porta HTTP — o processo toca um arquivo de heartbeat a cada 15 s (`WORKER_HEARTBEAT_PATH`, padrão `/tmp/worker-heartbeat`) e `packages/workers/healthcheck.js` valida que o arquivo foi tocado há menos de 60 s.
 - `docker compose ps` deve mostrar `healthy` para `postgres`, `redis`, `web` e `worker`.
+
+## Observabilidade — rastreamento de erros (Sentry)
+
+**Propósito.** Healthcheck diz se o processo está vivo; o Sentry diz **o que quebrou e por quê**.
+Sem ele, um erro 500 no callback do n8n ou um worker falhando em silêncio só é percebido quando um
+cliente reclama — caso real: o bug do `` no callback (jobs presos em `processing`) só foi
+descoberto olhando manualmente uma execução no n8n; com o Sentry ativo, teria virado alerta por
+e-mail com stack trace no instante da primeira ocorrência.
+
+**Como funciona no Lidimus.** Integração via `@sentry/node`, ativada apenas quando `SENTRY_DSN`
+existe no ambiente (sem a variável, nada é inicializado e nenhum dado sai da máquina):
+
+- `web` (`apps/web/server/plugins/sentry.ts`): captura erros do servidor via hook `error` do Nitro.
+  Erros 4xx são ignorados de propósito — 401/402/413/429 são regras de negócio funcionando, não
+  defeitos; só falha real (5xx/exceção) vira evento.
+- `workers` (`packages/workers/src/index.ts`): captura jobs que falharam com os retries esgotados
+  (com nome da fila e `jobId` no contexto), erros de infraestrutura dos workers (ex.: Redis fora)
+  e `unhandledRejection`/`uncaughtException` do processo.
+- Cada evento carrega stack trace, rota/método (web) ou fila/job (worker) e o ambiente
+  (`SENTRY_ENVIRONMENT`, padrão `NODE_ENV`).
+
+**Plano em uso:** conta gratuita do sentry.io (~5 mil eventos/mês, 1 usuário) — suficiente até o
+produto ter volume real. O plano pago (~US$ 26/mês) só se justifica com mais eventos ou mais
+membros no time.
+
+### Substituição por GlitchTip (ou Bugsink)
+
+O GlitchTip é open-source e **fala o protocolo do Sentry** — o `@sentry/node` já instalado funciona
+sem mudar uma linha de código; migrar é trocar o valor de `SENTRY_DSN` no `.env` e recriar os
+containers. O mesmo vale para o Bugsink (self-hosted minimalista, 1 container).
+
+| | Sentry.io (atual) | GlitchTip self-hosted |
+|---|---|---|
+| Custo | R$ 0 até ~5k eventos/mês; ~US$ 26/mês acima | só recursos da VPS (~1 GB RAM: web + worker + Postgres próprios) |
+| Setup/manutenção | zero — SaaS | instalar, atualizar, fazer backup e monitorar você mesmo |
+| Dados | nos servidores do Sentry (EUA) | na sua VPS — relevante se stack traces puderem conter dado sensível |
+| Recursos | mais completo (release tracking, performance, replays) | essencial de captura de erros e alertas — suficiente para o caso do Lidimus |
+| Risco | mudança de preço/limites do SaaS | você é o responsável pela disponibilidade da ferramenta que vigia as outras |
+
+**Quando migrar:** se o tier gratuito estourar com frequência, se surgir exigência de manter dados
+de erro em infraestrutura própria, ou se o custo do plano pago não se justificar. Até lá, o SaaS
+gratuito é a opção de menor atrito.

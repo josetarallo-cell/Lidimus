@@ -296,9 +296,10 @@ em produção.
       200, zero timeouts, conexões do Postgres estáveis em 12 (pool segurou). Equivale a mais de
       1000 usuários reais com polling de 3s — e o polling virou SSE (push em <1s), reduzindo a
       carga base
-- [ ] Erro de worker aparece em uma ferramenta de observabilidade — código pronto (Sentry em web e
-      workers, ativado por `SENTRY_DSN`); falta criar a conta/projeto no Sentry (ou self-hosted) e
-      preencher o DSN no `.env`/`.env.prod` — decisão de custo do negócio
+- [x] Erro de worker aparece em uma ferramenta de observabilidade — conta gratuita do sentry.io
+      criada em 08/07/2026, `SENTRY_DSN` no `.env` e captura testada com um 500 real. Detalhes,
+      e o plano de substituição por GlitchTip se o custo virar problema, em
+      [00-arquitetura.md](00-arquitetura.md#observabilidade--rastreamento-de-erros-sentry)
 
 ---
 
