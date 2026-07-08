@@ -87,7 +87,36 @@ DATABASE_URL=<url de produção> pnpm --filter db migrate
 
 `postgres` e `redis` normalmente não precisam ser recriados num deploy — só `web`/`worker` mudam de imagem.
 
-## 6. Reverter um deploy problemático
+## 6. Escalar (Fase 3)
+
+**Workers:** BullMQ suporta múltiplos consumidores na mesma fila sem duplicar jobs. Em `.env.prod`:
+
+```bash
+WORKER_REPLICAS=3          # réplicas do serviço worker (deploy.replicas do compose)
+WORKER_CONCURRENCY=5       # opcional: override global da concorrência por processo
+                           # (defaults por fila: injection/kml 10, ocr/doc 5, juridico 3)
+```
+
+⚠️ Antes de aumentar a vazão total (réplicas × concorrência), confirme o throughput que o n8n
+externo sustenta — o gargalo apenas muda de lugar.
+
+**PgBouncer:** cada réplica de `web`/`worker` abre um pool próprio de 10 conexões no Postgres.
+A partir de ~3 réplicas, ative o PgBouncer (já definido no compose de prod, modo transaction):
+
+1. Em `.env.prod`, troque o host do banco e desligue prepared statements (obrigatório no modo
+   transaction — o driver `postgres` os usa por padrão):
+   ```bash
+   DATABASE_URL=postgresql://<user>:<senha>@pgbouncer:5432/<db>
+   DB_DISABLE_PREPARE=true
+   ```
+2. `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d pgbouncer web worker`
+
+**Web (N réplicas):** as sessões vivem no Postgres (better-auth) — o `web` é stateless e pode
+rodar com múltiplas réplicas atrás de um load balancer (nginx/Caddy/Traefik com `upstream` para
+as portas de cada réplica). Nesse caso remova o mapeamento fixo `3000:3000` e deixe o proxy
+resolver os containers pelo nome do serviço na rede do compose.
+
+## 7. Reverter um deploy problemático
 
 Como as imagens são taggeadas só como `:latest`, não há rollback automático por tag. Antes de sobrescrever `:latest`, marque a imagem atual:
 

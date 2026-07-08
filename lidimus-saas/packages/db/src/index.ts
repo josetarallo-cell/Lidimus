@@ -14,7 +14,10 @@ export * from './credits.ts'
 export { schema }
 
 export function createDb(connectionString: string) {
-  const client = postgres(connectionString)
+  // Atrás de PgBouncer em modo transaction, prepared statements quebram —
+  // definir DB_DISABLE_PREPARE=true junto com o PgBouncer (ver 20-deploy.md)
+  const prepare = process.env.DB_DISABLE_PREPARE === 'true' ? false : true
+  const client = postgres(connectionString, { prepare })
   return drizzle(client, { schema })
 }
 

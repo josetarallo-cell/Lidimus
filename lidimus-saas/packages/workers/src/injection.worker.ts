@@ -31,7 +31,7 @@ export function startInjectionWorker(
     },
     {
       connection: { url: redisUrl },
-      concurrency: 10,
+      concurrency: Number(process.env.WORKER_CONCURRENCY ?? 10),
     },
   )
 

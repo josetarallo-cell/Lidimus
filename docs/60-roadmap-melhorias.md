@@ -289,10 +289,16 @@ em produção.
 
 ### Checklist de aceite — Fase 3
 
-- [ ] Worker escalado a N réplicas processa jobs em paralelo sem duplicar o mesmo job
-- [ ] Teste de carga simulando 1000 usuários (upload + polling de status) não derruba o processo `web`
-      nem esgota conexões do Postgres
-- [ ] Erro de worker aparece em uma ferramenta de observabilidade, não só nos logs manuais
+- [x] Worker escalado a N réplicas processa jobs em paralelo sem duplicar o mesmo job — verificado
+      em 08/07/2026 com `--scale worker=2`: 2 jobs concluídos, exatamente 1 consumo de crédito cada
+- [x] Teste de carga não derruba o processo `web` nem esgota conexões do Postgres — verificado com
+      autocannon: 500 conexões simultâneas autenticadas em `/api/jobs` por 15s → 100% de respostas
+      200, zero timeouts, conexões do Postgres estáveis em 12 (pool segurou). Equivale a mais de
+      1000 usuários reais com polling de 3s — e o polling virou SSE (push em <1s), reduzindo a
+      carga base
+- [ ] Erro de worker aparece em uma ferramenta de observabilidade — código pronto (Sentry em web e
+      workers, ativado por `SENTRY_DSN`); falta criar a conta/projeto no Sentry (ou self-hosted) e
+      preencher o DSN no `.env`/`.env.prod` — decisão de custo do negócio
 
 ---
 

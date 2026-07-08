@@ -38,7 +38,7 @@ export function startMatriculaJuridicoWorker(
     {
       connection: { url: redisUrl },
       // Etapa com chamadas LLM — mais lenta e cara, concorrência menor
-      concurrency: 3,
+      concurrency: Number(process.env.WORKER_CONCURRENCY ?? 3),
     },
   )
 

@@ -43,7 +43,8 @@ Usuário                Web (Nuxt)                 GCS          Postgres      Re
   │                       ├─ cria job + job_file ─────────────────▶│              │               │                     │
   │                       ├─ enfileira ───────────────────────────────────────────▶               │                     │
   │◀── redireciona p/ página do job                │               │              │               │                     │
-  │   (polling 3s em /api/jobs/:id)                │               │              ├── consome ───▶│                     │
+  │   (SSE /api/jobs/:id/stream via Redis pub/sub; │               │              ├── consome ───▶│                     │
+  │    fallback: polling 3s)                       │               │              │               │                     │
   │                       │                        │               │              │               ├─ POST webhook ─────▶│
   │                       │                        │               │              │               │  (fileUrl,          │
   │                       │                        │◀── n8n baixa o arquivo via fileUrl ──────────────  callbackUrl)    │
@@ -92,6 +93,9 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 | `GOOGLE_CLOUD_SA_KEY_JSON`, `GCS_BUCKET_NAME` | armazenamento de arquivos |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` (padrão 20), `MAX_UPLOAD_SIZE_MB` (padrão 25) | limites por organização nos endpoints de upload (429/413) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | pagamentos (Fase 2) — chaves de teste `sk_test_...`/`whsec_...` até existir conta definitiva; sem elas o app funciona e só o checkout responde 503 |
+| `WORKER_CONCURRENCY`, `WORKER_REPLICAS` | escala dos workers (Fase 3) — ver [20-deploy.md](20-deploy.md) |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | rastreamento de erros em web e workers (Fase 3) — inativo se vazio |
+| `DB_DISABLE_PREPARE` | `true` quando atrás de PgBouncer em modo transaction |
 
 ## Healthchecks
 

@@ -13,6 +13,7 @@
     "@lidimus/db": "workspace:*",
     "@lidimus/queue": "workspace:*",
     "@nuxt/ui": "^3.0.0",
+    "@sentry/node": "^10.63.0",
     "better-auth": "^1.2.0",
     "bullmq": "^5.12.0",
     "drizzle-orm": "^0.41.0",

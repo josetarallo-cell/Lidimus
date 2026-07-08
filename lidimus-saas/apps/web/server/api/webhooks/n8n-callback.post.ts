@@ -4,6 +4,7 @@ import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
 import { jobs, refundJobCredits } from '@lidimus/db'
+import { publishJobEvent } from '../../lib/jobEvents'
 import { createHmac, timingSafeEqual } from 'crypto'
 
 const bodySchema = z.object({
@@ -66,6 +67,7 @@ export default defineEventHandler(async (event) => {
       })
       .where(eq(jobs.id, body.jobId))
     await refundJobCredits(db, body.jobId)
+    await publishJobEvent(useQueues().connection, body.jobId)
     return { ok: true }
   }
 
@@ -92,6 +94,7 @@ export default defineEventHandler(async (event) => {
           })
           .where(eq(jobs.id, body.jobId))
         await refundJobCredits(db, body.jobId)
+        await publishJobEvent(useQueues().connection, body.jobId)
         return { ok: true }
       }
 
@@ -108,6 +111,7 @@ export default defineEventHandler(async (event) => {
         totalPaginas: typeof result.total_paginas === 'number' ? result.total_paginas : undefined,
         params,
       })
+      await publishJobEvent(useQueues().connection, body.jobId)
       return { ok: true }
     }
 
@@ -127,6 +131,7 @@ export default defineEventHandler(async (event) => {
           params,
         },
       })
+      await publishJobEvent(useQueues().connection, body.jobId)
       return { ok: true }
     }
 
@@ -141,6 +146,7 @@ export default defineEventHandler(async (event) => {
         completedAt: new Date(),
       })
       .where(eq(jobs.id, body.jobId))
+    await publishJobEvent(useQueues().connection, body.jobId)
     return { ok: true }
   }
 
@@ -152,5 +158,6 @@ export default defineEventHandler(async (event) => {
 
   await softDeleteJobFile(db, body.jobId)
 
+  await publishJobEvent(useQueues().connection, body.jobId)
   return { ok: true }
 })

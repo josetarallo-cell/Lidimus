@@ -32,7 +32,7 @@ export function startMatriculaDocWorker(
     },
     {
       connection: { url: redisUrl },
-      concurrency: 5,
+      concurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),
     },
   )
 
