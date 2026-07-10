@@ -20,6 +20,49 @@ const emitidoEm = computed(() => {
     : '—'
 })
 
+// Croqui do terreno: desenha o polígono real a partir das coordenadas UTM
+// já calculadas no memorial (utm_e/utm_n são planas, então plotam direto sem
+// projeção esférica) — mesmo padrão visual do "mapa" da landing page.
+const CROQUI_VIEWBOX = { w: 160, h: 120, pad: 16 }
+
+const croqui = computed(() => {
+  const vertices = result.value?.vertices as
+    | Array<{ utm_e: number; utm_n: number; label?: string }>
+    | undefined
+  if (!vertices?.length) return null
+  if (vertices.some((v) => typeof v.utm_e !== 'number' || typeof v.utm_n !== 'number')) return null
+
+  const xs = vertices.map((v) => v.utm_e)
+  const ys = vertices.map((v) => v.utm_n)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const spanX = maxX - minX || 1
+  const spanY = maxY - minY || 1
+
+  const { w, h, pad } = CROQUI_VIEWBOX
+  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanY)
+  const offX = (w - spanX * scale) / 2
+  const offY = (h - spanY * scale) / 2
+
+  const pontos = vertices.map((v) => ({
+    x: offX + (v.utm_e - minX) * scale,
+    // eixo Y invertido: norte (utm_n maior) fica no topo, como num mapa
+    y: h - (offY + (v.utm_n - minY) * scale),
+  }))
+
+  return {
+    pontos,
+    pontosAttr: pontos.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
+  }
+})
+
+const arquivoOriginal = computed(() => {
+  const meta = job.value?.inputMeta as Record<string, any> | undefined
+  return meta?.originalName ?? 'poligonal.kml'
+})
+
 const copiado = ref(false)
 async function copiarMemorial() {
   if (!result.value?.memorial_descritivo) return
@@ -105,22 +148,45 @@ function exportarPdf() {
         </div>
       </header>
 
-      <div class="prancha-titulo">
-        <h1>Memorial descritivo</h1>
-        <dl class="meta-grid">
-          <div v-if="result.area_m2">
-            <dt>Área</dt>
-            <dd class="dd-num">{{ Number(result.area_m2).toLocaleString('pt-BR') }} m²</dd>
-          </div>
-          <div v-if="result.perimetro_m">
-            <dt>Perímetro</dt>
-            <dd class="dd-num">{{ Number(result.perimetro_m).toLocaleString('pt-BR') }} m</dd>
-          </div>
-          <div v-if="result.vertices?.length">
-            <dt>Vértices</dt>
-            <dd class="dd-num">{{ result.vertices.length }}</dd>
-          </div>
-        </dl>
+      <div class="prancha-cabecalho-grade">
+        <div class="prancha-titulo">
+          <h1>Memorial descritivo</h1>
+          <p class="prancha-eyebrow">Identificação do imóvel</p>
+          <dl class="meta-grid">
+            <div v-if="result.area_m2">
+              <dt>Área</dt>
+              <dd class="dd-num">{{ Number(result.area_m2).toLocaleString('pt-BR') }} m²</dd>
+            </div>
+            <div v-if="result.perimetro_m">
+              <dt>Perímetro</dt>
+              <dd class="dd-num">{{ Number(result.perimetro_m).toLocaleString('pt-BR') }} m</dd>
+            </div>
+            <div v-if="result.vertices?.length">
+              <dt>Vértices</dt>
+              <dd class="dd-num">{{ result.vertices.length }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div v-if="croqui" class="croqui-mapa" aria-hidden="true">
+          <svg viewBox="0 0 160 120" width="180" height="132">
+            <polygon
+              :points="croqui.pontosAttr"
+              fill="rgba(228,243,234,0.14)"
+              stroke="#8FC3A8"
+              stroke-width="1.5"
+            />
+            <circle
+              v-for="(p, i) in croqui.pontos"
+              :key="i"
+              :cx="p.x"
+              :cy="p.y"
+              r="2.5"
+              fill="#8FC3A8"
+            />
+          </svg>
+          <span class="croqui-arquivo">{{ arquivoOriginal }}</span>
+        </div>
       </div>
 
       <section class="secao" aria-labelledby="sec-memorial">
@@ -275,8 +341,17 @@ function exportarPdf() {
   justify-content: center;
 }
 
-.prancha-titulo {
+.prancha-cabecalho-grade {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ld-space-xl);
   padding: var(--ld-space-xl) var(--ld-space-xl) var(--ld-space-lg);
+  flex-wrap: wrap;
+}
+.prancha-titulo {
+  flex: 1 1 320px;
+  min-width: 0;
 }
 .prancha-titulo h1 {
   margin: 0;
@@ -284,6 +359,41 @@ function exportarPdf() {
   font-size: 1.75rem;
   font-weight: 600;
   line-height: 1.2;
+}
+.prancha-eyebrow {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ld-tinta-suave);
+}
+
+/* Croqui: o mesmo padrão visual do "mapa" da landing page, em escala de relatório */
+.croqui-mapa {
+  position: relative;
+  flex: none;
+  width: 200px;
+  min-height: 148px;
+  background: var(--ld-verde-profundo);
+  border-radius: var(--ld-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: linear-gradient(rgba(228, 243, 234, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(228, 243, 234, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.croqui-mapa svg {
+  max-width: 100%;
+  height: auto;
+}
+.croqui-arquivo {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  font-family: var(--ld-font-mono);
+  font-size: 0.6875rem;
+  color: #8fc3a8;
 }
 .meta-grid {
   display: grid;
@@ -374,13 +484,16 @@ function exportarPdf() {
 }
 
 @media (max-width: 640px) {
-  .prancha-titulo,
+  .prancha-cabecalho-grade,
   .secao {
     padding-left: var(--ld-space-md);
     padding-right: var(--ld-space-md);
   }
-  .prancha-titulo {
+  .prancha-cabecalho-grade {
     padding-top: var(--ld-space-lg);
+  }
+  .croqui-mapa {
+    width: 100%;
   }
   .carimbo-cell--marca {
     width: 100%;
@@ -408,7 +521,8 @@ function exportarPdf() {
     font-size: 12px;
   }
   #documento-memorial .carimbo,
-  #documento-memorial .ld-selo {
+  #documento-memorial .ld-selo,
+  #documento-memorial .croqui-mapa {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
