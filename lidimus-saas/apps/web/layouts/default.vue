@@ -23,6 +23,15 @@
     <main id="conteudo" class="app-main">
       <slot />
     </main>
+
+    <footer class="app-footer">
+      <p>
+        Precisa de ajuda?
+        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="app-footer-link">
+          Fale com o suporte
+        </a>
+      </p>
+    </footer>
   </div>
 </template>
 
@@ -137,8 +146,28 @@
   }
 }
 
+.app-footer {
+  border-top: 1px solid var(--ld-filete);
+  background: var(--ld-bancada);
+}
+.app-footer p {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+.app-footer-link {
+  color: var(--ld-verde);
+  font-weight: 500;
+}
+.app-footer-link:hover {
+  color: var(--ld-verde-profundo);
+}
+
 @media print {
   .app-header,
+  .app-footer,
   .skip-link {
     display: none;
   }

@@ -117,7 +117,8 @@ function exportarPdf() {
       <p class="falha-msg">{{ job.errorMessage ?? 'Ocorreu um erro inesperado durante o processamento.' }}</p>
       <p class="falha-acao">
         Tente <NuxtLink to="/kml" class="falha-link">enviar o KML novamente</NuxtLink> — se o
-        problema persistir, fale com o suporte.
+        problema persistir,
+        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="falha-link">fale com o suporte</a>.
       </p>
     </div>
 
@@ -360,11 +361,11 @@ function exportarPdf() {
   font-weight: 600;
   line-height: 1.2;
 }
+/* Caixa normal: uppercase é exclusivo do bloco-carimbo (DESIGN.md) */
 .prancha-eyebrow {
   margin: 6px 0 0;
   font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 500;
   color: var(--ld-tinta-suave);
 }
 
@@ -402,9 +403,8 @@ function exportarPdf() {
   margin: var(--ld-space-lg) 0 0;
 }
 .meta-grid dt {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--ld-tinta-suave);
   margin-bottom: 2px;
 }
@@ -469,10 +469,14 @@ function exportarPdf() {
   padding: var(--ld-space-md);
   overflow: auto;
   max-height: 24rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .sr-only {
   position: absolute;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
   padding: 0;

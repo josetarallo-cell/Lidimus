@@ -77,7 +77,8 @@ function exportarPdf() {
       <p class="falha-msg">{{ job.errorMessage ?? 'Ocorreu um erro inesperado durante o processamento.' }}</p>
       <p class="falha-acao">
         Tente <NuxtLink to="/injection" class="falha-link">enviar o PDF novamente</NuxtLink> — se
-        o problema persistir, fale com o suporte.
+        o problema persistir,
+        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="falha-link">fale com o suporte</a>.
       </p>
     </div>
 
@@ -358,6 +359,9 @@ function exportarPdf() {
   padding: var(--ld-space-md);
   overflow: auto;
   max-height: 24rem;
+  /* Texto extraído tem linhas longas — quebrar em vez de rolar na horizontal */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {

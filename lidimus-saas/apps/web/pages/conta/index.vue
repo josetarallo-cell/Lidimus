@@ -209,7 +209,7 @@ async function trocarSenha() {
 .senha-erro {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--ld-carimbo);
+  color: var(--ld-carimbo-tinta);
 }
 .senha-ok {
   margin: 0;

@@ -15,6 +15,10 @@ colors:
   carimbo-selo: "#FFEDEB"
   ocre-aviso: "#8A5F18"
   ocre-selo: "#FAF1DF"
+  verde-traco: "#8FC3A8"
+  verde-suave-escuro: "#BFD9CC"
+  verde-claro-escuro: "#D3E8DC"
+  cinza-rodape: "#B5BCB8"
 typography:
   display:
     fontFamily: "Besley, Georgia, serif"
@@ -136,6 +140,13 @@ Verde de papel de segurança e livro-razão, tinta quase-preta, e o vermelho da 
 - **Papel** (#F8FBF9 · `oklch(0.985 0.003 160)`): fundo do corpo. Off-white tingido ao verde da marca, não ao creme.
 - **Bancada** (#F1F4F2 · `oklch(0.965 0.005 160)`): segunda camada neutra — sidebars, cabeçalhos de tabela, painéis.
 - **Filete** (#D3D9D6 · `oklch(0.88 0.008 160)`): bordas de 1px, réguas de tabela, molduras de prancha.
+
+### Sobre superfícies escuras (verde-profundo e tinta)
+Rampa inversa para texto e grafismo sobre fundos escuros — landing (seções verde-profundo, rodapé), croqui/mapa do memorial:
+- **Verde-traço** (#8FC3A8): traços de polígono, marcadores de vértice e rótulos mono do croqui/mapa sobre verde-profundo.
+- **Verde-suave-escuro** (#BFD9CC): texto de apoio sobre verde-profundo.
+- **Verde-claro-escuro** (#D3E8DC): texto destacado sobre verde-profundo (parágrafo do CTA final).
+- **Cinza-rodapé** (#B5BCB8): texto e links secundários sobre tinta (rodapé da landing).
 
 ### Named Rules
 **A Regra do Carimbo.** O vermelho aparece somente onde existe risco jurídico real ou falha. Nunca decorativo, nunca em ícones neutros, nunca em contadores. Sua raridade É o alarme: se uma tela tem três vermelhos, dois estão errados.

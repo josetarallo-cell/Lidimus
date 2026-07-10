@@ -150,7 +150,8 @@ function exportarPdf() {
       <p class="falha-acao">
         Tente
         <NuxtLink to="/matriculas" class="falha-link">enviar a certidão novamente</NuxtLink>
-        — se o problema persistir, fale com o suporte.
+        — se o problema persistir,
+        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="falha-link">fale com o suporte</a>.
       </p>
     </div>
 
@@ -631,16 +632,13 @@ function exportarPdf() {
   padding-top: var(--ld-space-md);
 }
 .meta-grid dt {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--ld-tinta-suave);
   margin-bottom: 2px;
 }
 .dt-capitalize {
   text-transform: capitalize;
-  letter-spacing: normal;
-  font-size: 0.8125rem;
 }
 .meta-grid dd {
   margin: 0;
@@ -933,6 +931,8 @@ function exportarPdf() {
   padding: var(--ld-space-md);
   overflow: auto;
   max-height: 24rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .depuracao {
   margin-top: var(--ld-space-lg);
@@ -948,6 +948,8 @@ function exportarPdf() {
 
 .sr-only {
   position: absolute;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
   padding: 0;

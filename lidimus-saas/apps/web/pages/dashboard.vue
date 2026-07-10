@@ -66,7 +66,13 @@ function rota(job: Job): string {
 }
 
 function dataFmt(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  // timeZone fixo: sem ele, servidor (UTC) e navegador (BRT) formatam horas
+  // diferentes para o mesmo timestamp e o SSR gera hydration mismatch
+  return new Date(iso).toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'America/Sao_Paulo',
+  })
 }
 
 onMounted(() => {
@@ -280,6 +286,10 @@ onMounted(() => {
 
 .sr-only {
   position: absolute;
+  /* Ancorado em 0,0: sem left/top, o absolute fica na posição estática e um
+     sr-only dentro de tabela rolável estica o documento na horizontal */
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
   padding: 0;

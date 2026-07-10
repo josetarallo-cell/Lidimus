@@ -142,7 +142,6 @@ function classeContagem(status: string, value: number): string {
   gap: var(--ld-space-sm);
   font-size: 1.125rem;
   font-weight: 600;
-  font-family: var(--ld-font-mono);
 }
 .fila-indicador {
   width: 8px;
@@ -191,6 +190,5 @@ function classeContagem(status: string, value: number): string {
   margin-top: 2px;
   font-size: 0.75rem;
   color: var(--ld-tinta-suave);
-  font-family: var(--ld-font-mono);
 }
 </style>
