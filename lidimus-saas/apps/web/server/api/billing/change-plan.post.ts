@@ -4,6 +4,7 @@ import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
 import { requireAuth } from '../../lib/requireAuth'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { sendPlanChangedEmail } from '../../lib/subscriptionEmails'
 import { plans, subscriptions, creditTransactions } from '@lidimus/db'
 
 const bodySchema = z.object({
@@ -79,6 +80,7 @@ export default defineEventHandler(async (event) => {
 
   await db.update(subscriptions).set({ planId: newPlan.id }).where(eq(subscriptions.id, sub.id))
 
+  let creditsDelta = 0
   if (isUpgrade) {
     // Credita só a diferença do ciclo — a fatura proporcional é ignorada pelo
     // webhook (billing_reason subscription_update), então não há crédito em dobro
@@ -89,6 +91,7 @@ export default defineEventHandler(async (event) => {
       typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id ?? null
 
     if (delta > 0) {
+      creditsDelta = delta
       await db
         .insert(creditTransactions)
         .values({
@@ -100,6 +103,12 @@ export default defineEventHandler(async (event) => {
         .onConflictDoNothing({ target: creditTransactions.providerRef })
     }
   }
+
+  await sendPlanChangedEmail(user.email, user.name, {
+    planName: newPlan.name,
+    change: isUpgrade ? 'upgrade' : 'downgrade',
+    creditsDelta,
+  })
 
   return {
     ok: true,

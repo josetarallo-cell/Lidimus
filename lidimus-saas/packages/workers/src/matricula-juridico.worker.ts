@@ -1,9 +1,10 @@
 import { Worker } from 'bullmq'
 import { eq } from 'drizzle-orm'
+import type IORedis from 'ioredis'
 import type { Db } from '@lidimus/db'
 import { jobs, refundJobCredits } from '@lidimus/db'
 import type { MatriculaJuridicoJobPayload } from '@lidimus/queue'
-import { QUEUE_NAMES } from '@lidimus/queue'
+import { QUEUE_NAMES, publishJobEvent } from '@lidimus/queue'
 import { triggerN8nWebhook } from './lib/n8n.ts'
 
 export function startMatriculaJuridicoWorker(
@@ -12,6 +13,7 @@ export function startMatriculaJuridicoWorker(
   n8nWebhookUrl: string,
   callbackSecret: string,
   publicBaseUrl: string,
+  publisher: IORedis,
 ) {
   const worker = new Worker<MatriculaJuridicoJobPayload>(
     QUEUE_NAMES.MATRICULA_JURIDICO,
@@ -44,14 +46,21 @@ export function startMatriculaJuridicoWorker(
 
   worker.on('failed', async (job, err) => {
     if (!job) return
+    // 'failed' dispara a cada tentativa — só finaliza (completedAt + estorno)
+    // quando os retries acabaram; um retry ainda pode voltar para 'processing'
+    const finalAttempt = job.attemptsMade >= (job.opts.attempts ?? 1)
     await db
       .update(jobs)
-      .set({ status: 'error', errorMessage: `[juridico] ${err.message}` })
+      .set({
+        status: 'error',
+        errorMessage: `[juridico] ${err.message}`,
+        ...(finalAttempt ? { completedAt: new Date() } : {}),
+      })
       .where(eq(jobs.id, job.data.jobId))
-    // 'failed' dispara a cada tentativa — só estorna quando os retries acabaram
-    if (job.attemptsMade >= (job.opts.attempts ?? 1)) {
+    if (finalAttempt) {
       await refundJobCredits(db, job.data.jobId)
     }
+    await publishJobEvent(publisher, job.data.jobId)
   })
 
   return worker

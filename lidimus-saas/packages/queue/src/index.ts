@@ -70,6 +70,22 @@ export function createRedisConnection(url: string) {
   return new IORedis(url, { maxRetriesPerRequest: null })
 }
 
+// ─── Eventos de job (pub/sub) ─────────────────────────────────────────────────
+
+// Canal Redis por job — o payload não importa (o assinante relê o job no banco),
+// só o sinal de "algo mudou". Publicado a cada transição de status.
+export function jobEventsChannel(jobId: string): string {
+  return `job-events:${jobId}`
+}
+
+export async function publishJobEvent(redis: IORedis, jobId: string): Promise<void> {
+  try {
+    await redis.publish(jobEventsChannel(jobId), '1')
+  } catch {
+    // push é otimização — o fallback de polling/reconsulta cobre falha aqui
+  }
+}
+
 // ─── Factory de filas ─────────────────────────────────────────────────────────
 
 export function createQueues(redisUrl: string) {

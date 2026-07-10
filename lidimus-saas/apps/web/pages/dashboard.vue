@@ -1,8 +1,21 @@
 <script setup lang="ts">
 useHead({ title: 'Painel — Lidimus' })
 
-const { data: jobList, refresh } = await useFetch('/api/jobs')
+const PAGE_SIZE = 20
+const pagina = ref(1)
+
+const { data: jobData, refresh } = await useFetch('/api/jobs', {
+  query: computed(() => ({ limit: PAGE_SIZE, offset: (pagina.value - 1) * PAGE_SIZE })),
+})
 const { data: creditos } = await useFetch('/api/account/credits')
+
+const jobList = computed(() => jobData.value?.items ?? [])
+const totalPaginas = computed(() => Math.max(1, Math.ceil((jobData.value?.total ?? 0) / PAGE_SIZE)))
+
+// Se a página atual esvaziar (ex.: total diminuiu), recua para a última válida
+watch(totalPaginas, (t) => {
+  if (pagina.value > t) pagina.value = t
+})
 
 const typeLabel: Record<string, string> = {
   matricula: 'Matrícula',
@@ -104,7 +117,7 @@ onMounted(() => {
     <section class="ld-painel">
       <h2 class="tabela-titulo">Análises recentes</h2>
 
-      <div v-if="!jobList?.length" class="vazio">
+      <div v-if="!jobList.length" class="vazio">
         <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true">
           <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
           <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
@@ -149,6 +162,26 @@ onMounted(() => {
           </tbody>
         </table>
       </div>
+
+      <nav v-if="totalPaginas > 1" class="paginacao" aria-label="Paginação das análises">
+        <button
+          type="button"
+          class="ld-btn ld-btn--ghost ld-btn--sm"
+          :disabled="pagina <= 1"
+          @click="pagina--"
+        >
+          Anterior
+        </button>
+        <span class="paginacao-info">Página {{ pagina }} de {{ totalPaginas }}</span>
+        <button
+          type="button"
+          class="ld-btn ld-btn--ghost ld-btn--sm"
+          :disabled="pagina >= totalPaginas"
+          @click="pagina++"
+        >
+          Próxima
+        </button>
+      </nav>
     </section>
   </div>
 </template>
@@ -289,6 +322,20 @@ onMounted(() => {
 .celula-na {
   color: var(--ld-tinta-suave);
   font-size: 0.875rem;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ld-space-md);
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  border-top: 1px solid var(--ld-filete);
+}
+.paginacao-info {
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mobile: a tabela vira cards empilhados — nada fica escondido atrás de

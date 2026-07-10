@@ -2,6 +2,12 @@ import type Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
+import {
+  getOrgOwnerContact,
+  sendPaymentFailedEmail,
+  sendSubscriptionCanceledEmail,
+  sendSubscriptionRenewedEmail,
+} from '../../lib/subscriptionEmails'
 import { plans, subscriptions, creditTransactions } from '@lidimus/db'
 
 // Sincroniza assinaturas e credita compras a partir dos eventos do Stripe.
@@ -102,10 +108,53 @@ export default defineEventHandler(async (event) => {
     stripeEvent.type === 'customer.subscription.deleted'
   ) {
     const sub = stripeEvent.data.object
+    const newStatus = mapStatus(sub.status)
+
+    const [local] = await db
+      .select({
+        orgId: subscriptions.orgId,
+        status: subscriptions.status,
+        planId: subscriptions.planId,
+      })
+      .from(subscriptions)
+      .where(eq(subscriptions.providerSubscriptionId, sub.id))
+      .limit(1)
+
+    // Troca de plano feita fora do app (ex.: Customer Portal) muda o preço no
+    // Stripe sem passar pelo change-plan — reconcilia o planId local pelo preço
+    // do item, senão a próxima renovação creditaria a quantidade errada.
+    let reconciledPlanId: string | undefined
+    const price = sub.items?.data?.[0]?.price
+    if (local && stripeEvent.type === 'customer.subscription.updated' && price?.unit_amount != null) {
+      const allPlans = await db.select().from(plans)
+      const matches = allPlans.filter((p) =>
+        price.recurring?.interval === 'year'
+          ? p.annualPriceCents === price.unit_amount
+          : p.monthlyPriceCents === price.unit_amount,
+      )
+      if (matches.length === 1 && matches[0].id !== local.planId) {
+        reconciledPlanId = matches[0].id
+      }
+    }
+
     await db
       .update(subscriptions)
-      .set({ status: mapStatus(sub.status), currentPeriodEnd: periodEnd(sub) })
+      .set({
+        status: newStatus,
+        currentPeriodEnd: periodEnd(sub),
+        ...(reconciledPlanId ? { planId: reconciledPlanId } : {}),
+      })
       .where(eq(subscriptions.providerSubscriptionId, sub.id))
+
+    // Notifica só na transição (o status local ainda era o antigo) — reenvio
+    // do mesmo webhook não dispara e-mail duplicado
+    if (local && local.status !== newStatus) {
+      const owner = await getOrgOwnerContact(db, local.orgId)
+      if (owner) {
+        if (newStatus === 'past_due') await sendPaymentFailedEmail(owner.email, owner.name)
+        if (newStatus === 'canceled') await sendSubscriptionCanceledEmail(owner.email, owner.name)
+      }
+    }
     return { received: true }
   }
 
@@ -144,10 +193,23 @@ export default defineEventHandler(async (event) => {
     const delta = plan.creditsPerCycle * (cycle === 'anual' ? 12 : 1)
 
     // provider_ref UNIQUE + onConflictDoNothing = reenvio do webhook não credita duas vezes
-    await db
+    const inserted = await db
       .insert(creditTransactions)
       .values({ orgId, delta, reason: 'purchase', providerRef: invoice.id })
       .onConflictDoNothing({ target: creditTransactions.providerRef })
+      .returning({ id: creditTransactions.id })
+
+    // E-mail só na renovação (não no checkout, que já tem tela de sucesso) e só
+    // quando o crédito entrou agora — reenvio do webhook não duplica o aviso
+    if (billingReason === 'subscription_cycle' && inserted.length > 0) {
+      const owner = await getOrgOwnerContact(db, orgId)
+      if (owner) {
+        await sendSubscriptionRenewedEmail(owner.email, owner.name, {
+          planName: plan.name,
+          credits: delta,
+        })
+      }
+    }
 
     return { received: true }
   }
