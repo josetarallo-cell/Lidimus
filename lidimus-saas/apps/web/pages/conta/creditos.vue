@@ -64,7 +64,9 @@ function deltaFmt(delta: number): string {
           Saldo baixo — uma análise de memorial consome 50 créditos.
         </p>
       </div>
-      <NuxtLink to="/conta/assinatura" class="ld-btn ld-btn--primary">Comprar mais créditos</NuxtLink>
+      <!-- Aponta para planos: a compra avulsa de créditos ainda não existe,
+           então o botão não promete o que a página de destino não vende -->
+      <NuxtLink to="/conta/assinatura" class="ld-btn ld-btn--primary">Ver planos e créditos</NuxtLink>
     </section>
 
     <section class="ld-painel historico">

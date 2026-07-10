@@ -279,7 +279,7 @@ const annualNote = computed(() =>
       <section id="seguranca" class="ferramenta ferramenta--verde">
         <div class="ferramenta-inner">
           <div class="ferramenta-texto">
-            <p class="ferramenta-nome ferramenta-nome--claro">Detector de Prompt Injection</p>
+            <p class="ferramenta-nome ferramenta-nome--claro">Detector de conteúdo oculto</p>
             <h3>Detecte instruções ocultas em qualquer PDF.</h3>
             <p class="ferramenta-desc">
               Texto branco sobre branco, fontes minúsculas, camadas e metadados podem esconder
@@ -532,7 +532,7 @@ const annualNote = computed(() =>
             <p class="rodape-coluna-titulo">Ferramentas</p>
             <a href="#ferramentas" class="rodape-link">Leitor de Matrículas</a>
             <a href="#ferramentas" class="rodape-link">Memorial Descritivo</a>
-            <a href="#seguranca" class="rodape-link">Detector de Prompt Injection</a>
+            <a href="#seguranca" class="rodape-link">Detector de conteúdo oculto</a>
           </div>
           <div>
             <p class="rodape-coluna-titulo">Empresa</p>
@@ -1295,19 +1295,6 @@ const annualNote = computed(() =>
 }
 .comparativo-nao {
   color: var(--ld-tinta-suave);
-}
-.sr-only {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 /* ── FAQ ── */

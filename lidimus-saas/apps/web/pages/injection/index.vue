@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { ErroUpload } from '~/composables/useUploadErro'
+
 useHead({ title: 'Verificar PDF — Lidimus' })
 
 const uploading = ref(false)
-const erro = ref('')
+const erro = ref<ErroUpload | null>(null)
 
 const amostras = [
   {
@@ -24,7 +26,7 @@ const amostras = [
 
 async function onSubmit(file: File) {
   uploading.value = true
-  erro.value = ''
+  erro.value = null
   try {
     const form = new FormData()
     form.append('file', file)
@@ -34,8 +36,8 @@ async function onSubmit(file: File) {
       body: form,
     })
     await navigateTo(`/injection/${jobId}`)
-  } catch {
-    erro.value = 'Não foi possível enviar o arquivo. Verifique sua conexão e tente novamente.'
+  } catch (err) {
+    erro.value = mensagemDeErroDeUpload(err)
     uploading.value = false
   }
 }
@@ -56,10 +58,14 @@ async function onSubmit(file: File) {
       description="Qualquer PDF, não só matrículas. O laudo aponta o conteúdo oculto encontrado e o nível de risco."
       accept=".pdf,application/pdf"
       :uploading="uploading"
+      :custo-creditos="5"
       @submit="onSubmit"
     />
 
-    <p v-if="erro" class="ld-erro pagina-erro" role="alert">{{ erro }}</p>
+    <p v-if="erro" class="ld-erro pagina-erro" role="alert">
+      {{ erro.texto }}
+      <NuxtLink v-if="erro.linkTo" :to="erro.linkTo" class="pagina-erro-link">{{ erro.linkLabel }}</NuxtLink>
+    </p>
 
     <section class="ld-painel amostras">
       <header class="amostras-cabecalho">
@@ -102,6 +108,10 @@ async function onSubmit(file: File) {
 }
 .pagina-erro {
   margin-top: var(--ld-space-md);
+}
+.pagina-erro-link {
+  color: var(--ld-carimbo-tinta);
+  font-weight: 600;
 }
 
 .amostras {

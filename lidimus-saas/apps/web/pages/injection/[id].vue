@@ -31,6 +31,24 @@ const risco = computed(() => {
 
 const temAchados = computed(() => (result.value?.findings?.length ?? 0) > 0)
 
+// O alarme sem orientação abandona o usuário no pico da ansiedade — o laudo
+// diz o que o achado significa e o que fazer, em linguagem leiga
+const veredito = computed(() => {
+  if (!temAchados.value) return null
+  const r = String(result.value?.risk_level ?? '').toLowerCase()
+  if (r === 'high') {
+    return (
+      'Este arquivo contém instruções ocultas destinadas a manipular análises feitas por ' +
+      'inteligência artificial. Recomendamos não confiar em resumos ou análises automáticas ' +
+      'deste documento e conferir o conteúdo original antes de aceitá-lo.'
+    )
+  }
+  return (
+    'Este arquivo apresenta indícios que merecem verificação. Confira os achados abaixo e o ' +
+    'documento original antes de confiar em análises automáticas deste arquivo.'
+  )
+})
+
 function exportarPdf() {
   window.print()
 }
@@ -56,58 +74,28 @@ function exportarPdf() {
         Varrendo o documento em busca de conteúdo oculto — esta página atualiza sozinha, não é
         preciso recarregar.
       </p>
-      <div class="prancha prancha--esqueleto" aria-hidden="true">
-        <div class="esq-carimbo">
-          <span class="esq-barra" style="width: 96px" />
-          <span class="esq-barra" style="width: 140px" />
-          <span class="esq-barra" style="width: 110px" />
-        </div>
-        <div class="esq-corpo">
-          <span class="esq-barra esq-barra--titulo" style="width: 44%" />
-          <span class="esq-barra" style="width: 30%" />
-          <span class="esq-barra" style="width: 86%" />
-          <span class="esq-barra" style="width: 72%" />
-        </div>
-      </div>
+      <PranchaEsqueleto />
     </div>
 
     <!-- Erro -->
-    <div v-else-if="job?.status === 'error'" class="falha print-hidden" role="alert">
-      <p class="falha-titulo">Não foi possível concluir a verificação</p>
-      <p class="falha-msg">{{ job.errorMessage ?? 'Ocorreu um erro inesperado durante o processamento.' }}</p>
-      <p class="falha-acao">
-        Tente <NuxtLink to="/injection" class="falha-link">enviar o PDF novamente</NuxtLink> — se
-        o problema persistir,
-        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="falha-link">fale com o suporte</a>.
-      </p>
-    </div>
+    <PranchaFalha
+      v-else-if="job?.status === 'error'"
+      titulo="Não foi possível concluir a verificação"
+      :mensagem="String(job.errorMessage ?? 'Ocorreu um erro inesperado durante o processamento.')"
+      retry-to="/injection"
+      retry-label="enviar o PDF novamente"
+    />
 
     <!-- A prancha: o laudo -->
     <article v-else-if="result" id="documento-laudo" class="prancha">
-      <header class="carimbo" aria-label="Identificação do documento">
-        <div class="carimbo-cell carimbo-cell--marca">
-          <svg width="16" height="16" viewBox="0 0 28 28" aria-hidden="true">
-            <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-            <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-          </svg>
-          Lidimus
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Análise</span>
-          <span>Verificação de integridade</span>
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Protocolo</span>
-          <span class="carimbo-id">{{ protocolo }}</span>
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Emitido</span>
-          <span>{{ emitidoEm }}</span>
-        </div>
-        <div class="carimbo-cell carimbo-cell--selo">
-          <span class="ld-selo" :class="risco.classe">{{ risco.texto }}</span>
-        </div>
-      </header>
+      <BlocoCarimbo
+        analise="Verificação de integridade"
+        documento-label="Protocolo"
+        :documento="protocolo"
+        :emitido="emitidoEm"
+      >
+        <span class="ld-selo" :class="risco.classe">{{ risco.texto }}</span>
+      </BlocoCarimbo>
 
       <div class="prancha-titulo">
         <h1>Laudo de verificação</h1>
@@ -121,6 +109,7 @@ function exportarPdf() {
           Achados
           <span v-if="temAchados" class="contagem">({{ result.findings.length }})</span>
         </h2>
+        <p v-if="veredito" class="veredito">{{ veredito }}</p>
         <ul v-if="temAchados" class="achados">
           <li v-for="(f, i) in result.findings" :key="i" class="achado">{{ f }}</li>
         </ul>
@@ -138,7 +127,9 @@ function exportarPdf() {
     </article>
 
     <details v-if="result?.fullText" class="depuracao print-hidden">
-      <summary>Texto completo do documento</summary>
+      <summary>
+        Texto completo do documento<template v-if="temAchados"> (inclui o conteúdo oculto encontrado)</template>
+      </summary>
       <pre>{{ result.fullText }}</pre>
     </details>
   </div>
@@ -162,67 +153,6 @@ function exportarPdf() {
   color: var(--ld-tinta-suave);
 }
 
-/* Esqueleto */
-.prancha--esqueleto {
-  margin-top: var(--ld-space-sm);
-}
-.esq-carimbo {
-  display: flex;
-  gap: var(--ld-space-lg);
-  padding: var(--ld-space-md) var(--ld-space-lg);
-  border-bottom: 1px solid var(--ld-filete);
-}
-.esq-corpo {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: var(--ld-space-xl) var(--ld-space-xl) var(--ld-space-2xl);
-}
-.esq-barra {
-  display: block;
-  height: 12px;
-  border-radius: var(--ld-r-xs);
-  background: linear-gradient(90deg, var(--ld-bancada) 25%, #e9edeb 45%, var(--ld-bancada) 65%);
-  background-size: 200% 100%;
-  animation: brilho 1.4s linear infinite;
-}
-.esq-barra--titulo {
-  height: 26px;
-  margin-bottom: var(--ld-space-sm);
-}
-@keyframes brilho {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
-
-/* Falha */
-.falha {
-  border: 1px solid var(--ld-carimbo);
-  background: var(--ld-carimbo-selo);
-  border-radius: var(--ld-r-md);
-  padding: var(--ld-space-lg);
-  max-width: 72ch;
-}
-.falha-titulo {
-  margin: 0 0 var(--ld-space-sm);
-  font-weight: 600;
-  color: var(--ld-carimbo-tinta);
-}
-.falha-msg {
-  margin: 0 0 var(--ld-space-md);
-  color: var(--ld-tinta);
-  font-size: 0.9375rem;
-}
-.falha-acao {
-  margin: 0;
-  color: var(--ld-tinta);
-  font-size: 0.9375rem;
-}
-.falha-link {
-  color: var(--ld-carimbo-tinta);
-  font-weight: 600;
-}
-
 /* Prancha */
 .prancha {
   background: var(--ld-folha);
@@ -230,51 +160,6 @@ function exportarPdf() {
   border-radius: var(--ld-r-md);
   overflow: hidden;
 }
-.carimbo {
-  display: flex;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--ld-filete);
-  background: var(--ld-papel);
-}
-.carimbo-cell {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 10px var(--ld-space-md);
-  border-right: 1px solid var(--ld-filete);
-  font-size: 0.8125rem;
-}
-.carimbo-cell:last-child {
-  border-right: none;
-}
-.carimbo-cell--marca {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--ld-space-sm);
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.carimbo-cell--marca svg {
-  color: var(--ld-verde);
-}
-.carimbo-label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ld-tinta-suave);
-}
-.carimbo-id {
-  font-family: var(--ld-font-mono);
-}
-.carimbo-cell--selo {
-  margin-left: auto;
-  justify-content: center;
-}
-
 .prancha-titulo {
   padding: var(--ld-space-xl) var(--ld-space-xl) var(--ld-space-lg);
 }
@@ -305,6 +190,14 @@ function exportarPdf() {
 .contagem {
   color: var(--ld-tinta-suave);
   font-weight: 400;
+}
+
+.veredito {
+  margin: 0 0 var(--ld-space-md);
+  max-width: 72ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  text-wrap: pretty;
 }
 
 /* Achados: conteúdo oculto real — o vermelho é o alarme */
@@ -372,14 +265,6 @@ function exportarPdf() {
   }
   .prancha-titulo {
     padding-top: var(--ld-space-lg);
-  }
-  .carimbo-cell--marca {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--ld-filete);
-  }
-  .carimbo-cell--selo {
-    margin-left: 0;
   }
 }
 </style>

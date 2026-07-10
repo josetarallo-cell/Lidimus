@@ -65,6 +65,12 @@ function rota(job: Job): string {
   return `/matriculas/${job.id}`
 }
 
+// A linha inteira é o alvo de toque; o link "Ver" continua sendo o caminho
+// acessível (teclado/leitor de tela)
+function abrir(job: Job) {
+  navigateTo(rota(job))
+}
+
 function dataFmt(iso: string): string {
   // timeZone fixo: sem ele, servidor (UTC) e navegador (BRT) formatam horas
   // diferentes para o mesmo timestamp e o SSR gera hydration mismatch
@@ -124,20 +130,20 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="job in (jobList as Job[])" :key="job.id">
+            <tr v-for="job in (jobList as Job[])" :key="job.id" class="linha" @click="abrir(job)">
               <td class="celula-tipo">{{ typeLabel[job.type] ?? job.type }}</td>
-              <td>
+              <td class="celula-status">
                 <span class="ld-selo" :class="statusSelo(job).classe">{{ statusSelo(job).texto }}</span>
               </td>
-              <td>
+              <td class="celula-risco">
                 <span v-if="riscoInfo(job)" class="ld-selo" :class="riscoInfo(job)!.classe">
                   {{ riscoInfo(job)!.texto }}
                 </span>
-                <span v-else class="celula-na">N/A</span>
+                <span v-else class="celula-na">Não se aplica</span>
               </td>
               <td class="celula-data">{{ dataFmt(job.createdAt) }}</td>
               <td class="celula-acao">
-                <NuxtLink :to="rota(job)" class="ld-btn ld-btn--ghost ld-btn--sm">Ver</NuxtLink>
+                <NuxtLink :to="rota(job)" class="ld-btn ld-btn--ghost ld-btn--sm" @click.stop>Ver</NuxtLink>
               </td>
             </tr>
           </tbody>
@@ -261,6 +267,7 @@ onMounted(() => {
   border-bottom: none;
 }
 .tabela tbody tr {
+  cursor: pointer;
   transition: background var(--ld-dur-estado) var(--ld-ease);
 }
 .tabela tbody tr:hover {
@@ -284,19 +291,46 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
-.sr-only {
-  position: absolute;
-  /* Ancorado em 0,0: sem left/top, o absolute fica na posição estática e um
-     sr-only dentro de tabela rolável estica o documento na horizontal */
-  left: 0;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+/* Mobile: a tabela vira cards empilhados — nada fica escondido atrás de
+   rolagem horizontal sem pista, e o alvo de toque é o card inteiro */
+@media (max-width: 640px) {
+  .tabela thead {
+    display: none;
+  }
+  .tabela,
+  .tabela tbody {
+    display: block;
+  }
+  .tabela tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 6px;
+    column-gap: var(--ld-space-md);
+    padding: var(--ld-space-md) var(--ld-space-md);
+    border-bottom: 1px solid var(--ld-filete);
+  }
+  .tabela tbody tr:last-child {
+    border-bottom: none;
+  }
+  .tabela td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .celula-tipo,
+  .celula-status,
+  .celula-risco,
+  .celula-data {
+    grid-column: 1;
+  }
+  .celula-acao {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: center;
+  }
+  .celula-data {
+    font-size: 0.8125rem;
+  }
 }
+
 </style>

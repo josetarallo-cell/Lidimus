@@ -222,6 +222,8 @@ A gramática compartilhada: cantos retos-discretos (2–8px), filetes de 1px, es
 ### Bloco-Carimbo (componente-assinatura)
 O rodapé/cabeçalho de identificação de todo relatório, herdado da legenda de prancha técnica: moldura de filete 1px dividida em células — losango-vértice, "LIDIMUS", tipo de análise, nº do documento em Fragment Mono, data e hora, status. Labels em uppercase 0.6875rem tracking 0.08em (o único uppercase permitido no sistema). É a assinatura visual do produto: aparece no relatório na tela, no PDF impresso e, em miniatura, nos cards do dashboard.
 
+**Implementação canônica:** `components/BlocoCarimbo.vue` (props `analise`/`documentoLabel`/`documento`/`emitido`, slot = selo). Os laudos NUNCA reimplementam o carimbo localmente. Os estados compartilhados de laudo vivem em `components/PranchaFalha.vue` (falha com retry + suporte) e `components/PranchaEsqueleto.vue` (skeleton em forma de prancha). O utilitário `.sr-only` é global (`assets/css/lidimus.css`) — não redefinir por página.
+
 ## 6. Do's and Don'ts
 
 ### Do:

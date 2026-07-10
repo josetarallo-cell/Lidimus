@@ -61,6 +61,27 @@ const riscoSeloClass = computed(() => {
   return 'ld-selo--neutro'
 })
 
+// O selo exibe o veredito em português correto — nunca o enum cru do
+// pipeline ("medio" sem acento é dialeto de máquina num parecer jurídico)
+function riscoLabel(valor: unknown): string {
+  const nivel = nivelRisco(valor)
+  if (nivel === 'baixo') return 'Risco baixo'
+  if (nivel === 'medio') return 'Risco médio'
+  if (nivel === 'alto') return 'Risco alto'
+  return 'Risco não classificado'
+}
+
+// Traduz o prefixo técnico "[ocr]"/"[juridico]"/"[doc]" que o backend anexa
+// à mensagem de erro — jargão de máquina não aparece na UI
+const mensagemFalha = computed(() => {
+  const msg = job.value?.errorMessage as string | undefined
+  if (!msg) return 'Ocorreu um erro inesperado durante o processamento.'
+  const m = msg.match(/^\[(\w+)\]\s*(.*)$/)
+  if (!m) return msg
+  const etapa = STAGES.find((s) => s.key === m[1])?.label
+  return etapa ? `${etapa}: ${m[2]}` : m[2]
+})
+
 const emitidoEm = computed(() => {
   const ts = job.value?.completedAt as string | undefined
   if (ts) {
@@ -127,63 +148,31 @@ function exportarPdf() {
         Analisando sua certidão — esta página atualiza sozinha, não é preciso recarregar.
       </p>
 
-      <div class="prancha prancha--esqueleto" aria-hidden="true">
-        <div class="esq-carimbo">
-          <span class="esq-barra" style="width: 96px" />
-          <span class="esq-barra" style="width: 140px" />
-          <span class="esq-barra" style="width: 110px" />
-        </div>
-        <div class="esq-corpo">
-          <span class="esq-barra esq-barra--titulo" style="width: 46%" />
-          <span class="esq-barra" style="width: 32%" />
-          <span class="esq-barra" style="width: 88%" />
-          <span class="esq-barra" style="width: 74%" />
-          <span class="esq-barra" style="width: 81%" />
-        </div>
-      </div>
+      <PranchaEsqueleto />
     </div>
 
     <!-- ── Erro ──────────────────────────────────────────────────────────── -->
-    <div v-else-if="job.status === 'error'" class="falha print-hidden" role="alert">
-      <p class="falha-titulo">Não foi possível concluir a análise</p>
-      <p class="falha-msg">{{ job.errorMessage ?? 'Ocorreu um erro inesperado durante o processamento.' }}</p>
-      <p class="falha-acao">
-        Tente
-        <NuxtLink to="/matriculas" class="falha-link">enviar a certidão novamente</NuxtLink>
-        — se o problema persistir,
-        <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="falha-link">fale com o suporte</a>.
-      </p>
-    </div>
+    <PranchaFalha
+      v-else-if="job.status === 'error'"
+      titulo="Não foi possível concluir a análise"
+      :mensagem="mensagemFalha"
+      retry-to="/matriculas"
+      retry-label="enviar a certidão novamente"
+    />
 
     <!-- ── A Prancha: o parecer ──────────────────────────────────────────── -->
     <article v-else-if="doc" id="documento-matricula" class="prancha">
       <!-- Bloco-carimbo -->
-      <header class="carimbo" aria-label="Identificação do documento">
-        <div class="carimbo-cell carimbo-cell--marca">
-          <svg width="16" height="16" viewBox="0 0 28 28" aria-hidden="true">
-            <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-            <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-          </svg>
-          Lidimus
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Análise</span>
-          <span>Parecer de matrícula</span>
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Documento</span>
-          <span class="carimbo-id">MAT {{ doc.cabecalho.numero_matricula ?? '—' }}</span>
-        </div>
-        <div class="carimbo-cell">
-          <span class="carimbo-label">Emitido</span>
-          <span>{{ emitidoEm }}</span>
-        </div>
-        <div class="carimbo-cell carimbo-cell--selo">
-          <span class="ld-selo" :class="riscoSeloClass">
-            Risco {{ doc.cabecalho.classificacao_risco ?? 'não classificado' }}
-          </span>
-        </div>
-      </header>
+      <BlocoCarimbo
+        analise="Parecer de matrícula"
+        documento-label="Documento"
+        :documento="`MAT ${doc.cabecalho.numero_matricula ?? '—'}`"
+        :emitido="emitidoEm"
+      >
+        <span class="ld-selo" :class="riscoSeloClass">
+          {{ riscoLabel(doc.cabecalho.classificacao_risco) }}
+        </span>
+      </BlocoCarimbo>
 
       <!-- Título do documento -->
       <div class="prancha-titulo">
@@ -361,7 +350,7 @@ function exportarPdf() {
         <div class="secao-cabecalho">
           <h2 id="sec-parecer">Parecer</h2>
           <span class="ld-selo" :class="riscoSeloClass">
-            Risco {{ doc.parecer.classificacao_risco ?? 'não classificado' }}
+            {{ riscoLabel(doc.parecer.classificacao_risco) }}
           </span>
         </div>
         <p v-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
@@ -482,119 +471,12 @@ function exportarPdf() {
   55% { box-shadow: 0 0 0 6px rgba(12, 92, 60, 0); }
 }
 
-/* ── Esqueleto da prancha ───────────────────────────────── */
-.prancha--esqueleto {
-  margin-top: var(--ld-space-lg);
-}
-.esq-carimbo {
-  display: flex;
-  gap: var(--ld-space-lg);
-  padding: var(--ld-space-md) var(--ld-space-lg);
-  border-bottom: 1px solid var(--ld-filete);
-}
-.esq-corpo {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: var(--ld-space-xl) var(--ld-space-xl) var(--ld-space-2xl);
-}
-.esq-barra {
-  display: block;
-  height: 12px;
-  border-radius: var(--ld-r-xs);
-  background: linear-gradient(90deg, var(--ld-bancada) 25%, #e9edeb 45%, var(--ld-bancada) 65%);
-  background-size: 200% 100%;
-  animation: brilho 1.4s linear infinite;
-}
-.esq-barra--titulo {
-  height: 26px;
-  margin-bottom: var(--ld-space-sm);
-}
-@keyframes brilho {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
-
-/* ── Falha ──────────────────────────────────────────────── */
-.falha {
-  border: 1px solid var(--ld-carimbo);
-  background: var(--ld-carimbo-selo);
-  border-radius: var(--ld-r-md);
-  padding: var(--ld-space-lg);
-  max-width: 72ch;
-}
-.falha-titulo {
-  margin: 0 0 var(--ld-space-sm);
-  font-weight: 600;
-  color: var(--ld-carimbo-tinta);
-}
-.falha-msg {
-  margin: 0 0 var(--ld-space-md);
-  color: var(--ld-tinta);
-  font-size: 0.9375rem;
-}
-.falha-acao {
-  margin: 0;
-  color: var(--ld-tinta);
-  font-size: 0.9375rem;
-}
-.falha-link {
-  color: var(--ld-carimbo-tinta);
-  font-weight: 600;
-}
-
 /* ── A prancha ──────────────────────────────────────────── */
 .prancha {
   background: var(--ld-folha);
   border: 1px solid var(--ld-filete);
   border-radius: var(--ld-r-md);
   overflow: hidden;
-}
-
-/* Bloco-carimbo */
-.carimbo {
-  display: flex;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--ld-filete);
-  background: var(--ld-papel);
-}
-.carimbo-cell {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 10px var(--ld-space-md);
-  border-right: 1px solid var(--ld-filete);
-  font-size: 0.8125rem;
-}
-.carimbo-cell:last-child {
-  border-right: none;
-}
-.carimbo-cell--marca {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--ld-space-sm);
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.carimbo-cell--marca svg {
-  color: var(--ld-verde);
-}
-.carimbo-label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ld-tinta-suave);
-}
-.carimbo-id {
-  font-family: var(--ld-font-mono);
-}
-.carimbo-cell--selo {
-  margin-left: auto;
-  justify-content: center;
 }
 
 /* Título do documento */
@@ -946,19 +828,6 @@ function exportarPdf() {
   color: var(--ld-tinta);
 }
 
-.sr-only {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
 
 /* Responsivo */
 @media (max-width: 640px) {
@@ -969,14 +838,6 @@ function exportarPdf() {
   }
   .prancha-titulo {
     padding-top: var(--ld-space-lg);
-  }
-  .carimbo-cell--marca {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--ld-filete);
-  }
-  .carimbo-cell--selo {
-    margin-left: 0;
   }
   .ato {
     grid-template-columns: 64px 1fr;

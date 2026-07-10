@@ -4,7 +4,21 @@ const props = defineProps<{
   description: string
   accept: string
   uploading: boolean
+  // Custo da análise em créditos — mostrado no rodapé para o usuário decidir
+  // com a informação à vista, em vez de descobrir num erro 402
+  custoCreditos?: number
 }>()
+
+const { data: creditos } = await useFetch<{ balance: number }>('/api/account/credits', {
+  server: false,
+})
+
+const saldoInsuficiente = computed(
+  () =>
+    props.custoCreditos != null &&
+    creditos.value != null &&
+    creditos.value.balance < props.custoCreditos,
+)
 
 const emit = defineEmits<{
   (e: 'submit', file: File): void
@@ -85,6 +99,16 @@ function submit() {
     </div>
 
     <footer class="envio-rodape">
+      <p v-if="custoCreditos != null" class="envio-custo" :class="{ 'envio-custo--alerta': saldoInsuficiente }">
+        Esta análise consome {{ custoCreditos }} crédito{{ custoCreditos === 1 ? '' : 's' }}<template
+          v-if="creditos != null"
+        >
+          · você tem {{ creditos.balance }}</template
+        >.
+        <NuxtLink v-if="saldoInsuficiente" to="/conta/assinatura" class="envio-custo-link">
+          Ver planos e créditos
+        </NuxtLink>
+      </p>
       <button
         type="button"
         class="ld-btn ld-btn--primary"
@@ -208,6 +232,27 @@ function submit() {
   border-top: 1px solid var(--ld-filete);
   padding: var(--ld-space-md) var(--ld-space-lg);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+  flex-wrap: wrap;
+}
+.envio-custo {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+}
+.envio-custo--alerta {
+  color: var(--ld-ocre);
+}
+.envio-custo-link {
+  color: var(--ld-verde);
+  font-weight: 500;
+}
+.envio-custo-link:hover {
+  color: var(--ld-verde-profundo);
+}
+.envio-rodape .ld-btn {
+  margin-left: auto;
 }
 </style>

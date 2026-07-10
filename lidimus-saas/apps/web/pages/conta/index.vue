@@ -77,13 +77,13 @@ async function trocarSenha() {
       <section class="ld-painel bloco">
         <h2 class="bloco-titulo">Trocar senha</h2>
         <form class="senha-form" @submit.prevent="trocarSenha">
-          <label class="campo">
-            <span class="campo-rotulo">Senha atual</span>
-            <input v-model="senhaAtual" type="password" autocomplete="current-password" required class="campo-input" />
+          <label class="ld-campo campo">
+            <span class="ld-label">Senha atual</span>
+            <input v-model="senhaAtual" type="password" autocomplete="current-password" required class="ld-input" />
           </label>
-          <label class="campo">
-            <span class="campo-rotulo">Nova senha</span>
-            <input v-model="senhaNova" type="password" autocomplete="new-password" required class="campo-input" />
+          <label class="ld-campo campo">
+            <span class="ld-label">Nova senha</span>
+            <input v-model="senhaNova" type="password" autocomplete="new-password" required class="ld-input" />
           </label>
           <p v-if="trocaErro" class="senha-erro" role="alert">{{ trocaErro }}</p>
           <p v-if="trocaOk" class="senha-ok" role="status">Senha alterada. As outras sessões foram encerradas.</p>
@@ -182,29 +182,10 @@ async function trocarSenha() {
   gap: var(--ld-space-md);
   align-items: flex-start;
 }
+/* Só a largura é local — visual vem das primitivas ld-campo/ld-label/ld-input */
 .campo {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   width: 100%;
   max-width: 22rem;
-}
-.campo-rotulo {
-  font-size: 0.8125rem;
-  color: var(--ld-tinta-suave);
-}
-.campo-input {
-  border: 1px solid var(--ld-filete);
-  border-radius: var(--ld-r-sm);
-  background: var(--ld-folha);
-  color: var(--ld-tinta);
-  padding: 9px 12px;
-  font-size: 0.9375rem;
-  font-family: inherit;
-}
-.campo-input:focus-visible {
-  outline: 2px solid var(--ld-verde);
-  outline-offset: 1px;
 }
 .senha-erro {
   margin: 0;

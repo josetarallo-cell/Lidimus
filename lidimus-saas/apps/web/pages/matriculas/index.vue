@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import type { ErroUpload } from '~/composables/useUploadErro'
+
 useHead({ title: 'Analisar matrícula — Lidimus' })
 
 const uploading = ref(false)
-const erro = ref('')
+const erro = ref<ErroUpload | null>(null)
 
 async function onSubmit(file: File) {
   uploading.value = true
-  erro.value = ''
+  erro.value = null
   try {
     const form = new FormData()
     form.append('file', file)
@@ -17,8 +19,8 @@ async function onSubmit(file: File) {
       body: form,
     })
     await navigateTo(`/matriculas/${jobId}`)
-  } catch {
-    erro.value = 'Não foi possível enviar o arquivo. Verifique sua conexão e tente novamente.'
+  } catch (err) {
+    erro.value = mensagemDeErroDeUpload(err)
     uploading.value = false
   }
 }
@@ -39,10 +41,14 @@ async function onSubmit(file: File) {
       description="PDF da certidão, digitalizada ou nato-digital. A leitura e a análise jurídica acontecem automaticamente."
       accept=".pdf,application/pdf"
       :uploading="uploading"
+      :custo-creditos="20"
       @submit="onSubmit"
     />
 
-    <p v-if="erro" class="ld-erro pagina-erro" role="alert">{{ erro }}</p>
+    <p v-if="erro" class="ld-erro pagina-erro" role="alert">
+      {{ erro.texto }}
+      <NuxtLink v-if="erro.linkTo" :to="erro.linkTo" class="pagina-erro-link">{{ erro.linkLabel }}</NuxtLink>
+    </p>
   </div>
 </template>
 
@@ -65,5 +71,9 @@ async function onSubmit(file: File) {
 }
 .pagina-erro {
   margin-top: var(--ld-space-md);
+}
+.pagina-erro-link {
+  color: var(--ld-carimbo-tinta);
+  font-weight: 600;
 }
 </style>
