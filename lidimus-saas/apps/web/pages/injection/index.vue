@@ -58,7 +58,8 @@ async function onSubmit(file: File) {
       description="Qualquer PDF, não só matrículas. O laudo aponta o conteúdo oculto encontrado e o nível de risco."
       accept=".pdf,application/pdf"
       :uploading="uploading"
-      :custo-creditos="5"
+      :custo-por-pagina="0.5"
+      :custo-base="3"
       @submit="onSubmit"
     />
 

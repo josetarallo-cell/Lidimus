@@ -57,6 +57,13 @@
       "when": 1783450875883,
       "tag": "0007_eager_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783959771058,
+      "tag": "0008_productive_rumiko_fujikawa",
+      "breakpoints": true
     }
   ]
 }

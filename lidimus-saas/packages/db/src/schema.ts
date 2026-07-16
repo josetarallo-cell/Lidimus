@@ -214,6 +214,24 @@ export const creditTransactions = pgTable('credit_transactions', {
   uniqueIndex('credit_tx_one_refund_per_job_idx').on(t.jobId).where(sql`${t.reason} = 'refund'`),
 ])
 
+// ─── Custos operacionais (para o painel de custos do admin) ───────────────────
+// Linhas de custo além do consumo de modelos: hospedagem, impostos, salários,
+// ferramentas, etc. `category` e `period` são texto livre de propósito — a
+// interface é aberta a novos tipos de custo sem exigir migração de enum.
+export const operationalCosts = pgTable('operational_costs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  category: text('category').notNull().default('outros'),
+  amountCents: integer('amount_cents').notNull(),
+  currency: text('currency').notNull().default('BRL'),
+  // 'mensal' | 'anual' | 'unico' — livre; a UI normaliza para custo mensal
+  period: text('period').notNull().default('mensal'),
+  active: boolean('active').notNull().default(true),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({

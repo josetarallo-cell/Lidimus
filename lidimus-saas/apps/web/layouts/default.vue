@@ -1,3 +1,21 @@
+<script setup lang="ts">
+const { data: me } = await useFetch('/api/me')
+
+const saindo = ref(false)
+async function sair() {
+  if (saindo.value) return
+  saindo.value = true
+  try {
+    // body vazio para o $fetch enviar Content-Type: application/json — sem ele o
+    // better-auth responde 415.
+    await $fetch('/api/auth/sign-out', { method: 'POST', body: {} })
+    await navigateTo('/auth/login')
+  } finally {
+    saindo.value = false
+  }
+}
+</script>
+
 <template>
   <div class="app-shell">
     <a href="#conteudo" class="skip-link">Ir para o conteúdo</a>
@@ -5,17 +23,18 @@
     <header class="app-header">
       <div class="app-header-inner">
         <NuxtLink to="/dashboard" class="app-brand">
-          <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true">
-            <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-            <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-          </svg>
-          Lidimus
+          <img src="/logo.svg" alt="Lidimus" class="app-brand-logo" />
         </NuxtLink>
         <nav class="app-nav" aria-label="Principal">
+          <NuxtLink to="/dashboard" class="app-nav-link">Painel</NuxtLink>
           <NuxtLink to="/matriculas" class="app-nav-link">Matrículas</NuxtLink>
           <NuxtLink to="/kml" class="app-nav-link">Memoriais</NuxtLink>
           <NuxtLink to="/injection" class="app-nav-link">Detector</NuxtLink>
           <NuxtLink to="/conta" class="app-nav-link">Conta</NuxtLink>
+          <NuxtLink v-if="me?.isPlatformAdmin" to="/admin/clientes" class="app-nav-link">Admin</NuxtLink>
+          <button type="button" class="app-nav-sair" :disabled="saindo" @click="sair">
+            {{ saindo ? 'Saindo…' : 'Sair' }}
+          </button>
         </nav>
       </div>
     </header>
@@ -84,15 +103,12 @@
 .app-brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 1.1875rem;
-  color: var(--ld-tinta);
-  text-decoration: none;
 }
-.app-brand svg {
-  color: var(--ld-verde);
+/* O logo tem respiro interno no viewBox; a altura acima do texto compensa. */
+.app-brand-logo {
+  display: block;
+  height: 38px;
+  width: auto;
 }
 
 .app-nav {
@@ -116,6 +132,30 @@
 .app-nav-link.router-link-active {
   color: var(--ld-tinta);
   border-bottom-color: var(--ld-verde);
+}
+
+/* "Sair" é ação, não navegação: botão com filete, apartado dos links. */
+.app-nav-sair {
+  border: 1px solid var(--ld-filete);
+  background: none;
+  border-radius: var(--ld-r-sm);
+  padding: 6px 14px;
+  font-family: var(--ld-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ld-tinta-suave);
+  cursor: pointer;
+  transition:
+    color var(--ld-dur-estado) var(--ld-ease),
+    border-color var(--ld-dur-estado) var(--ld-ease);
+}
+.app-nav-sair:hover {
+  color: var(--ld-tinta);
+  border-color: var(--ld-tinta-suave);
+}
+.app-nav-sair:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .app-main {

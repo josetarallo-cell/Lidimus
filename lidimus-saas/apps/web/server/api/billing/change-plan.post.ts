@@ -60,23 +60,41 @@ export default defineEventHandler(async (event) => {
   const cycle = interval === 'year' ? 'anual' : 'mensal'
   const isUpgrade = newPlan.monthlyPriceCents > currentPlan.monthlyPriceCents
 
-  const updated = await stripe.subscriptions.update(sub.providerSubscriptionId, {
-    items: [
-      {
-        id: item.id,
-        price_data: {
-          currency: 'brl',
-          unit_amount: cycle === 'anual' ? newPlan.annualPriceCents : newPlan.monthlyPriceCents,
-          recurring: { interval },
-          product: typeof item.price.product === 'string' ? item.price.product : item.price.product.id,
+  // Produto do novo plano: reutiliza um ativo com o mesmo nome ou cria um novo.
+  // Não herda o produto do item atual — ele carrega o nome do plano antigo e
+  // pode ter sido arquivado no dashboard (produto inativo rejeita preços novos).
+  const productName = `Lidimus ${newPlan.name}`
+  const activeProducts = await stripe.products.list({ active: true, limit: 100 })
+  const product =
+    activeProducts.data.find((p) => p.name === productName) ??
+    (await stripe.products.create({ name: productName }))
+
+  const updated = await stripe.subscriptions
+    .update(sub.providerSubscriptionId, {
+      items: [
+        {
+          id: item.id,
+          price_data: {
+            currency: 'brl',
+            unit_amount: cycle === 'anual' ? newPlan.annualPriceCents : newPlan.monthlyPriceCents,
+            recurring: { interval },
+            product: product.id,
+          },
         },
-      },
-    ],
-    // upgrade cobra a diferença proporcional agora; downgrade só muda o preço da renovação
-    proration_behavior: isUpgrade ? 'always_invoice' : 'none',
-    metadata: { orgId, planId: newPlan.id, cycle },
-    expand: ['latest_invoice'],
-  })
+      ],
+      // upgrade cobra a diferença proporcional agora; downgrade só muda o preço da renovação
+      proration_behavior: isUpgrade ? 'always_invoice' : 'none',
+      metadata: { orgId, planId: newPlan.id, cycle },
+      expand: ['latest_invoice'],
+    })
+    .catch((err: unknown) => {
+      // Erros do Stripe carregam statusCode 400 e vazariam como "Server Error" na tela
+      console.error('change-plan: falha ao atualizar assinatura no Stripe', err)
+      throw createError({
+        statusCode: 502,
+        statusMessage: 'O Stripe recusou a alteração do plano. Tente novamente ou fale com o suporte.',
+      })
+    })
 
   await db.update(subscriptions).set({ planId: newPlan.id }).where(eq(subscriptions.id, sub.id))
 

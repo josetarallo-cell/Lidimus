@@ -26,6 +26,17 @@
   --ld-ocre-selo: #faf1df;      /* fundo de aviso */
   --ld-folha: #ffffff;          /* a folha do documento sobre o papel */
 
+  /* Certidão — o laudo concluído veste o papel de segurança do ofício */
+  --ld-anil: #26346b;            /* azul anil (índigo) — acento de certidão */
+  --ld-certidao-papel: #fbf6e6;  /* folha amarelada de certidão (moldura/topo) */
+  --ld-certidao-conteudo: #eef1fa; /* campo de leitura em azul anil suave */
+  --ld-certidao-filete: #d8d3bf; /* filete quente sobre o papel amarelado */
+  /* Guilhoché de segurança — o padrão do fundo da página de laudo. Resolvido a
+     partir deste arquivo CSS, então serve as três telas sem duplicação.
+     Recorte da área opaca do original (a borda tinha alpha em degradê, que com
+     `cover` deixava uma emenda visível na direita/base) + paleta reduzida. */
+  --ld-guilloche: url('../guilloche_seguranca.png');
+
   /* Tipografia */
   --ld-font-serif: 'Besley', Georgia, 'Times New Roman', serif;
   --ld-font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -250,3 +261,58 @@
 .ld-selo--ocre { background: var(--ld-ocre-selo); color: var(--ld-ocre); }
 .ld-selo--carimbo { background: var(--ld-carimbo-selo); color: var(--ld-carimbo-tinta); }
 .ld-selo--neutro { background: var(--ld-bancada); color: var(--ld-tinta-suave); }
+
+/* Carimbo de risco — o veredito do laudo, estampado como um selo de tinta.
+   Cor forte e borda dupla dão o peso de um carimbo real; a inclinação leve
+   evita que pareça um botão. Respeita A Regra do Carimbo: o vermelho só
+   aparece quando o risco é alto. */
+.ld-carimbo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ld-font-serif);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 2.5px solid currentColor;
+  border-radius: var(--ld-r-sm);
+  transform: rotate(-3deg);
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.ld-carimbo--grande {
+  font-size: 1.3125rem;
+  padding: 12px 26px;
+  border-width: 3px;
+  letter-spacing: 0.12em;
+}
+.ld-carimbo--alto { color: var(--ld-carimbo); background: var(--ld-carimbo-selo); }
+.ld-carimbo--medio { color: var(--ld-ocre); background: var(--ld-ocre-selo); }
+.ld-carimbo--baixo { color: var(--ld-verde-profundo); background: var(--ld-verde-selo); }
+.ld-carimbo--neutro { color: var(--ld-tinta-suave); background: var(--ld-bancada); }
+
+/* ── Páginas de laudo ────────────────────────────────────────────────────────
+   O guilhoché de segurança forra o corpo da página: a folha do documento
+   repousa sobre o papel timbrado, e não o contrário. A classe entra pelo
+   bodyAttrs das três telas de laudo (matrícula, memorial, detector).
+   `fixed` mantém a densidade do padrão constante em laudos longos. */
+body.ld-pagina-certidao .app-shell {
+  background-color: var(--ld-certidao-papel);
+  background-image:
+    linear-gradient(rgba(251, 246, 230, 0.35), rgba(251, 246, 230, 0.35)),
+    var(--ld-guilloche);
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+@media print {
+  /* Tinta e nitidez: o padrão é da tela, não do PDF */
+  body.ld-pagina-certidao .app-shell {
+    background: var(--ld-folha);
+  }
+}

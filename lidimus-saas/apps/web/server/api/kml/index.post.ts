@@ -6,7 +6,7 @@ import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
 import { checkRateLimit } from '../../lib/rateLimit'
-import { jobs, creditTransactions, CREDIT_COST, getOrgCreditBalance } from '@lidimus/db'
+import { jobs, creditTransactions, creditCostFor, getOrgCreditBalance } from '@lidimus/db'
 
 const paramsSchema = z.object({
   nomeImovel: z.string().optional().default(''),
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
   }
 
-  const custo = CREDIT_COST.kml
+  const custo = creditCostFor('kml')
   const saldo = await getOrgCreditBalance(db, orgId)
   if (saldo < custo) {
     throw createError({

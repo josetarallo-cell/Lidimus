@@ -170,6 +170,20 @@ Para não quebrar o pipeline existente, inclua também estes campos legados no n
 
 Os campos `onus` e `gravames` devem ser arrays de OBJETOS no formato `{tipo, ato_referencia, credor, valor, data, situacao}` — nunca strings soltas como `"penhora"`, que empobrecem o relatório final.
 
+### Proprietário atual (campo obrigatório)
+
+`proprietarios_atuais` é um array de OBJETOS no formato `{nome, documento_tipo, documento_numero, qualificacao, estado_civil, regime_bens, endereco_domicilio, ato_aquisitivo, data_aquisicao, percentual, observacao}`. Use `null` no que não constar do documento.
+
+Proprietário atual é o **titular do domínio** segundo o **último ato dominial registrado** — compra e venda (grafada também como "venda e compra"), permuta, adjudicação, arrematação, dação em pagamento, integralização de capital, partilha ou herança — já atualizado pelas averbações posteriores de alteração de denominação, incorporação, cisão ou transformação societária que renomeiem esse titular. Quando houver renomeação, use a denominação atual e registre a anterior em `observacao`.
+
+Não confunda o proprietário atual com nenhum destes:
+
+- o proprietário original do cabeçalho da matrícula (é o dono da abertura, não o de hoje);
+- promitente comprador de compromisso de venda e compra, e cessionário de direitos — têm direito obrigacional registrado, não domínio;
+- credor hipotecário ou fiduciário, exequente de penhora, usufrutuário, locatário ou confrontante.
+
+Promitentes compradores e cessionários com registro ativo vão em `promissarios_cessionarios`, no mesmo formato, com a chave adicional `natureza` (ex.: "Cessionária dos direitos do compromisso, R-33").
+
 ### Exemplo resumido
 
 ```json

@@ -5,7 +5,12 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-useHead({ title: 'Parecer de matrícula — Lidimus' })
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
+// do parecer repousa limpa sobre ele
+useHead({
+  title: 'Parecer de matrícula — Lidimus',
+  bodyAttrs: { class: 'ld-pagina-certidao' },
+})
 
 // ─── Etapas do pipeline (sequência real: a ordem informa) ────────────────────
 const STAGES = [
@@ -61,6 +66,16 @@ const riscoSeloClass = computed(() => {
   return 'ld-selo--neutro'
 })
 
+// O carimbo do parecer estampa o veredito em destaque — cor forte por nível,
+// respeitando A Regra do Carimbo (vermelho só em risco alto)
+function carimboRiscoClass(valor: unknown): string {
+  const nivel = nivelRisco(valor)
+  if (nivel === 'baixo') return 'ld-carimbo--baixo'
+  if (nivel === 'medio') return 'ld-carimbo--medio'
+  if (nivel === 'alto') return 'ld-carimbo--alto'
+  return 'ld-carimbo--neutro'
+}
+
 // O selo exibe o veredito em português correto — nunca o enum cru do
 // pipeline ("medio" sem acento é dialeto de máquina num parecer jurídico)
 function riscoLabel(valor: unknown): string {
@@ -88,6 +103,22 @@ const emitidoEm = computed(() => {
     return new Date(ts).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
   }
   return doc.value?.metadados?.data_extracao ?? '—'
+})
+
+// A data em que o cartório expediu a certidão (detectada na montagem do
+// documento). Não é a abertura da matrícula nem a emissão do parecer: é o que
+// diz até onde o documento analisado enxerga o registro.
+const certidao = computed(() => doc.value?.cabecalho?.certidao ?? null)
+
+const certidaoLabel = computed(() => {
+  const c = certidao.value
+  if (!c?.data) return 'Não identificada'
+  return c.hora ? `${c.data} · ${c.hora}` : c.data
+})
+
+const certidaoAlerta = computed(() => {
+  const c = certidao.value
+  return !c?.detectada || c.situacao === 'desatualizada'
 })
 
 const temConfrontantes = computed(() => {
@@ -167,6 +198,8 @@ function exportarPdf() {
         analise="Parecer de matrícula"
         documento-label="Documento"
         :documento="`MAT ${doc.cabecalho.numero_matricula ?? '—'}`"
+        :certidao="certidaoLabel"
+        :certidao-alerta="certidaoAlerta"
         :emitido="emitidoEm"
       >
         <span class="ld-selo" :class="riscoSeloClass">
@@ -261,12 +294,79 @@ function exportarPdf() {
             <p v-if="p.estado_civil" class="pessoa-meta">
               {{ p.estado_civil }}<template v-if="p.regime_bens"> — {{ p.regime_bens }}</template>
             </p>
+            <p v-if="p.ato_aquisitivo" class="pessoa-meta">
+              Adquirido em {{ p.ato_aquisitivo }}<template v-if="p.data_aquisicao"> — {{ p.data_aquisicao }}</template>
+              <template v-if="p.percentual"> — {{ p.percentual }}</template>
+            </p>
             <p v-if="p.endereco_domicilio" class="pessoa-meta">Domicílio: {{ p.endereco_domicilio }}</p>
+            <p v-if="p.observacao" class="pessoa-meta">{{ p.observacao }}</p>
           </li>
         </ol>
         <p v-else class="vazio">
           Não foi possível identificar os proprietários automaticamente. Confira o documento original.
         </p>
+
+        <!-- Titulares de direitos registrados que NÃO são donos: promitente
+             comprador, cessionário. Separá-los evita confundi-los com o titular. -->
+        <div v-if="doc.proprietarios.promissarios?.lista?.length" class="subsecao">
+          <h3 class="subsecao-titulo">Promitentes compradores e cessionários</h3>
+          <p class="subsecao-nota">
+            Titulares de direitos registrados sobre o imóvel — não são os proprietários.
+          </p>
+          <ol class="pessoas">
+            <li v-for="p in doc.proprietarios.promissarios.lista" :key="'pc-' + p.ordem" class="pessoa">
+              <p class="pessoa-nome">{{ p.ordem }}. {{ p.nome }}</p>
+              <p v-if="p.natureza" class="pessoa-meta">{{ p.natureza }}</p>
+              <p v-if="p.documento_tipo && p.documento_numero" class="pessoa-meta">
+                {{ p.documento_tipo }} <span class="dd-id">{{ p.documento_numero }}</span>
+              </p>
+              <p v-if="p.observacao" class="pessoa-meta">{{ p.observacao }}</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- Parecer: a conclusão — o veredito vem antes do detalhamento -->
+      <section class="secao secao--parecer" aria-labelledby="sec-parecer">
+        <div class="secao-cabecalho">
+          <h2 id="sec-parecer">Parecer</h2>
+          <span class="ld-carimbo ld-carimbo--grande" :class="carimboRiscoClass(doc.parecer.classificacao_risco)">
+            {{ riscoLabel(doc.parecer.classificacao_risco) }}
+          </span>
+        </div>
+        <p v-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
+        <p v-else class="vazio">Parecer não disponível para esta análise.</p>
+      </section>
+
+      <!-- Análise jurídica -->
+      <section class="secao" aria-labelledby="sec-analise">
+        <h2 id="sec-analise">Análise jurídica</h2>
+        <div class="analise">
+          <div v-if="doc.analise_juridica.resumo_executivo">
+            <h3>Resumo executivo</h3>
+            <p class="prosa">{{ doc.analise_juridica.resumo_executivo }}</p>
+          </div>
+          <div v-if="doc.analise_juridica.riscos_html">
+            <h3>Riscos</h3>
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.riscos_html)" />
+          </div>
+          <div v-if="doc.analise_juridica.inconsistencias_html">
+            <h3>Inconsistências</h3>
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.inconsistencias_html)" />
+          </div>
+          <div v-if="doc.analise_juridica.problemas_html">
+            <h3>Possíveis problemas</h3>
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.problemas_html)" />
+          </div>
+          <div v-if="doc.analise_juridica.cadeia_dominial_html">
+            <h3>Cadeia dominial</h3>
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.cadeia_dominial_html)" />
+          </div>
+          <div v-if="doc.analise_juridica.fundamentacao_html">
+            <h3>Fundamentação legal</h3>
+            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.fundamentacao_html)" />
+          </div>
+        </div>
       </section>
 
       <!-- Histórico de atos -->
@@ -312,49 +412,6 @@ function exportarPdf() {
           </li>
         </ul>
         <p v-else><span class="ld-selo ld-selo--verde">Nenhum ônus ativo identificado</span></p>
-      </section>
-
-      <!-- Análise jurídica -->
-      <section class="secao" aria-labelledby="sec-analise">
-        <h2 id="sec-analise">Análise jurídica</h2>
-        <div class="analise">
-          <div v-if="doc.analise_juridica.resumo_executivo">
-            <h3>Resumo executivo</h3>
-            <p class="prosa">{{ doc.analise_juridica.resumo_executivo }}</p>
-          </div>
-          <div v-if="doc.analise_juridica.riscos_html">
-            <h3>Riscos</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.riscos_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.inconsistencias_html">
-            <h3>Inconsistências</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.inconsistencias_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.problemas_html">
-            <h3>Possíveis problemas</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.problemas_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.cadeia_dominial_html">
-            <h3>Cadeia dominial</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.cadeia_dominial_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.fundamentacao_html">
-            <h3>Fundamentação legal</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.fundamentacao_html)" />
-          </div>
-        </div>
-      </section>
-
-      <!-- Parecer: a conclusão — a assinatura do documento -->
-      <section class="secao secao--parecer" aria-labelledby="sec-parecer">
-        <div class="secao-cabecalho">
-          <h2 id="sec-parecer">Parecer</h2>
-          <span class="ld-selo" :class="riscoSeloClass">
-            {{ riscoLabel(doc.parecer.classificacao_risco) }}
-          </span>
-        </div>
-        <p v-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
-        <p v-else class="vazio">Parecer não disponível para esta análise.</p>
       </section>
 
       <!-- Rodapé de metadados -->
@@ -472,11 +529,18 @@ function exportarPdf() {
 }
 
 /* ── A prancha ──────────────────────────────────────────── */
+/* A folha do parecer repousa sobre o papel de segurança da página: sombra
+   leve para descolar do guilhoché, folha amarelada, dados em azul anil. */
 .prancha {
-  background: var(--ld-folha);
-  border: 1px solid var(--ld-filete);
+  background: var(--ld-certidao-papel);
+  border: 1px solid var(--ld-certidao-filete);
   border-radius: var(--ld-r-md);
   overflow: hidden;
+  box-shadow: var(--ld-shadow-flutuante);
+}
+/* Carimbo de identificação e título ficam sobre a folha amarelada */
+.prancha :deep(.carimbo) {
+  background: transparent;
 }
 
 /* Título do documento */
@@ -533,10 +597,11 @@ function exportarPdf() {
   font-weight: 400;
 }
 
-/* Seções */
+/* Seções — o campo de leitura em azul anil suave */
 .secao {
   border-top: 1px solid var(--ld-filete);
   padding: var(--ld-space-lg) var(--ld-space-xl) var(--ld-space-xl);
+  background: var(--ld-certidao-conteudo);
 }
 .secao h2 {
   margin: 0 0 var(--ld-space-md);
@@ -577,7 +642,7 @@ function exportarPdf() {
   margin: var(--ld-space-md) 0 0;
   border: 1px solid var(--ld-filete);
   border-radius: var(--ld-r-sm);
-  background: var(--ld-papel);
+  background: var(--ld-folha);
   padding: var(--ld-space-lg);
 }
 .croqui img {
@@ -618,6 +683,21 @@ function exportarPdf() {
 .pessoa-meta {
   margin: 2px 0 0;
   font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+}
+.subsecao {
+  margin-top: var(--ld-space-lg);
+  padding-top: var(--ld-space-md);
+  border-top: 1px solid var(--ld-filete);
+}
+.subsecao-titulo {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.subsecao-nota {
+  margin: 2px 0 var(--ld-space-md);
+  font-size: 0.8125rem;
   color: var(--ld-tinta-suave);
 }
 
@@ -751,10 +831,13 @@ function exportarPdf() {
   font-weight: 600;
 }
 
-/* Parecer — a régua dupla marca a conclusão */
+/* Parecer — a folha amarelada e o filete anil destacam a conclusão selada */
 .secao--parecer {
-  border-top: 2px solid var(--ld-tinta);
-  background: var(--ld-papel);
+  border-top: 3px solid var(--ld-anil);
+  background: var(--ld-certidao-papel);
+}
+.secao--parecer .secao-cabecalho {
+  align-items: center;
 }
 .parecer-texto {
   margin: 0;
@@ -865,12 +948,16 @@ function exportarPdf() {
   #documento-matricula {
     border: none !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
     font-size: 12px;
   }
 
+  #documento-matricula,
+  #documento-matricula .secao,
   #documento-matricula .carimbo,
   #documento-matricula .secao--parecer,
   #documento-matricula .ld-selo,
+  #documento-matricula .ld-carimbo,
   #documento-matricula .onus,
   #documento-matricula .avisos {
     print-color-adjust: exact;

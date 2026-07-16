@@ -14,10 +14,10 @@ async function onSubmit(file: File) {
     form.append('file', file)
     form.append('params', JSON.stringify({ incluirMemorial: true, incluirCroqui: false }))
 
-    const { jobId } = await $fetch<{ jobId: string }>('/api/matriculas', {
-      method: 'POST',
-      body: form,
-    })
+    const { jobId } = await $fetch<{ jobId: string; custo: number; paginas: number }>(
+      '/api/matriculas',
+      { method: 'POST', body: form },
+    )
     await navigateTo(`/matriculas/${jobId}`)
   } catch (err) {
     erro.value = mensagemDeErroDeUpload(err)
@@ -41,7 +41,8 @@ async function onSubmit(file: File) {
       description="PDF da certidão, digitalizada ou nato-digital. A leitura e a análise jurídica acontecem automaticamente."
       accept=".pdf,application/pdf"
       :uploading="uploading"
-      :custo-creditos="20"
+      :custo-por-pagina="8"
+      :custo-base="83"
       @submit="onSubmit"
     />
 

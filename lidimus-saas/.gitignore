@@ -11,3 +11,7 @@ drizzle/meta/
 
 # Estado da ferramenta impeccable
 .impeccable/
+
+# RAG (artefatos locais dos scripts em rag/)
+rag/.credentials-created.json
+rag/backup-workflow-*.json

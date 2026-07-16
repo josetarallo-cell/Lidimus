@@ -3,7 +3,12 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-useHead({ title: 'Memorial descritivo — Lidimus' })
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
+// do memorial repousa limpa sobre ele
+useHead({
+  title: 'Memorial descritivo — Lidimus',
+  bodyAttrs: { class: 'ld-pagina-certidao' },
+})
 
 const result = computed(() => job.value?.result as Record<string, any> | undefined)
 
@@ -198,12 +203,14 @@ function exportarPdf() {
   color: var(--ld-tinta-suave);
 }
 
-/* Prancha */
+/* Prancha — a folha do memorial repousa sobre o papel de segurança da página:
+   sombra leve para descolar do guilhoché, folha amarelada, dados em azul anil. */
 .prancha {
-  background: var(--ld-folha);
-  border: 1px solid var(--ld-filete);
+  background: var(--ld-certidao-papel);
+  border: 1px solid var(--ld-certidao-filete);
   border-radius: var(--ld-r-md);
   overflow: hidden;
+  box-shadow: var(--ld-shadow-flutuante);
 }
 .prancha-cabecalho-grade {
   display: flex;
@@ -283,6 +290,7 @@ function exportarPdf() {
 .secao {
   border-top: 1px solid var(--ld-filete);
   padding: var(--ld-space-lg) var(--ld-space-xl) var(--ld-space-xl);
+  background: var(--ld-certidao-conteudo);
 }
 .memorial-texto {
   margin: 0;
@@ -364,8 +372,11 @@ function exportarPdf() {
   #documento-memorial {
     border: none !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
     font-size: 12px;
   }
+  #documento-memorial,
+  #documento-memorial .secao,
   #documento-memorial .carimbo,
   #documento-memorial .ld-selo,
   #documento-memorial .croqui-mapa {

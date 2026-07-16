@@ -7,17 +7,18 @@ defineProps<{
   documentoLabel: string
   documento: string
   emitido: string
+  // Data em que o cartório expediu a certidão analisada — só os laudos que
+  // partem de um documento datado a informam. `certidaoAlerta` marca a data em
+  // ocre quando ela não foi identificada ou está fora do prazo usual.
+  certidao?: string
+  certidaoAlerta?: boolean
 }>()
 </script>
 
 <template>
   <header class="carimbo" aria-label="Identificação do documento">
     <div class="carimbo-cell carimbo-cell--marca">
-      <svg width="16" height="16" viewBox="0 0 28 28" aria-hidden="true">
-        <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-        <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-      </svg>
-      Lidimus
+      <img src="/logo.svg" alt="Lidimus" class="carimbo-logo" />
     </div>
     <div class="carimbo-cell">
       <span class="carimbo-label">Análise</span>
@@ -26,6 +27,10 @@ defineProps<{
     <div class="carimbo-cell">
       <span class="carimbo-label">{{ documentoLabel }}</span>
       <span class="carimbo-id">{{ documento }}</span>
+    </div>
+    <div v-if="certidao" class="carimbo-cell">
+      <span class="carimbo-label">Certidão</span>
+      <span :class="{ 'carimbo-alerta': certidaoAlerta }">{{ certidao }}</span>
     </div>
     <div class="carimbo-cell">
       <span class="carimbo-label">Emitido</span>
@@ -59,15 +64,11 @@ defineProps<{
 .carimbo-cell--marca {
   flex-direction: row;
   align-items: center;
-  gap: var(--ld-space-sm);
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
-.carimbo-cell--marca svg {
-  color: var(--ld-verde);
+.carimbo-logo {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 .carimbo-label {
   font-size: 0.6875rem;
@@ -77,6 +78,10 @@ defineProps<{
 }
 .carimbo-id {
   font-family: var(--ld-font-mono);
+}
+.carimbo-alerta {
+  color: var(--ld-ocre);
+  font-weight: 600;
 }
 .carimbo-cell--selo {
   margin-left: auto;

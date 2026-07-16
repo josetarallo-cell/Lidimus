@@ -3,7 +3,12 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-useHead({ title: 'Laudo de verificação — Lidimus' })
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
+// do laudo repousa limpa sobre ele
+useHead({
+  title: 'Laudo de verificação — Lidimus',
+  bodyAttrs: { class: 'ld-pagina-certidao' },
+})
 
 const result = computed(() => job.value?.result as Record<string, any> | undefined)
 
@@ -20,16 +25,35 @@ const emitidoEm = computed(() => {
     : '—'
 })
 
-// A Regra do Carimbo: vermelho somente onde há risco real
+// A Regra do Carimbo: vermelho somente onde há risco real. O carimbo estampa
+// o veredito em destaque no bloco de identificação.
 const risco = computed(() => {
   const r = String(result.value?.risk_level ?? '').toLowerCase()
-  if (r === 'high') return { classe: 'ld-selo--carimbo', texto: 'Risco alto' }
-  if (r === 'medium') return { classe: 'ld-selo--ocre', texto: 'Risco médio' }
-  if (r === 'low') return { classe: 'ld-selo--verde', texto: 'Risco baixo' }
-  return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
+  if (r === 'high') return { classe: 'ld-carimbo--alto', texto: 'Risco alto' }
+  if (r === 'medium') return { classe: 'ld-carimbo--medio', texto: 'Risco médio' }
+  if (r === 'low') return { classe: 'ld-carimbo--baixo', texto: 'Risco baixo' }
+  return { classe: 'ld-carimbo--neutro', texto: 'Não classificado' }
 })
 
 const temAchados = computed(() => (result.value?.findings?.length ?? 0) > 0)
+
+// Evidências: cada bloco só aparece quando a análise correspondente encontrou
+// material para demonstrar — o laudo mostra a fraude, não apenas a anuncia
+const evidenciaTexto = computed(() => {
+  const a = result.value?.hiddenTextAnalysis as Record<string, any> | undefined
+  return a?.hiddenTextFound && a.hiddenItems?.length ? a : null
+})
+
+const evidenciaImagem = computed(() => {
+  const a = result.value?.imageAnalysis as Record<string, any> | undefined
+  if (!a?.imagePreviews?.length) return null
+  return a.suspicious || a.imageTexts?.length ? a : null
+})
+
+const evidenciaMetadados = computed(() => {
+  const a = result.value?.metadataAnalysis as Record<string, any> | undefined
+  return a?.isSuspicious || a?.aiAnalysis?.isInjection ? a : null
+})
 
 // O alarme sem orientação abandona o usuário no pico da ansiedade — o laudo
 // diz o que o achado significa e o que fazer, em linguagem leiga
@@ -94,7 +118,7 @@ function exportarPdf() {
         :documento="protocolo"
         :emitido="emitidoEm"
       >
-        <span class="ld-selo" :class="risco.classe">{{ risco.texto }}</span>
+        <span class="ld-carimbo" :class="risco.classe">{{ risco.texto }}</span>
       </BlocoCarimbo>
 
       <div class="prancha-titulo">
@@ -116,6 +140,21 @@ function exportarPdf() {
         <p v-else>
           <span class="ld-selo ld-selo--verde">Nenhum conteúdo oculto identificado</span>
         </p>
+      </section>
+
+      <section v-if="evidenciaTexto" class="secao" aria-labelledby="sec-ev-texto">
+        <h2 id="sec-ev-texto">Demonstração — texto oculto no corpo do documento</h2>
+        <EvidenciaTextoOculto :analysis="evidenciaTexto" />
+      </section>
+
+      <section v-if="evidenciaImagem" class="secao" aria-labelledby="sec-ev-imagem">
+        <h2 id="sec-ev-imagem">Demonstração — imagem com texto oculto</h2>
+        <EvidenciaImagemOculta :analysis="evidenciaImagem" />
+      </section>
+
+      <section v-if="evidenciaMetadados" class="secao" aria-labelledby="sec-ev-metadados">
+        <h2 id="sec-ev-metadados">Demonstração — texto oculto nos metadados</h2>
+        <EvidenciaMetadados :analysis="evidenciaMetadados" />
       </section>
 
       <footer class="prancha-rodape">
@@ -153,12 +192,17 @@ function exportarPdf() {
   color: var(--ld-tinta-suave);
 }
 
-/* Prancha */
+/* Prancha — a folha do laudo repousa sobre o papel de segurança da página:
+   sombra leve para descolar do guilhoché, folha amarelada, dados em azul anil. */
 .prancha {
-  background: var(--ld-folha);
-  border: 1px solid var(--ld-filete);
+  background: var(--ld-certidao-papel);
+  border: 1px solid var(--ld-certidao-filete);
   border-radius: var(--ld-r-md);
   overflow: hidden;
+  box-shadow: var(--ld-shadow-flutuante);
+}
+.prancha :deep(.carimbo) {
+  background: transparent;
 }
 .prancha-titulo {
   padding: var(--ld-space-xl) var(--ld-space-xl) var(--ld-space-lg);
@@ -180,6 +224,7 @@ function exportarPdf() {
 .secao {
   border-top: 1px solid var(--ld-filete);
   padding: var(--ld-space-lg) var(--ld-space-xl) var(--ld-space-xl);
+  background: var(--ld-certidao-conteudo);
 }
 .secao h2 {
   margin: 0 0 var(--ld-space-md);
@@ -281,11 +326,18 @@ function exportarPdf() {
   #documento-laudo {
     border: none !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
     font-size: 12px;
   }
+  #documento-laudo,
+  #documento-laudo .secao,
   #documento-laudo .carimbo,
   #documento-laudo .ld-selo,
-  #documento-laudo .achado {
+  #documento-laudo .ld-carimbo,
+  #documento-laudo .achado,
+  #documento-laudo .quadro-folha,
+  #documento-laudo .quadro-moldura,
+  #documento-laudo .ficha-linha {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

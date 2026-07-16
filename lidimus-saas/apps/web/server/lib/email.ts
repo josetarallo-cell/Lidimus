@@ -14,10 +14,15 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 
   if (!_resend) _resend = new Resend(config.resendApiKey)
 
-  await _resend.emails.send({
+  // O SDK do Resend não lança exceção em falha de API — devolve { error }
+  const { error } = await _resend.emails.send({
     from: config.emailFrom,
     to,
     subject,
     html,
   })
+  if (error) {
+    console.error(`[email] falha no envio para=${to} assunto="${subject}":`, error)
+    throw new Error(`Falha ao enviar e-mail: ${error.message}`)
+  }
 }

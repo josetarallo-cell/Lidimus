@@ -46,11 +46,7 @@ async function login() {
   <div class="auth">
     <main class="auth-caixa">
       <NuxtLink to="/" class="auth-marca">
-        <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true">
-          <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-          <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-        </svg>
-        Lidimus
+        <img src="/logo.svg" alt="Lidimus" class="auth-marca-logo" />
       </NuxtLink>
 
       <section class="ld-painel auth-painel">
@@ -129,18 +125,13 @@ async function login() {
 }
 .auth-marca {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
   margin-bottom: var(--ld-space-lg);
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 1.375rem;
-  color: var(--ld-tinta);
-  text-decoration: none;
 }
-.auth-marca svg {
-  color: var(--ld-verde);
+.auth-marca-logo {
+  display: block;
+  height: 52px;
+  width: auto;
 }
 .auth-painel {
   padding: var(--ld-space-xl) var(--ld-space-lg);

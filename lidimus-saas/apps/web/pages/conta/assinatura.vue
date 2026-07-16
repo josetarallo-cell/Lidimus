@@ -131,12 +131,16 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
         <div class="atual-info">
           <p class="atual-rotulo">Plano atual</p>
           <p class="atual-plano">{{ assinatura.planName }}</p>
+          <p class="atual-preco">
+            <span>{{ precoFmt(assinatura.priceCents ?? assinatura.monthlyPriceCents) }}</span>
+            {{ assinatura.cycle === 'anual' ? '/ano' : '/mês' }}
+          </p>
           <p class="atual-detalhe">
             <span class="ld-selo" :class="statusSelo[assinatura.status]?.classe">
               {{ statusSelo[assinatura.status]?.texto ?? assinatura.status }}
             </span>
             <span v-if="assinatura.currentPeriodEnd" class="atual-renovacao">
-              Renova em {{ dataFmt(assinatura.currentPeriodEnd) }}
+              Próxima cobrança em {{ dataFmt(assinatura.currentPeriodEnd) }}
             </span>
           </p>
           <p class="atual-creditos">{{ assinatura.creditsPerCycle.toLocaleString('pt-BR') }} créditos por ciclo</p>
@@ -301,6 +305,17 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
   font-weight: 600;
   font-size: 1.5rem;
   line-height: 1.2;
+}
+.atual-preco {
+  margin: 0 0 var(--ld-space-xs);
+  color: var(--ld-tinta-suave);
+  font-size: 0.9375rem;
+}
+.atual-preco span {
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.375rem;
+  color: var(--ld-tinta);
 }
 .atual-detalhe {
   margin: 0 0 var(--ld-space-xs);

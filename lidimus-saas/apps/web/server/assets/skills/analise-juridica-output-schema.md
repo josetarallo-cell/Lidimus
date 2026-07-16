@@ -42,9 +42,33 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     "cadeia_dominial_status": "ok|quebrada|incompleta|indeterminada",
     "onus_ativos": ["string"],
     "restricoes_ativas": ["string"],
-    "direitos_reais_ativos": ["string"],
-    "proprietarios_atuais": ["string"]
+    "direitos_reais_ativos": ["string"]
   },
+  "proprietarios_atuais": [
+    {
+      "nome": "string",
+      "documento_tipo": "CPF|CNPJ|null",
+      "documento_numero": "string|null",
+      "qualificacao": "string|null",
+      "estado_civil": "string|null",
+      "regime_bens": "string|null",
+      "endereco_domicilio": "string|null",
+      "ato_aquisitivo": "string|null",
+      "data_aquisicao": "string|null",
+      "percentual": "string|null",
+      "observacao": "string|null"
+    }
+  ],
+  "promissarios_cessionarios": [
+    {
+      "nome": "string",
+      "documento_tipo": "CPF|CNPJ|null",
+      "documento_numero": "string|null",
+      "natureza": "string",
+      "ato_aquisitivo": "string|null",
+      "observacao": "string|null"
+    }
+  ],
   "regras_deterministicas": [
     {
       "regra": "string",

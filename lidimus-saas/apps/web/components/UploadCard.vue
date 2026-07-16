@@ -4,21 +4,52 @@ const props = defineProps<{
   description: string
   accept: string
   uploading: boolean
-  // Custo da análise em créditos — mostrado no rodapé para o usuário decidir
-  // com a informação à vista, em vez de descobrir num erro 402
+  // Custo fixo da análise em créditos (ex.: KML). Para análises cobradas por
+  // página, use custoPorPagina + custoBase — o total só é conhecido no servidor,
+  // então aqui mostramos a tarifa. Mostrado no rodapé para o usuário decidir com
+  // a informação à vista, em vez de descobrir num erro 402.
   custoCreditos?: number
+  custoPorPagina?: number
+  custoBase?: number
 }>()
 
 const { data: creditos } = await useFetch<{ balance: number }>('/api/account/credits', {
   server: false,
 })
 
+// Piso de crédito para a checagem de saldo: custo fixo, ou o mínimo de 1 página.
+const custoMinimo = computed(() =>
+  props.custoPorPagina != null
+    ? Math.ceil((props.custoBase ?? 0) + props.custoPorPagina)
+    : props.custoCreditos,
+)
+
 const saldoInsuficiente = computed(
   () =>
-    props.custoCreditos != null &&
+    custoMinimo.value != null &&
     creditos.value != null &&
-    creditos.value.balance < props.custoCreditos,
+    creditos.value.balance < custoMinimo.value,
 )
+
+// Texto do custo: por página (tarifa) ou fixo. Quando há custo base relevante além
+// da tarifa por página, mostramos os dois para não subestimar o total — o piso já
+// é "base + 1 página", então uma análise nunca custa só a tarifa por página.
+const textoCusto = computed(() => {
+  if (props.custoPorPagina != null) {
+    const porPag = props.custoPorPagina
+    const fmt = porPag.toLocaleString('pt-BR')
+    const tarifa = `${fmt} crédito${porPag === 1 ? '' : 's'} por página`
+    const base = props.custoBase ?? 0
+    if (base > 0) {
+      return `Esta análise consome ${base} créditos + ${tarifa}`
+    }
+    return `Esta análise consome ${tarifa}`
+  }
+  if (props.custoCreditos != null) {
+    return `Esta análise consome ${props.custoCreditos} crédito${props.custoCreditos === 1 ? '' : 's'}`
+  }
+  return null
+})
 
 const emit = defineEmits<{
   (e: 'submit', file: File): void
@@ -99,12 +130,8 @@ function submit() {
     </div>
 
     <footer class="envio-rodape">
-      <p v-if="custoCreditos != null" class="envio-custo" :class="{ 'envio-custo--alerta': saldoInsuficiente }">
-        Esta análise consome {{ custoCreditos }} crédito{{ custoCreditos === 1 ? '' : 's' }}<template
-          v-if="creditos != null"
-        >
-          · você tem {{ creditos.balance }}</template
-        >.
+      <p v-if="textoCusto != null" class="envio-custo" :class="{ 'envio-custo--alerta': saldoInsuficiente }">
+        {{ textoCusto }}<template v-if="creditos != null"> · você tem {{ creditos.balance }}</template>.
         <NuxtLink v-if="saldoInsuficiente" to="/conta/assinatura" class="envio-custo-link">
           Ver planos e créditos
         </NuxtLink>

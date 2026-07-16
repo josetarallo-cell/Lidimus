@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'pt-BR' },
       link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
@@ -36,6 +37,8 @@ export default defineNuxtConfig({
     emailFrom: process.env.EMAIL_FROM || 'Lidimus <onboarding@resend.dev>',
     googleClientId: process.env.GOOGLE_CLIENT_ID || '',
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    // Câmbio US$→R$ para o painel de custos (custo de modelos é cobrado em USD)
+    usdBrlRate: Number(process.env.USD_BRL_RATE || 5.45),
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {

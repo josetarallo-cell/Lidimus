@@ -77,11 +77,7 @@ const annualNote = computed(() =>
     <header class="barra">
       <div class="barra-inner">
         <NuxtLink to="/" class="marca">
-          <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true">
-            <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-            <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-          </svg>
-          Lidimus
+          <img src="/logo.svg" alt="Lidimus" class="marca-logo" />
         </NuxtLink>
         <nav class="barra-nav" aria-label="Principal">
           <a href="#ferramentas" class="barra-link">Ferramentas</a>
@@ -118,11 +114,7 @@ const annualNote = computed(() =>
           <div class="hero-prancha" aria-hidden="true">
             <div class="mini-carimbo">
               <span class="mini-carimbo-marca">
-                <svg width="13" height="13" viewBox="0 0 28 28">
-                  <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-                  <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-                </svg>
-                Lidimus
+                <img src="/logo.svg" alt="" class="mini-carimbo-logo" />
               </span>
               <span class="mini-carimbo-cell">
                 <span class="mini-carimbo-label">Documento</span>
@@ -496,13 +488,13 @@ const annualNote = computed(() =>
         </div>
 
         <div class="custo-medio">
-          <p class="custo-titulo">Custo médio por análise</p>
+          <p class="custo-titulo">Quanto custa cada análise</p>
           <div class="custo-itens">
-            <p><span>~20</span> créditos · matrícula</p>
-            <p><span>~50</span> créditos · memorial</p>
-            <p><span>~5</span> créditos · PDF verificado</p>
+            <p><span>83</span> + 8 créditos/página · matrícula</p>
+            <p><span>50</span> créditos · memorial</p>
+            <p><span>0,5</span> crédito/página · PDF verificado</p>
           </div>
-          <p class="custo-nota">Créditos extras avulsos disponíveis a qualquer momento.</p>
+          <p class="custo-nota">Você paga pelo tamanho real do documento. Créditos extras avulsos disponíveis a qualquer momento.</p>
         </div>
       </section>
 
@@ -520,11 +512,8 @@ const annualNote = computed(() =>
         <div class="rodape-colunas">
           <div class="rodape-marca">
             <p class="marca marca--rodape">
-              <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden="true">
-                <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-                <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-              </svg>
-              Lidimus
+              <!-- Variante clara do logo: o rodapé é tinta escura e a versão padrão sumiria. -->
+              <img src="/logo-branco.svg" alt="Lidimus" class="marca-logo marca-logo--rodape" />
             </p>
             <p class="rodape-desc">Inteligência documental para advogados, engenheiros, arquitetos e cartórios.</p>
           </div>
@@ -603,15 +592,16 @@ const annualNote = computed(() =>
 .marca {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 1.375rem;
-  color: var(--ld-tinta);
   text-decoration: none;
 }
-.marca svg {
-  color: var(--ld-verde);
+/* O logo tem respiro interno no viewBox; a altura maior que o texto compensa. */
+.marca-logo {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+.marca-logo--rodape {
+  height: 40px;
 }
 .barra-nav {
   display: flex;
@@ -715,17 +705,13 @@ const annualNote = computed(() =>
 .mini-carimbo-marca {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   padding: 10px 14px;
   border-right: 1px solid var(--ld-filete);
-  font-family: var(--ld-font-serif);
-  font-weight: 600;
-  font-size: 0.8125rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
-.mini-carimbo-marca svg {
-  color: var(--ld-verde);
+.mini-carimbo-logo {
+  display: block;
+  height: 22px;
+  width: auto;
 }
 .mini-carimbo-cell {
   display: flex;

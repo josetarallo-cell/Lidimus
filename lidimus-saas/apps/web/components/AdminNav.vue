@@ -2,6 +2,7 @@
   <nav class="admin-nav" aria-label="Seções administrativas">
     <NuxtLink to="/admin/clientes" class="admin-nav-link" active-class="admin-nav-link--ativa">Clientes</NuxtLink>
     <NuxtLink to="/admin/faturamento" class="admin-nav-link" active-class="admin-nav-link--ativa">Faturamento</NuxtLink>
+    <NuxtLink to="/admin/custos" class="admin-nav-link" active-class="admin-nav-link--ativa">Custos</NuxtLink>
     <NuxtLink to="/admin/queues" class="admin-nav-link" active-class="admin-nav-link--ativa">Filas</NuxtLink>
   </nav>
 </template>

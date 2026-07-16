@@ -12,7 +12,93 @@ const bodySchema = z.object({
   stage: z.enum(['ocr', 'juridico', 'doc']).optional(),
   result: z.record(z.unknown()).optional(),
   error: z.string().optional(),
+  // Uso real dos modelos, se o workflow do n8n reportar. Serve para medir a
+  // margem real (créditos cobrados vs. custo de tokens) e alimentar o painel de
+  // custos do admin. Aceita a forma "flat" (1 modelo) ou `models[]` (vários por
+  // etapa, ex.: Jurídico usa Sonnet + Mistral). Não afeta a cobrança.
+  usage: z
+    .object({
+      // forma flat — retrocompatível com o que o lidimus-Juridico já emite
+      model: z.string().optional(),
+      workflow: z.string().optional(),
+      promptTokens: z.number().optional(),
+      completionTokens: z.number().optional(),
+      totalTokens: z.number().optional(),
+      costUsd: z.number().optional(),
+      // forma multi-modelo
+      models: z
+        .array(
+          z
+            .object({
+              model: z.string(),
+              workflow: z.string().optional(),
+              promptTokens: z.number().optional(),
+              completionTokens: z.number().optional(),
+              totalTokens: z.number().optional(),
+              costUsd: z.number().optional(),
+              // p/ modelos cobrados por unidade e não por token (ex.: OCR por página)
+              units: z.number().optional(),
+              unitLabel: z.string().optional(),
+            })
+            .passthrough(),
+        )
+        .optional(),
+    })
+    .passthrough()
+    .optional(),
 })
+
+type UsageEntry = {
+  model: string
+  workflow?: string
+  stage?: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  costUsd: number
+  units?: number
+  unitLabel?: string
+}
+
+// Normaliza o `usage` recebido em uma lista de entradas por modelo.
+function toUsageEntries(incoming: Record<string, unknown>, stage: string | undefined): UsageEntry[] {
+  const raw = Array.isArray(incoming.models)
+    ? (incoming.models as Record<string, unknown>[])
+    : incoming.model
+      ? [incoming]
+      : []
+  return raw
+    .filter((e) => e && typeof e.model === 'string')
+    .map((e) => ({
+      model: String(e.model),
+      workflow: typeof e.workflow === 'string' ? e.workflow : undefined,
+      stage,
+      promptTokens: Number(e.promptTokens) || 0,
+      completionTokens: Number(e.completionTokens) || 0,
+      totalTokens:
+        Number(e.totalTokens) || (Number(e.promptTokens) || 0) + (Number(e.completionTokens) || 0),
+      costUsd: Number(e.costUsd) || 0,
+      ...(e.units != null ? { units: Number(e.units) || 0 } : {}),
+      ...(typeof e.unitLabel === 'string' ? { unitLabel: e.unitLabel } : {}),
+    }))
+}
+
+// Acumula o uso reportado em job.result.usage.entries (uma entrada por modelo),
+// somando tokens/custo entre etapas. O painel de custos do admin agrega essas
+// entradas por modelo. Não afeta a cobrança — é telemetria de margem.
+function mergeUsage(
+  existing: Record<string, unknown> | null | undefined,
+  incoming: Record<string, unknown> | undefined,
+  stage: string | undefined,
+): Record<string, unknown> | undefined {
+  if (!incoming) return existing ?? undefined
+  const prev = (existing ?? {}) as Record<string, unknown>
+  const prevEntries = Array.isArray(prev.entries) ? (prev.entries as UsageEntry[]) : []
+  const entries = [...prevEntries, ...toUsageEntries(incoming, stage)]
+  const totalTokens = entries.reduce((s, e) => s + (Number(e.totalTokens) || 0), 0)
+  const costUsd = Number(entries.reduce((s, e) => s + (Number(e.costUsd) || 0), 0).toFixed(6))
+  return { entries, totalTokens, costUsd }
+}
 
 function verifyHmac(secret: string, body: string, signature: string): boolean {
   const expected = createHmac('sha256', secret).update(body).digest('hex')
@@ -87,7 +173,17 @@ export default defineEventHandler(async (event) => {
   // ─── Pipeline de matrícula: orquestração por etapa ──────────────────────────
   if (job.type === 'matricula' && body.stage) {
     const result = body.result ?? {}
-    const stageData = { ...(job.stageData ?? {}), [body.stage]: result }
+    // Uso acumulado entre etapas fica em stageData._usage (persistente); é dobrado
+    // em result.usage na etapa final. Só grava a chave quando há uso reportado.
+    const priorUsage = (job.stageData as Record<string, unknown> | undefined)?._usage as
+      | Record<string, unknown>
+      | undefined
+    const usage = mergeUsage(priorUsage, body.usage, body.stage)
+    const stageData = {
+      ...(job.stageData ?? {}),
+      [body.stage]: result,
+      ...(usage ? { _usage: usage } : {}),
+    }
     const callbackUrl = `${config.publicBaseUrl}/api/webhooks/n8n-callback`
     const params = ((job.inputMeta as Record<string, unknown>)?.params ?? {}) as Record<string, unknown>
 
@@ -134,13 +230,19 @@ export default defineEventHandler(async (event) => {
         .set({ stageData, status: 'queued', stage: 'doc' })
         .where(eq(jobs.id, body.jobId))
 
+      const ocr = stageData.ocr as Record<string, unknown> | undefined
+
       const { matriculaDocQueue } = useQueues()
       await matriculaDocQueue.add('process', {
         jobId: body.jobId,
         callbackUrl,
         dadosConsolidados: {
           ...result,
-          total_paginas: (stageData.ocr as Record<string, unknown> | undefined)?.total_paginas ?? null,
+          total_paginas: ocr?.total_paginas ?? null,
+          // O jurídico devolve só campos já extraídos; a montagem do documento
+          // precisa do texto para detectar a data em que o cartório expediu a
+          // certidão (fica no cabeçalho do laudo).
+          texto_ocr: ocr?.texto_ocr ?? null,
           params,
         },
       })
@@ -155,7 +257,7 @@ export default defineEventHandler(async (event) => {
         stageData,
         status: 'done',
         stage: 'doc',
-        result,
+        result: usage ? { ...result, usage } : result,
         completedAt: new Date(),
       })
       .where(eq(jobs.id, body.jobId))
@@ -164,9 +266,19 @@ export default defineEventHandler(async (event) => {
   }
 
   // ─── Jobs de etapa única (kml, injection) ────────────────────────────────────
+  const singleResult = body.result ?? {}
+  const singleUsage = mergeUsage(
+    (job.result as Record<string, unknown> | undefined)?.usage as Record<string, unknown> | undefined,
+    body.usage,
+    body.stage,
+  )
   await db
     .update(jobs)
-    .set({ status: 'done', result: body.result ?? {}, completedAt: new Date() })
+    .set({
+      status: 'done',
+      result: singleUsage ? { ...singleResult, usage: singleUsage } : singleResult,
+      completedAt: new Date(),
+    })
     .where(eq(jobs.id, body.jobId))
 
   await softDeleteJobFile(db, body.jobId)
