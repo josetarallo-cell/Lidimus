@@ -5,7 +5,7 @@ import { creditTransactions } from './schema.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
-export type JobType = 'matricula' | 'kml' | 'injection'
+export type JobType = 'matricula' | 'kml' | 'injection' | 'croqui'
 
 // Precificação em créditos por análise, calibrada sobre o custo real de tokens
 // medido no painel Admin (aba Custos). A regressão das 9 matrículas de teste
@@ -25,11 +25,16 @@ export type JobType = 'matricula' | 'kml' | 'injection'
 // escala com páginas — só inspeciona trechos suspeitos), então base 3 + 0,5/pág já
 // carrega >3× de margem. kml (Memorial) é gerado de coordenadas e ainda não emite
 // usage; mantém custo fixo (perPage = 0) como estimativa até haver telemetria.
+// croqui: uma extração Mistral sobre o trecho do perímetro + desenho por código
+// (zero token). Estimativa até haver telemetria: base cobre a extração; perPage
+// cobre o OCR no modo de upload avulso. Reaproveitando matrícula já lida, cobra
+// pages=1 (não há OCR novo).
 // Ajuste os coeficientes aqui — é o único ponto de calibragem.
 export const CREDIT_PRICING: Record<JobType, { base: number; perPage: number; maxPages: number }> = {
   matricula: { base: 83, perPage: 8, maxPages: 60 },
   injection: { base: 3, perPage: 0.5, maxPages: 60 },
   kml: { base: 50, perPage: 0, maxPages: 1 },
+  croqui: { base: 12, perPage: 3, maxPages: 60 },
 }
 
 // Custo em créditos de uma análise, dado o nº de páginas do documento (default 1).

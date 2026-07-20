@@ -5,6 +5,7 @@
 
 const FILES: Record<string, string[]> = {
   'analise-juridica': ['analise-juridica.md'],
+  'croqui-matricula': ['croqui-matricula.md'],
   'analise-juridica-output-schema': ['analise-juridica-output-schema.md'],
   'analise-juridica-legal-sources': ['analise-juridica-legal-sources.md'],
   'manual-registro-cheatsheet': ['manual-registro-cheatsheet.md'],

@@ -21,6 +21,7 @@ const typeLabel: Record<string, string> = {
   matricula: 'Matrícula',
   kml: 'Memorial KML',
   injection: 'Verificação de PDF',
+  croqui: 'Croqui do terreno',
 }
 
 // Etapas em linguagem de ofício — nunca jargão de máquina na UI
@@ -28,6 +29,7 @@ const stageLabel: Record<string, string> = {
   ocr: 'Leitura do documento',
   juridico: 'Análise jurídica',
   doc: 'Montagem do parecer',
+  croqui: 'Desenho do croqui',
 }
 
 type Job = {
@@ -46,9 +48,9 @@ function statusSelo(job: Job): { classe: string; texto: string } {
   return { classe: 'ld-selo--neutro', texto: etapa ? `Processando · ${etapa}` : 'Processando' }
 }
 
-// Risco só se aplica a Matrículas e Detector — Memorial Descritivo (kml) não avalia risco
+// Risco só se aplica a Matrículas e Detector — Memorial (kml) e Croqui não avaliam risco
 function riscoInfo(job: Job): { classe: string; texto: string } | null {
-  if (job.type === 'kml') return null
+  if (job.type === 'kml' || job.type === 'croqui') return null
   if (job.status !== 'done') return { classe: 'ld-selo--neutro', texto: '—' }
 
   if (job.type === 'injection') {
@@ -75,6 +77,7 @@ function riscoInfo(job: Job): { classe: string; texto: string } | null {
 function rota(job: Job): string {
   if (job.type === 'kml') return `/kml/${job.id}`
   if (job.type === 'injection') return `/injection/${job.id}`
+  if (job.type === 'croqui') return `/croqui/${job.id}`
   return `/matriculas/${job.id}`
 }
 
@@ -109,6 +112,7 @@ onMounted(() => {
           <span class="painel-saldo-valor">{{ creditos?.balance ?? 0 }}</span> créditos
         </NuxtLink>
         <NuxtLink to="/matriculas" class="ld-btn ld-btn--secondary ld-btn--sm">Nova matrícula</NuxtLink>
+        <NuxtLink to="/croqui" class="ld-btn ld-btn--secondary ld-btn--sm">Novo croqui</NuxtLink>
         <NuxtLink to="/kml" class="ld-btn ld-btn--secondary ld-btn--sm">Novo memorial</NuxtLink>
         <NuxtLink to="/injection" class="ld-btn ld-btn--secondary ld-btn--sm">Verificar PDF</NuxtLink>
       </div>

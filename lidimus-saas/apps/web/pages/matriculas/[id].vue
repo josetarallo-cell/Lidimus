@@ -140,6 +140,25 @@ function sanitizarSvg(svg: unknown): string {
 function exportarPdf() {
   window.print()
 }
+
+// ─── Croqui do terreno: ferramenta separada que reaproveita o texto já lido ──
+const gerandoCroqui = ref(false)
+const erroCroqui = ref<string | null>(null)
+
+async function gerarCroquiDaMatricula() {
+  gerandoCroqui.value = true
+  erroCroqui.value = null
+  try {
+    const { jobId: croquiJobId } = await $fetch<{ jobId: string }>('/api/croqui', {
+      method: 'POST',
+      body: { matriculaJobId: jobId.value },
+    })
+    await navigateTo(`/croqui/${croquiJobId}`)
+  } catch (err) {
+    erroCroqui.value = mensagemDeErroDeUpload(err).texto
+    gerandoCroqui.value = false
+  }
+}
 </script>
 
 <template>
@@ -148,6 +167,15 @@ function exportarPdf() {
     <div class="acoes print-hidden">
       <NuxtLink to="/dashboard" class="ld-btn ld-btn--ghost">← Painel</NuxtLink>
       <button
+        v-if="job?.status === 'done' && textoOcr"
+        class="ld-btn ld-btn--secondary acoes-croqui"
+        :disabled="gerandoCroqui"
+        @click="gerarCroquiDaMatricula"
+      >
+        <span v-if="gerandoCroqui" class="ld-spinner" aria-hidden="true" />
+        {{ gerandoCroqui ? 'Gerando…' : 'Gerar croqui do terreno' }}
+      </button>
+      <button
         v-if="job?.status === 'done' && doc"
         class="ld-btn ld-btn--primary acoes-exportar"
         @click="exportarPdf"
@@ -155,6 +183,7 @@ function exportarPdf() {
         Exportar PDF
       </button>
     </div>
+    <p v-if="erroCroqui" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroCroqui }}</p>
 
     <!-- ── Processando: etapas reais + esqueleto da prancha ─────────────── -->
     <div v-if="!job || processando" class="print-hidden" aria-live="polite">
@@ -457,8 +486,18 @@ function exportarPdf() {
   margin-bottom: var(--ld-space-lg);
   flex-wrap: wrap;
 }
+/* Os botões de ação alinham à direita; o croqui abre a margem */
+.acoes-croqui {
+  margin-left: auto;
+}
+.acoes-croqui + .acoes-exportar {
+  margin-left: 0;
+}
 .acoes-exportar {
   margin-left: auto;
+}
+.acoes-erro {
+  margin: calc(-1 * var(--ld-space-sm)) 0 var(--ld-space-lg);
 }
 
 /* ── Etapas (pipeline em andamento) ─────────────────────── */

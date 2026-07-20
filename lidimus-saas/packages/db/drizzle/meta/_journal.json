@@ -64,6 +64,13 @@
       "when": 1783959771058,
       "tag": "0008_productive_rumiko_fujikawa",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784000000000,
+      "tag": "0009_croqui_job_type",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 const bodySchema = z.object({
   jobId: z.string().uuid(),
-  stage: z.enum(['ocr', 'juridico', 'doc']).optional(),
+  stage: z.enum(['ocr', 'juridico', 'doc', 'croqui']).optional(),
   result: z.record(z.unknown()).optional(),
   error: z.string().optional(),
   // Uso real dos modelos, se o workflow do n8n reportar. Serve para medir a
@@ -257,6 +257,73 @@ export default defineEventHandler(async (event) => {
         stageData,
         status: 'done',
         stage: 'doc',
+        result: usage ? { ...result, usage } : result,
+        completedAt: new Date(),
+      })
+      .where(eq(jobs.id, body.jobId))
+    await publishJobEvent(useQueues().connection, body.jobId)
+    return { ok: true }
+  }
+
+  // ─── Pipeline de croqui: ocr (só no upload avulso) → croqui ─────────────────
+  if (job.type === 'croqui' && body.stage) {
+    const result = body.result ?? {}
+    const priorUsage = (job.stageData as Record<string, unknown> | undefined)?._usage as
+      | Record<string, unknown>
+      | undefined
+    const usage = mergeUsage(priorUsage, body.usage, body.stage)
+    const stageData = {
+      ...(job.stageData ?? {}),
+      [body.stage]: result,
+      ...(usage ? { _usage: usage } : {}),
+    }
+    const callbackUrl = `${config.publicBaseUrl}/api/webhooks/n8n-callback`
+
+    if (body.stage === 'ocr') {
+      // O PDF já foi lido — o binário não é mais necessário na extração
+      await softDeleteJobFile(db, body.jobId)
+
+      const textoOcr = String(result.texto_ocr ?? '')
+      if (!textoOcr.trim()) {
+        await db
+          .update(jobs)
+          .set({
+            status: 'error',
+            stageData,
+            errorMessage: '[ocr] OCR retornou texto vazio.',
+            completedAt: new Date(),
+          })
+          .where(eq(jobs.id, body.jobId))
+        await refundJobCredits(db, body.jobId)
+        await publishJobEvent(useQueues().connection, body.jobId)
+        return { ok: true }
+      }
+
+      await db
+        .update(jobs)
+        .set({ stageData, status: 'queued', stage: 'croqui' })
+        .where(eq(jobs.id, body.jobId))
+
+      const { croquiQueue } = useQueues()
+      await croquiQueue.add('process', {
+        jobId: body.jobId,
+        callbackUrl,
+        textoOcr,
+        totalPaginas: typeof result.total_paginas === 'number' ? result.total_paginas : undefined,
+        params: {},
+      })
+      await publishJobEvent(useQueues().connection, body.jobId)
+      return { ok: true }
+    }
+
+    // stage === 'croqui' — etapa final: o resultado é o JSON estruturado da
+    // extração; o desenho em SVG é gerado no app (@lidimus/croqui), sem LLM
+    await db
+      .update(jobs)
+      .set({
+        stageData,
+        status: 'done',
+        stage: 'croqui',
         result: usage ? { ...result, usage } : result,
         completedAt: new Date(),
       })

@@ -8,6 +8,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
 COPY packages/queue/package.json ./packages/queue/
+COPY packages/croqui/package.json ./packages/croqui/
 
 RUN pnpm install --frozen-lockfile
 
@@ -15,6 +16,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
 COPY packages/db ./packages/db
 COPY packages/queue ./packages/queue
+COPY packages/croqui ./packages/croqui
 
 # Build Nuxt
 WORKDIR /app

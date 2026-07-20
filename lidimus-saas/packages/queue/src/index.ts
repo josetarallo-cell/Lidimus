@@ -34,6 +34,16 @@ export type MatriculaDocJobPayload = {
   dadosConsolidados: Record<string, unknown>
 }
 
+// Croqui: extração do perímetro pelo n8n (lidimus-croqui) — recebe o texto OCR,
+// vindo da etapa de OCR (upload avulso) ou reaproveitado de uma matrícula já lida
+export type CroquiJobPayload = {
+  jobId: string
+  callbackUrl: string
+  textoOcr: string
+  totalPaginas?: number
+  params: Record<string, unknown>
+}
+
 export type KmlJobPayload = {
   jobId: string
   fileAccessToken: string
@@ -60,6 +70,7 @@ export const QUEUE_NAMES = {
   MATRICULA_OCR: 'matricula-ocr',
   MATRICULA_JURIDICO: 'matricula-juridico',
   MATRICULA_DOC: 'matricula-doc',
+  CROQUI: 'croqui',
   KML: 'kml',
   INJECTION: 'injection',
 } as const
@@ -109,6 +120,10 @@ export function createQueues(redisUrl: string) {
       defaultJobOptions,
     }),
     matriculaDocQueue: new Queue<MatriculaDocJobPayload>(QUEUE_NAMES.MATRICULA_DOC, {
+      connection,
+      defaultJobOptions,
+    }),
+    croquiQueue: new Queue<CroquiJobPayload>(QUEUE_NAMES.CROQUI, {
       connection,
       defaultJobOptions,
     }),

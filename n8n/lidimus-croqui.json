@@ -1,0 +1,757 @@
+﻿{
+    "updatedAt":  "2026-07-19T02:04:10.847Z",
+    "createdAt":  "2026-07-19T02:03:34.352Z",
+    "id":  "DdM1aWpt0iAdQ4Pe",
+    "name":  "lidimus-croqui",
+    "description":  null,
+    "active":  true,
+    "isArchived":  false,
+    "nodes":  [
+                  {
+                      "id":  "node-webhook",
+                      "name":  "Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       0,
+                                       304
+                                   ],
+                      "webhookId":  "9c2f4a1e-6b3d-4f82-a5c7-1e8d90b4c623",
+                      "onError":  "continueRegularOutput",
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "lidimus-croqui",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "node-preparar",
+                      "name":  "Preparar Input",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       224,
+                                       304
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "const raw = $input.first().json;\nconst body = (raw.body \u0026\u0026 typeof raw.body === \u0027object\u0027) ? raw.body : raw;\nreturn [{ json: {\n  jobId: body.jobId || \u0027\u0027,\n  callbackUrl: body.callbackUrl || \u0027\u0027,\n  callbackSecret: body.callbackSecret || \u0027\u0027,\n  skillBaseUrl: body.skillBaseUrl || \u0027\u0027,\n  texto_ocr: String(body.textoOcr || \u0027\u0027),\n  total_paginas: body.totalPaginas ?? null,\n} }];"
+                                     }
+                  },
+                  {
+                      "id":  "node-responder",
+                      "name":  "Responder Webhook",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       448,
+                                       304
+                                   ],
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ ({ status: \u0027processing\u0027, stage: \u0027croqui\u0027, jobId: $(\u0027Preparar Input\u0027).first().json.jobId }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "node-recortar",
+                      "name":  "Recortar Perimetro",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       672,
+                                       304
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "// Isola o trecho da descricao do perimetro para economizar tokens na extracao.\n// Matriculas curtas vao inteiras; nas longas, janelas em volta das palavras-chave\n// de descricao de perimetro, mescladas, com o cabecalho (endereco) na frente.\nconst texto = $(\u0027Preparar Input\u0027).first().json.texto_ocr || \u0027\u0027;\nconst LIMITE = 12000;\nif (texto.length \u003c= LIMITE) {\n  return [{ json: { recorte: texto, recorte_chars: texto.length, texto_completo: true } }];\n}\nconst RE = /(medindo|metros?\\s+de\\s+frente|de\\s+frente\\s+para|da\\s+frente\\s+aos\\s+fundos|confront|\\barea\\s+de|\\bárea\\s+de|superf[ií]cie\\s+de|encerrando\\s+a\\s+[aá]rea|per[ií]metro|azimute|deflete|deflex[aã]o|[aâ]ngulo\\s+interno|rumo\\s+[NS]|coordenadas|UTM|assim\\s+descrit|descri[cç][aã]o\\s+do\\s+im[oó]vel|bra[cç]as?|lateral\\s+(direita|esquerda)|\\bfundos\\b|chanfr|testada)/gi;\nconst janelas = [];\nlet m;\nwhile ((m = RE.exec(texto)) !== null) {\n  janelas.push([Math.max(0, m.index - 1200), Math.min(texto.length, m.index + 1800)]);\n  if (janelas.length \u003e 60) break;\n}\njanelas.sort((a, b) =\u003e a[0] - b[0]);\nconst blocos = [];\nfor (const j of janelas) {\n  const ult = blocos[blocos.length - 1];\n  if (ult \u0026\u0026 j[0] \u003c= ult[1]) ult[1] = Math.max(ult[1], j[1]);\n  else blocos.push([...j]);\n}\nlet recorte = texto.slice(0, 1500);\nfor (const [a, b] of blocos) {\n  if (recorte.length \u003e 20000) break;\n  recorte += \u0027\\n[...]\\n\u0027 + texto.slice(a, b);\n}\nrecorte = recorte.slice(0, 22000);\nif (blocos.length === 0) recorte = texto.slice(0, 20000);\nreturn [{ json: { recorte, recorte_chars: recorte.length, texto_completo: false } }];"
+                                     }
+                  },
+                  {
+                      "id":  "node-skill",
+                      "name":  "Carregar Skill Croqui",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.4,
+                      "position":  [
+                                       896,
+                                       304
+                                   ],
+                      "continueOnFail":  true,
+                      "parameters":  {
+                                         "url":  "={{ $(\u0027Preparar Input\u0027).first().json.skillBaseUrl }}/croqui-matricula",
+                                         "options":  {
+                                                         "response":  {
+                                                                          "response":  {
+                                                                                           "responseFormat":  "text"
+                                                                                       }
+                                                                      }
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "node-extracao",
+                      "name":  "Extracao Croqui",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.4,
+                      "position":  [
+                                       1120,
+                                       304
+                                   ],
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "akjvmNcDj4EKOHuW",
+                                                                 "name":  "Mistral API - RAG (header)"
+                                                             }
+                                      },
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://api.mistral.ai/v1/chat/completions",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ model: \u0027mistral-large-latest\u0027, temperature: 0, max_tokens: 4000, response_format: { type: \u0027json_object\u0027 }, messages: [ { role: \u0027system\u0027, content: $(\u0027Carregar Skill Croqui\u0027).first()?.json?.data || \u0027Voce e um especialista em levantamentos topograficos e registros imobiliarios brasileiros. Interprete a descricao do perimetro do terreno e retorne EXCLUSIVAMENTE um JSON valido com os campos: formato (retangular|retangular_4lados|deflexao|azimute|rumo|utm|confrontantes|irregular|nao_identificado), croqui_viavel (boolean), precisao (exata|aproximada|esquematica|null), sentido_descricao, rua_frente, testada, profundidade, area_descrita_m2, area_calculada_m2, segmentos (array com de, ate, tipo, distancia, confrontante, azimute_raw, rumo_raw, angulo_interno_raw, deflexao_lado, raio_m, desenvolvimento_m), vertices_utm, observacoes. Nao converta angulos: copie-os como escritos nos campos *_raw. Distancias em metros.\u0027 }, { role: \u0027user\u0027, content: \u0027Interprete a descricao do perimetro do imovel no texto de matricula abaixo (extraido por OCR, pode conter artefatos) e retorne SOMENTE o JSON no formato especificado, sem texto adicional.\\n\\nTEXTO DA MATRICULA:\\n\u0027 + String($(\u0027Recortar Perimetro\u0027).first().json.recorte || \u0027\u0027) } ] }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "node-validar",
+                      "name":  "Validar JSON",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1344,
+                                       304
+                                   ],
+                      "onError":  "continueErrorOutput",
+                      "parameters":  {
+                                         "jsCode":  "// Valida e normaliza a resposta do modelo — o desenho em si e feito no app\nconst resp = $input.first().json;\nconst bruto = resp?.choices?.[0]?.message?.content;\nif (!bruto) throw new Error(\u0027Extracao sem resposta do modelo\u0027);\nlet texto = String(bruto).trim();\ntexto = texto.replace(/^```(?:json)?\\s*/i, \u0027\u0027).replace(/\\s*```$/, \u0027\u0027);\nlet dados = null;\ntry { dados = JSON.parse(texto); } catch (e) {\n  const ini = texto.indexOf(\u0027{\u0027);\n  const fim = texto.lastIndexOf(\u0027}\u0027);\n  if (ini \u003e= 0 \u0026\u0026 fim \u003e ini) {\n    try { dados = JSON.parse(texto.slice(ini, fim + 1)); } catch (e2) {}\n  }\n}\nif (!dados || typeof dados !== \u0027object\u0027 || Array.isArray(dados)) {\n  throw new Error(\u0027Extracao nao retornou JSON valido: \u0027 + texto.slice(0, 200));\n}\nif (!dados.formato) { dados.formato = \u0027nao_identificado\u0027; dados.croqui_viavel = false; }\nif (!Array.isArray(dados.segmentos)) dados.segmentos = [];\nreturn [{ json: { extracao: dados } }];"
+                                     }
+                  },
+                  {
+                      "id":  "node-montar-callback",
+                      "name":  "Montar Callback",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1568,
+                                       304
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "const extracao = $input.first().json.extracao || {};\nconst prep = $(\u0027Preparar Input\u0027).first().json;\nconst rec = $(\u0027Recortar Perimetro\u0027).first().json;\nconst result = {\n  ...extracao,\n  total_paginas: prep.total_paginas ?? null,\n  recorte_chars: rec.recorte_chars ?? null,\n  texto_completo: rec.texto_completo ?? null,\n};\n// Uso real do modelo para telemetria de margem (painel Admin \u003e Custos)\nconst _u = ($(\u0027Extracao Croqui\u0027).first().json || {}).usage || {};\nconst _in = Number(_u.prompt_tokens) || 0;\nconst _out = Number(_u.completion_tokens) || 0;\n// Precos mistral-large-latest: US$2/1M input, US$6/1M output\nconst _cost = Number(((_in * 2 + _out * 6) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: \u0027lidimus-croqui\u0027, model: \u0027mistral-large-latest\u0027, promptTokens: _in, completionTokens: _out, totalTokens: _in + _out, costUsd: _cost }] };\nreturn [{ json: { jobId: prep.jobId, stage: \u0027croqui\u0027, result, usage } }];"
+                                     }
+                  },
+                  {
+                      "id":  "node-callback-ok",
+                      "name":  "Callback Croqui",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.4,
+                      "position":  [
+                                       1792,
+                                       304
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackUrl }}",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "X-Lidimus-Secret",
+                                                                                         "value":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackSecret }}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify($json) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "node-montar-erro",
+                      "name":  "Montar Erro",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1344,
+                                       544
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "const item = $input.first().json;\nconst msg = (item.error \u0026\u0026 (item.error.message || item.error)) || item.message || \u0027Falha na extracao do croqui\u0027;\nreturn [{ json: { errorMessage: String(typeof msg === \u0027object\u0027 ? JSON.stringify(msg) : msg).slice(0, 500) } }];"
+                                     }
+                  },
+                  {
+                      "id":  "node-callback-erro",
+                      "name":  "Callback Erro",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.4,
+                      "position":  [
+                                       1568,
+                                       544
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackUrl }}",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "X-Lidimus-Secret",
+                                                                                         "value":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackSecret }}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ jobId: $(\u0027Preparar Input\u0027).first().json.jobId, stage: \u0027croqui\u0027, error: $json.errorMessage }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "Webhook":  {
+                                        "main":  [
+                                                     [
+                                                         {
+                                                             "node":  "Preparar Input",
+                                                             "type":  "main",
+                                                             "index":  0
+                                                         }
+                                                     ]
+                                                 ]
+                                    },
+                        "Preparar Input":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Responder Webhook",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Responder Webhook":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Recortar Perimetro",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Recortar Perimetro":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Carregar Skill Croqui",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Carregar Skill Croqui":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Extracao Croqui",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Extracao Croqui":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Validar JSON",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ],
+                                                             [
+                                                                 {
+                                                                     "node":  "Montar Erro",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Validar JSON":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Montar Callback",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ],
+                                                          [
+                                                              {
+                                                                  "node":  "Montar Erro",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Montar Callback":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Callback Croqui",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Montar Erro":  {
+                                            "main":  [
+                                                         [
+                                                             {
+                                                                 "node":  "Callback Erro",
+                                                                 "type":  "main",
+                                                                 "index":  0
+                                                             }
+                                                         ]
+                                                     ]
+                                        }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "timezone":  "America/Sao_Paulo",
+                     "saveDataErrorExecution":  "all",
+                     "saveDataSuccessExecution":  "all",
+                     "saveManualExecutions":  true,
+                     "callerPolicy":  "workflowsFromSameOwner",
+                     "availableInMCP":  false
+                 },
+    "staticData":  null,
+    "meta":  null,
+    "pinData":  null,
+    "versionId":  "14d9cc70-2ae7-456e-a5f8-512ecb647160",
+    "activeVersionId":  "14d9cc70-2ae7-456e-a5f8-512ecb647160",
+    "versionCounter":  5,
+    "triggerCount":  1,
+    "shared":  [
+                   {
+                       "updatedAt":  "2026-07-19T02:03:34.368Z",
+                       "createdAt":  "2026-07-19T02:03:34.368Z",
+                       "role":  "workflow:owner",
+                       "workflowId":  "DdM1aWpt0iAdQ4Pe",
+                       "projectId":  "n8u85tVxWqa1HXNM",
+                       "project":  {
+                                       "updatedAt":  "2026-04-29T17:46:38.456Z",
+                                       "createdAt":  "2026-04-29T17:45:06.294Z",
+                                       "id":  "n8u85tVxWqa1HXNM",
+                                       "name":  "JOSE jose.tarallo@gmail.com \u003cjose.tarallo@gmail.com\u003e",
+                                       "type":  "personal",
+                                       "icon":  null,
+                                       "description":  null,
+                                       "creatorId":  "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+                                   }
+                   }
+               ],
+    "tags":  [
+
+             ],
+    "activeVersion":  {
+                          "updatedAt":  "2026-07-19T02:03:53.126Z",
+                          "createdAt":  "2026-07-19T02:03:53.126Z",
+                          "versionId":  "14d9cc70-2ae7-456e-a5f8-512ecb647160",
+                          "workflowId":  "DdM1aWpt0iAdQ4Pe",
+                          "nodes":  [
+                                        {
+                                            "id":  "node-webhook",
+                                            "name":  "Webhook",
+                                            "type":  "n8n-nodes-base.webhook",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             0,
+                                                             304
+                                                         ],
+                                            "webhookId":  "9c2f4a1e-6b3d-4f82-a5c7-1e8d90b4c623",
+                                            "onError":  "continueRegularOutput",
+                                            "parameters":  {
+                                                               "httpMethod":  "POST",
+                                                               "path":  "lidimus-croqui",
+                                                               "responseMode":  "responseNode",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-preparar",
+                                            "name":  "Preparar Input",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             224,
+                                                             304
+                                                         ],
+                                            "parameters":  {
+                                                               "jsCode":  "const raw = $input.first().json;\nconst body = (raw.body \u0026\u0026 typeof raw.body === \u0027object\u0027) ? raw.body : raw;\nreturn [{ json: {\n  jobId: body.jobId || \u0027\u0027,\n  callbackUrl: body.callbackUrl || \u0027\u0027,\n  callbackSecret: body.callbackSecret || \u0027\u0027,\n  skillBaseUrl: body.skillBaseUrl || \u0027\u0027,\n  texto_ocr: String(body.textoOcr || \u0027\u0027),\n  total_paginas: body.totalPaginas ?? null,\n} }];"
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-responder",
+                                            "name":  "Responder Webhook",
+                                            "type":  "n8n-nodes-base.respondToWebhook",
+                                            "typeVersion":  1.1,
+                                            "position":  [
+                                                             448,
+                                                             304
+                                                         ],
+                                            "parameters":  {
+                                                               "respondWith":  "json",
+                                                               "responseBody":  "={{ ({ status: \u0027processing\u0027, stage: \u0027croqui\u0027, jobId: $(\u0027Preparar Input\u0027).first().json.jobId }) }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-recortar",
+                                            "name":  "Recortar Perimetro",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             672,
+                                                             304
+                                                         ],
+                                            "parameters":  {
+                                                               "jsCode":  "// Isola o trecho da descricao do perimetro para economizar tokens na extracao.\n// Matriculas curtas vao inteiras; nas longas, janelas em volta das palavras-chave\n// de descricao de perimetro, mescladas, com o cabecalho (endereco) na frente.\nconst texto = $(\u0027Preparar Input\u0027).first().json.texto_ocr || \u0027\u0027;\nconst LIMITE = 12000;\nif (texto.length \u003c= LIMITE) {\n  return [{ json: { recorte: texto, recorte_chars: texto.length, texto_completo: true } }];\n}\nconst RE = /(medindo|metros?\\s+de\\s+frente|de\\s+frente\\s+para|da\\s+frente\\s+aos\\s+fundos|confront|\\barea\\s+de|\\bárea\\s+de|superf[ií]cie\\s+de|encerrando\\s+a\\s+[aá]rea|per[ií]metro|azimute|deflete|deflex[aã]o|[aâ]ngulo\\s+interno|rumo\\s+[NS]|coordenadas|UTM|assim\\s+descrit|descri[cç][aã]o\\s+do\\s+im[oó]vel|bra[cç]as?|lateral\\s+(direita|esquerda)|\\bfundos\\b|chanfr|testada)/gi;\nconst janelas = [];\nlet m;\nwhile ((m = RE.exec(texto)) !== null) {\n  janelas.push([Math.max(0, m.index - 1200), Math.min(texto.length, m.index + 1800)]);\n  if (janelas.length \u003e 60) break;\n}\njanelas.sort((a, b) =\u003e a[0] - b[0]);\nconst blocos = [];\nfor (const j of janelas) {\n  const ult = blocos[blocos.length - 1];\n  if (ult \u0026\u0026 j[0] \u003c= ult[1]) ult[1] = Math.max(ult[1], j[1]);\n  else blocos.push([...j]);\n}\nlet recorte = texto.slice(0, 1500);\nfor (const [a, b] of blocos) {\n  if (recorte.length \u003e 20000) break;\n  recorte += \u0027\\n[...]\\n\u0027 + texto.slice(a, b);\n}\nrecorte = recorte.slice(0, 22000);\nif (blocos.length === 0) recorte = texto.slice(0, 20000);\nreturn [{ json: { recorte, recorte_chars: recorte.length, texto_completo: false } }];"
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-skill",
+                                            "name":  "Carregar Skill Croqui",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.4,
+                                            "position":  [
+                                                             896,
+                                                             304
+                                                         ],
+                                            "continueOnFail":  true,
+                                            "parameters":  {
+                                                               "url":  "={{ $(\u0027Preparar Input\u0027).first().json.skillBaseUrl }}/croqui-matricula",
+                                                               "options":  {
+                                                                               "response":  {
+                                                                                                "response":  {
+                                                                                                                 "responseFormat":  "text"
+                                                                                                             }
+                                                                                            }
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-extracao",
+                                            "name":  "Extracao Croqui",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.4,
+                                            "position":  [
+                                                             1120,
+                                                             304
+                                                         ],
+                                            "onError":  "continueErrorOutput",
+                                            "credentials":  {
+                                                                "httpHeaderAuth":  {
+                                                                                       "id":  "akjvmNcDj4EKOHuW",
+                                                                                       "name":  "Mistral API - RAG (header)"
+                                                                                   }
+                                                            },
+                                            "parameters":  {
+                                                               "method":  "POST",
+                                                               "url":  "https://api.mistral.ai/v1/chat/completions",
+                                                               "authentication":  "genericCredentialType",
+                                                               "genericAuthType":  "httpHeaderAuth",
+                                                               "sendHeaders":  true,
+                                                               "headerParameters":  {
+                                                                                        "parameters":  [
+                                                                                                           {
+                                                                                                               "name":  "Content-Type",
+                                                                                                               "value":  "application/json"
+                                                                                                           }
+                                                                                                       ]
+                                                                                    },
+                                                               "sendBody":  true,
+                                                               "specifyBody":  "json",
+                                                               "jsonBody":  "={{ JSON.stringify({ model: \u0027mistral-large-latest\u0027, temperature: 0, max_tokens: 4000, response_format: { type: \u0027json_object\u0027 }, messages: [ { role: \u0027system\u0027, content: $(\u0027Carregar Skill Croqui\u0027).first()?.json?.data || \u0027Voce e um especialista em levantamentos topograficos e registros imobiliarios brasileiros. Interprete a descricao do perimetro do terreno e retorne EXCLUSIVAMENTE um JSON valido com os campos: formato (retangular|retangular_4lados|deflexao|azimute|rumo|utm|confrontantes|irregular|nao_identificado), croqui_viavel (boolean), precisao (exata|aproximada|esquematica|null), sentido_descricao, rua_frente, testada, profundidade, area_descrita_m2, area_calculada_m2, segmentos (array com de, ate, tipo, distancia, confrontante, azimute_raw, rumo_raw, angulo_interno_raw, deflexao_lado, raio_m, desenvolvimento_m), vertices_utm, observacoes. Nao converta angulos: copie-os como escritos nos campos *_raw. Distancias em metros.\u0027 }, { role: \u0027user\u0027, content: \u0027Interprete a descricao do perimetro do imovel no texto de matricula abaixo (extraido por OCR, pode conter artefatos) e retorne SOMENTE o JSON no formato especificado, sem texto adicional.\\n\\nTEXTO DA MATRICULA:\\n\u0027 + String($(\u0027Recortar Perimetro\u0027).first().json.recorte || \u0027\u0027) } ] }) }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-validar",
+                                            "name":  "Validar JSON",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             1344,
+                                                             304
+                                                         ],
+                                            "onError":  "continueErrorOutput",
+                                            "parameters":  {
+                                                               "jsCode":  "// Valida e normaliza a resposta do modelo — o desenho em si e feito no app\nconst resp = $input.first().json;\nconst bruto = resp?.choices?.[0]?.message?.content;\nif (!bruto) throw new Error(\u0027Extracao sem resposta do modelo\u0027);\nlet texto = String(bruto).trim();\ntexto = texto.replace(/^```(?:json)?\\s*/i, \u0027\u0027).replace(/\\s*```$/, \u0027\u0027);\nlet dados = null;\ntry { dados = JSON.parse(texto); } catch (e) {\n  const ini = texto.indexOf(\u0027{\u0027);\n  const fim = texto.lastIndexOf(\u0027}\u0027);\n  if (ini \u003e= 0 \u0026\u0026 fim \u003e ini) {\n    try { dados = JSON.parse(texto.slice(ini, fim + 1)); } catch (e2) {}\n  }\n}\nif (!dados || typeof dados !== \u0027object\u0027 || Array.isArray(dados)) {\n  throw new Error(\u0027Extracao nao retornou JSON valido: \u0027 + texto.slice(0, 200));\n}\nif (!dados.formato) { dados.formato = \u0027nao_identificado\u0027; dados.croqui_viavel = false; }\nif (!Array.isArray(dados.segmentos)) dados.segmentos = [];\nreturn [{ json: { extracao: dados } }];"
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-montar-callback",
+                                            "name":  "Montar Callback",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             1568,
+                                                             304
+                                                         ],
+                                            "parameters":  {
+                                                               "jsCode":  "const extracao = $input.first().json.extracao || {};\nconst prep = $(\u0027Preparar Input\u0027).first().json;\nconst rec = $(\u0027Recortar Perimetro\u0027).first().json;\nconst result = {\n  ...extracao,\n  total_paginas: prep.total_paginas ?? null,\n  recorte_chars: rec.recorte_chars ?? null,\n  texto_completo: rec.texto_completo ?? null,\n};\n// Uso real do modelo para telemetria de margem (painel Admin \u003e Custos)\nconst _u = ($(\u0027Extracao Croqui\u0027).first().json || {}).usage || {};\nconst _in = Number(_u.prompt_tokens) || 0;\nconst _out = Number(_u.completion_tokens) || 0;\n// Precos mistral-large-latest: US$2/1M input, US$6/1M output\nconst _cost = Number(((_in * 2 + _out * 6) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: \u0027lidimus-croqui\u0027, model: \u0027mistral-large-latest\u0027, promptTokens: _in, completionTokens: _out, totalTokens: _in + _out, costUsd: _cost }] };\nreturn [{ json: { jobId: prep.jobId, stage: \u0027croqui\u0027, result, usage } }];"
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-callback-ok",
+                                            "name":  "Callback Croqui",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.4,
+                                            "position":  [
+                                                             1792,
+                                                             304
+                                                         ],
+                                            "parameters":  {
+                                                               "method":  "POST",
+                                                               "url":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackUrl }}",
+                                                               "sendHeaders":  true,
+                                                               "headerParameters":  {
+                                                                                        "parameters":  [
+                                                                                                           {
+                                                                                                               "name":  "X-Lidimus-Secret",
+                                                                                                               "value":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackSecret }}"
+                                                                                                           },
+                                                                                                           {
+                                                                                                               "name":  "Content-Type",
+                                                                                                               "value":  "application/json"
+                                                                                                           }
+                                                                                                       ]
+                                                                                    },
+                                                               "sendBody":  true,
+                                                               "specifyBody":  "json",
+                                                               "jsonBody":  "={{ JSON.stringify($json) }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-montar-erro",
+                                            "name":  "Montar Erro",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             1344,
+                                                             544
+                                                         ],
+                                            "parameters":  {
+                                                               "jsCode":  "const item = $input.first().json;\nconst msg = (item.error \u0026\u0026 (item.error.message || item.error)) || item.message || \u0027Falha na extracao do croqui\u0027;\nreturn [{ json: { errorMessage: String(typeof msg === \u0027object\u0027 ? JSON.stringify(msg) : msg).slice(0, 500) } }];"
+                                                           }
+                                        },
+                                        {
+                                            "id":  "node-callback-erro",
+                                            "name":  "Callback Erro",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.4,
+                                            "position":  [
+                                                             1568,
+                                                             544
+                                                         ],
+                                            "parameters":  {
+                                                               "method":  "POST",
+                                                               "url":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackUrl }}",
+                                                               "sendHeaders":  true,
+                                                               "headerParameters":  {
+                                                                                        "parameters":  [
+                                                                                                           {
+                                                                                                               "name":  "X-Lidimus-Secret",
+                                                                                                               "value":  "={{ $(\u0027Preparar Input\u0027).first().json.callbackSecret }}"
+                                                                                                           },
+                                                                                                           {
+                                                                                                               "name":  "Content-Type",
+                                                                                                               "value":  "application/json"
+                                                                                                           }
+                                                                                                       ]
+                                                                                    },
+                                                               "sendBody":  true,
+                                                               "specifyBody":  "json",
+                                                               "jsonBody":  "={{ JSON.stringify({ jobId: $(\u0027Preparar Input\u0027).first().json.jobId, stage: \u0027croqui\u0027, error: $json.errorMessage }) }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        }
+                                    ],
+                          "connections":  {
+                                              "Webhook":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Preparar Input",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          },
+                                              "Preparar Input":  {
+                                                                     "main":  [
+                                                                                  [
+                                                                                      {
+                                                                                          "node":  "Responder Webhook",
+                                                                                          "type":  "main",
+                                                                                          "index":  0
+                                                                                      }
+                                                                                  ]
+                                                                              ]
+                                                                 },
+                                              "Responder Webhook":  {
+                                                                        "main":  [
+                                                                                     [
+                                                                                         {
+                                                                                             "node":  "Recortar Perimetro",
+                                                                                             "type":  "main",
+                                                                                             "index":  0
+                                                                                         }
+                                                                                     ]
+                                                                                 ]
+                                                                    },
+                                              "Recortar Perimetro":  {
+                                                                         "main":  [
+                                                                                      [
+                                                                                          {
+                                                                                              "node":  "Carregar Skill Croqui",
+                                                                                              "type":  "main",
+                                                                                              "index":  0
+                                                                                          }
+                                                                                      ]
+                                                                                  ]
+                                                                     },
+                                              "Carregar Skill Croqui":  {
+                                                                            "main":  [
+                                                                                         [
+                                                                                             {
+                                                                                                 "node":  "Extracao Croqui",
+                                                                                                 "type":  "main",
+                                                                                                 "index":  0
+                                                                                             }
+                                                                                         ]
+                                                                                     ]
+                                                                        },
+                                              "Extracao Croqui":  {
+                                                                      "main":  [
+                                                                                   [
+                                                                                       {
+                                                                                           "node":  "Validar JSON",
+                                                                                           "type":  "main",
+                                                                                           "index":  0
+                                                                                       }
+                                                                                   ],
+                                                                                   [
+                                                                                       {
+                                                                                           "node":  "Montar Erro",
+                                                                                           "type":  "main",
+                                                                                           "index":  0
+                                                                                       }
+                                                                                   ]
+                                                                               ]
+                                                                  },
+                                              "Validar JSON":  {
+                                                                   "main":  [
+                                                                                [
+                                                                                    {
+                                                                                        "node":  "Montar Callback",
+                                                                                        "type":  "main",
+                                                                                        "index":  0
+                                                                                    }
+                                                                                ],
+                                                                                [
+                                                                                    {
+                                                                                        "node":  "Montar Erro",
+                                                                                        "type":  "main",
+                                                                                        "index":  0
+                                                                                    }
+                                                                                ]
+                                                                            ]
+                                                               },
+                                              "Montar Callback":  {
+                                                                      "main":  [
+                                                                                   [
+                                                                                       {
+                                                                                           "node":  "Callback Croqui",
+                                                                                           "type":  "main",
+                                                                                           "index":  0
+                                                                                       }
+                                                                                   ]
+                                                                               ]
+                                                                  },
+                                              "Montar Erro":  {
+                                                                  "main":  [
+                                                                               [
+                                                                                   {
+                                                                                       "node":  "Callback Erro",
+                                                                                       "type":  "main",
+                                                                                       "index":  0
+                                                                                   }
+                                                                               ]
+                                                                           ]
+                                                              }
+                                          },
+                          "authors":  "JOSE jose.tarallo@gmail.com",
+                          "name":  null,
+                          "description":  null,
+                          "autosaved":  false,
+                          "workflowPublishHistory":  [
+                                                         {
+                                                             "createdAt":  "2026-07-19T02:04:11.067Z",
+                                                             "id":  527,
+                                                             "workflowId":  "DdM1aWpt0iAdQ4Pe",
+                                                             "versionId":  "14d9cc70-2ae7-456e-a5f8-512ecb647160",
+                                                             "event":  "activated",
+                                                             "userId":  "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+                                                         }
+                                                     ]
+                      }
+}

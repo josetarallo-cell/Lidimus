@@ -16,7 +16,7 @@ import { relations, sql } from 'drizzle-orm'
 
 export const orgRoleEnum = pgEnum('org_role', ['owner', 'member'])
 
-export const jobTypeEnum = pgEnum('job_type', ['matricula', 'kml', 'injection'])
+export const jobTypeEnum = pgEnum('job_type', ['matricula', 'kml', 'injection', 'croqui'])
 
 export const jobStatusEnum = pgEnum('job_status', [
   'pending',
@@ -26,8 +26,9 @@ export const jobStatusEnum = pgEnum('job_status', [
   'error',
 ])
 
-// Etapas do pipeline de matrícula (jobs de outros tipos não usam stage)
-export const jobStageEnum = pgEnum('job_stage', ['ocr', 'juridico', 'doc'])
+// Etapas dos pipelines de matrícula (ocr → juridico → doc) e de croqui
+// (ocr → croqui; jobs de croqui reaproveitando OCR pulam direto para 'croqui')
+export const jobStageEnum = pgEnum('job_stage', ['ocr', 'juridico', 'doc', 'croqui'])
 
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'trialing',

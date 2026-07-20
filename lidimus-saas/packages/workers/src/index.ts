@@ -5,6 +5,7 @@ import { createRedisConnection } from '@lidimus/queue'
 import { startMatriculaOcrWorker } from './matricula-ocr.worker.ts'
 import { startMatriculaJuridicoWorker } from './matricula-juridico.worker.ts'
 import { startMatriculaDocWorker } from './matricula-doc.worker.ts'
+import { startCroquiWorker } from './croqui.worker.ts'
 import { startKmlWorker } from './kml.worker.ts'
 import { startInjectionWorker } from './injection.worker.ts'
 import { startStuckJobWatchdog } from './watchdog.ts'
@@ -15,6 +16,7 @@ const N8N_BASE_URL = process.env.N8N_BASE_URL!
 const N8N_MATRICULA_OCR_WEBHOOK_PATH = process.env.N8N_MATRICULA_OCR_WEBHOOK_PATH!
 const N8N_MATRICULA_JURIDICO_WEBHOOK_PATH = process.env.N8N_MATRICULA_JURIDICO_WEBHOOK_PATH!
 const N8N_MATRICULA_DOC_WEBHOOK_PATH = process.env.N8N_MATRICULA_DOC_WEBHOOK_PATH!
+const N8N_CROQUI_WEBHOOK_PATH = process.env.N8N_CROQUI_WEBHOOK_PATH!
 const N8N_KML_WEBHOOK_PATH = process.env.N8N_KML_WEBHOOK_PATH!
 const N8N_INJECTION_WEBHOOK_PATH = process.env.N8N_INJECTION_WEBHOOK_PATH!
 const N8N_CALLBACK_SECRET = process.env.N8N_CALLBACK_SECRET!
@@ -23,7 +25,7 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL!
 const required = [
   'DATABASE_URL', 'REDIS_URL', 'N8N_BASE_URL',
   'N8N_MATRICULA_OCR_WEBHOOK_PATH', 'N8N_MATRICULA_JURIDICO_WEBHOOK_PATH', 'N8N_MATRICULA_DOC_WEBHOOK_PATH',
-  'N8N_KML_WEBHOOK_PATH', 'N8N_INJECTION_WEBHOOK_PATH',
+  'N8N_CROQUI_WEBHOOK_PATH', 'N8N_KML_WEBHOOK_PATH', 'N8N_INJECTION_WEBHOOK_PATH',
   'N8N_CALLBACK_SECRET', 'PUBLIC_BASE_URL',
 ]
 for (const k of required) {
@@ -51,6 +53,7 @@ const workers = [
   startMatriculaOcrWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_OCR_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
   startMatriculaJuridicoWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_JURIDICO_WEBHOOK_PATH, N8N_CALLBACK_SECRET, PUBLIC_BASE_URL, publisher),
   startMatriculaDocWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_DOC_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
+  startCroquiWorker(db, REDIS_URL, N8N_BASE_URL + N8N_CROQUI_WEBHOOK_PATH, N8N_CALLBACK_SECRET, PUBLIC_BASE_URL, publisher),
   startKmlWorker(db, REDIS_URL, N8N_BASE_URL + N8N_KML_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
   startInjectionWorker(db, REDIS_URL, N8N_BASE_URL + N8N_INJECTION_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
 ]
@@ -72,7 +75,7 @@ if (SENTRY_DSN) {
   }
 }
 
-console.log('Workers started: matricula-ocr, matricula-juridico, matricula-doc, kml, injection')
+console.log('Workers started: matricula-ocr, matricula-juridico, matricula-doc, croqui, kml, injection')
 
 // Heartbeat lido por healthcheck.js (Docker HEALTHCHECK) — sem porta HTTP exposta pelo worker
 const HEARTBEAT_PATH = process.env.WORKER_HEARTBEAT_PATH || '/tmp/worker-heartbeat'
