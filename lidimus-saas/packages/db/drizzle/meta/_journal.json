@@ -71,6 +71,13 @@
       "when": 1784000000000,
       "tag": "0009_croqui_job_type",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784561744597,
+      "tag": "0010_dashing_mantis",
+      "breakpoints": true
     }
   ]
 }

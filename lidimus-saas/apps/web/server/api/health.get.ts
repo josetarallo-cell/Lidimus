@@ -2,7 +2,9 @@ import { sql } from 'drizzle-orm'
 import { useDb } from '../lib/db'
 import { useQueues } from '../lib/queue'
 
-// Endpoint público de healthcheck — usado pelo Docker/orquestrador, não expõe dados sensíveis.
+// Endpoint público de healthcheck — usado pelo Docker/orquestrador. Não expõe
+// dados sensíveis: o detalhe do erro (que pode incluir host/porta de
+// infra) fica só no log do servidor, nunca na resposta a um chamador anônimo.
 export default defineEventHandler(async (event) => {
   try {
     const db = useDb()
@@ -13,7 +15,8 @@ export default defineEventHandler(async (event) => {
 
     return { status: 'ok' }
   } catch (err) {
+    console.error('[health] falhou:', err)
     setResponseStatus(event, 503)
-    return { status: 'error', message: (err as Error).message }
+    return { status: 'error' }
   }
 })

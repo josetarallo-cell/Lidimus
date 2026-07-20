@@ -7,7 +7,8 @@ import { storeJobFile } from '../../lib/jobFile'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
 import { checkRateLimit } from '../../lib/rateLimit'
 import { countPdfPages } from '../../lib/pdfPages'
-import { jobs, creditTransactions, creditCostFor, getOrgCreditBalance } from '@lidimus/db'
+import { assertPdfSignature } from '../../lib/fileSignature'
+import { jobs, creditTransactions, creditCostFor, lockOrgCreditBalance } from '@lidimus/db'
 
 const paramsSchema = z.object({
   incluirMemorial: z.boolean().optional().default(true),
@@ -30,32 +31,37 @@ export default defineEventHandler(async (event) => {
   const rawParams = paramsPart?.data ? JSON.parse(paramsPart.data.toString()) : {}
   const params = paramsSchema.parse(rawParams)
 
+  assertPdfSignature(filePart.data)
+
   const mimeType = filePart.type ?? 'application/pdf'
   const originalName = filePart.filename ?? 'matricula.pdf'
-
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
-
-  const { connection, matriculaOcrQueue } = useQueues()
-  await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
 
   const maxBytes = config.maxUploadSizeMb * 1024 * 1024
   if (filePart.data.length > maxBytes) {
     throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
   }
 
+  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+
+  const { connection, matriculaOcrQueue } = useQueues()
+  await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
+
   // Custo proporcional ao nº de páginas — o custo real de tokens escala com o
   // tamanho do documento. A contagem no upload é best-effort (ver countPdfPages).
   const paginas = countPdfPages(Buffer.from(filePart.data))
   const custo = creditCostFor('matricula', { pages: paginas })
-  const saldo = await getOrgCreditBalance(db, orgId)
-  if (saldo < custo) {
-    throw createError({
-      statusCode: 402,
-      statusMessage: `Créditos insuficientes. Saldo: ${saldo}, necessário: ${custo} (${paginas} página${paginas === 1 ? '' : 's'}).`,
-    })
-  }
 
   const job = await db.transaction(async (tx) => {
+    // Saldo checado e debitado na mesma transação, com lock de linha na org —
+    // evita que uploads concorrentes leiam o mesmo saldo e furem o limite.
+    const saldo = await lockOrgCreditBalance(tx, orgId)
+    if (saldo < custo) {
+      throw createError({
+        statusCode: 402,
+        statusMessage: `Créditos insuficientes. Saldo: ${saldo}, necessário: ${custo} (${paginas} página${paginas === 1 ? '' : 's'}).`,
+      })
+    }
+
     const [created] = await tx
       .insert(jobs)
       .values({

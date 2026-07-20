@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
+import type { Db } from '@lidimus/db'
 import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
@@ -132,6 +133,30 @@ function stripNullChars<T>(value: T): T {
   return value
 }
 
+// Estados em que um job ainda aceita callback do n8n. Uma vez terminal
+// (done/error — seja por resultado final ou por expiração no watchdog), novas
+// transições são ignoradas: sem essa guarda, um callback atrasado ou reenviado
+// (replay) pode reverter um job já expirado/estornado para 'done', deixando o
+// usuário com o estorno *e* o resultado.
+const ACTIVE_STATUSES = ['pending', 'queued', 'processing'] as const
+
+// Atualiza o job só se ele ainda estiver em um estado ativo. Retorna `false`
+// (sem lançar) quando o callback chegou tarde demais — o chamador decide se
+// isso é motivo de log, mas nunca deve prosseguir com efeitos colaterais
+// (estorno, enfileiramento da próxima etapa, notificação) para um job morto.
+async function transitionActiveJob(
+  db: Db,
+  jobId: string,
+  values: Partial<typeof jobs.$inferInsert>,
+): Promise<boolean> {
+  const updated = await db
+    .update(jobs)
+    .set(values)
+    .where(and(eq(jobs.id, jobId), inArray(jobs.status, ACTIVE_STATUSES)))
+    .returning({ id: jobs.id })
+  return updated.length > 0
+}
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const rawBody = await readRawBody(event)
@@ -157,14 +182,15 @@ export default defineEventHandler(async (event) => {
   if (!job) throw createError({ statusCode: 404, statusMessage: 'Job not found' })
 
   if (body.error) {
-    await db
-      .update(jobs)
-      .set({
-        status: 'error',
-        errorMessage: body.stage ? `[${body.stage}] ${body.error}` : body.error,
-        completedAt: new Date(),
-      })
-      .where(eq(jobs.id, body.jobId))
+    const applied = await transitionActiveJob(db, body.jobId, {
+      status: 'error',
+      errorMessage: body.stage ? `[${body.stage}] ${body.error}` : body.error,
+      completedAt: new Date(),
+    })
+    if (!applied) {
+      console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+      return { ok: true }
+    }
     await refundJobCredits(db, body.jobId)
     await publishJobEvent(useQueues().connection, body.jobId)
     return { ok: true }
@@ -193,24 +219,30 @@ export default defineEventHandler(async (event) => {
 
       const textoOcr = String(result.texto_ocr ?? '')
       if (!textoOcr.trim()) {
-        await db
-          .update(jobs)
-          .set({
-            status: 'error',
-            stageData,
-            errorMessage: '[ocr] OCR retornou texto vazio.',
-            completedAt: new Date(),
-          })
-          .where(eq(jobs.id, body.jobId))
+        const applied = await transitionActiveJob(db, body.jobId, {
+          status: 'error',
+          stageData,
+          errorMessage: '[ocr] OCR retornou texto vazio.',
+          completedAt: new Date(),
+        })
+        if (!applied) {
+          console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+          return { ok: true }
+        }
         await refundJobCredits(db, body.jobId)
         await publishJobEvent(useQueues().connection, body.jobId)
         return { ok: true }
       }
 
-      await db
-        .update(jobs)
-        .set({ stageData, status: 'queued', stage: 'juridico' })
-        .where(eq(jobs.id, body.jobId))
+      const applied = await transitionActiveJob(db, body.jobId, {
+        stageData,
+        status: 'queued',
+        stage: 'juridico',
+      })
+      if (!applied) {
+        console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+        return { ok: true }
+      }
 
       const { matriculaJuridicoQueue } = useQueues()
       await matriculaJuridicoQueue.add('process', {
@@ -225,10 +257,15 @@ export default defineEventHandler(async (event) => {
     }
 
     if (body.stage === 'juridico') {
-      await db
-        .update(jobs)
-        .set({ stageData, status: 'queued', stage: 'doc' })
-        .where(eq(jobs.id, body.jobId))
+      const applied = await transitionActiveJob(db, body.jobId, {
+        stageData,
+        status: 'queued',
+        stage: 'doc',
+      })
+      if (!applied) {
+        console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+        return { ok: true }
+      }
 
       const ocr = stageData.ocr as Record<string, unknown> | undefined
 
@@ -251,16 +288,17 @@ export default defineEventHandler(async (event) => {
     }
 
     // stage === 'doc' — etapa final
-    await db
-      .update(jobs)
-      .set({
-        stageData,
-        status: 'done',
-        stage: 'doc',
-        result: usage ? { ...result, usage } : result,
-        completedAt: new Date(),
-      })
-      .where(eq(jobs.id, body.jobId))
+    const appliedDoc = await transitionActiveJob(db, body.jobId, {
+      stageData,
+      status: 'done',
+      stage: 'doc',
+      result: usage ? { ...result, usage } : result,
+      completedAt: new Date(),
+    })
+    if (!appliedDoc) {
+      console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+      return { ok: true }
+    }
     await publishJobEvent(useQueues().connection, body.jobId)
     return { ok: true }
   }
@@ -285,24 +323,30 @@ export default defineEventHandler(async (event) => {
 
       const textoOcr = String(result.texto_ocr ?? '')
       if (!textoOcr.trim()) {
-        await db
-          .update(jobs)
-          .set({
-            status: 'error',
-            stageData,
-            errorMessage: '[ocr] OCR retornou texto vazio.',
-            completedAt: new Date(),
-          })
-          .where(eq(jobs.id, body.jobId))
+        const applied = await transitionActiveJob(db, body.jobId, {
+          status: 'error',
+          stageData,
+          errorMessage: '[ocr] OCR retornou texto vazio.',
+          completedAt: new Date(),
+        })
+        if (!applied) {
+          console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+          return { ok: true }
+        }
         await refundJobCredits(db, body.jobId)
         await publishJobEvent(useQueues().connection, body.jobId)
         return { ok: true }
       }
 
-      await db
-        .update(jobs)
-        .set({ stageData, status: 'queued', stage: 'croqui' })
-        .where(eq(jobs.id, body.jobId))
+      const applied = await transitionActiveJob(db, body.jobId, {
+        stageData,
+        status: 'queued',
+        stage: 'croqui',
+      })
+      if (!applied) {
+        console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+        return { ok: true }
+      }
 
       const { croquiQueue } = useQueues()
       await croquiQueue.add('process', {
@@ -318,16 +362,17 @@ export default defineEventHandler(async (event) => {
 
     // stage === 'croqui' — etapa final: o resultado é o JSON estruturado da
     // extração; o desenho em SVG é gerado no app (@lidimus/croqui), sem LLM
-    await db
-      .update(jobs)
-      .set({
-        stageData,
-        status: 'done',
-        stage: 'croqui',
-        result: usage ? { ...result, usage } : result,
-        completedAt: new Date(),
-      })
-      .where(eq(jobs.id, body.jobId))
+    const appliedCroqui = await transitionActiveJob(db, body.jobId, {
+      stageData,
+      status: 'done',
+      stage: 'croqui',
+      result: usage ? { ...result, usage } : result,
+      completedAt: new Date(),
+    })
+    if (!appliedCroqui) {
+      console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+      return { ok: true }
+    }
     await publishJobEvent(useQueues().connection, body.jobId)
     return { ok: true }
   }
@@ -339,14 +384,15 @@ export default defineEventHandler(async (event) => {
     body.usage,
     body.stage,
   )
-  await db
-    .update(jobs)
-    .set({
-      status: 'done',
-      result: singleUsage ? { ...singleResult, usage: singleUsage } : singleResult,
-      completedAt: new Date(),
-    })
-    .where(eq(jobs.id, body.jobId))
+  const appliedSingle = await transitionActiveJob(db, body.jobId, {
+    status: 'done',
+    result: singleUsage ? { ...singleResult, usage: singleUsage } : singleResult,
+    completedAt: new Date(),
+  })
+  if (!appliedSingle) {
+    console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+    return { ok: true }
+  }
 
   await softDeleteJobFile(db, body.jobId)
 

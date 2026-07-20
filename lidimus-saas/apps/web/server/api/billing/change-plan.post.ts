@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { eq, desc } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
+import { useQueues } from '../../lib/queue'
 import { requireAuth } from '../../lib/requireAuth'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
 import { sendPlanChangedEmail } from '../../lib/subscriptionEmails'
@@ -45,93 +46,111 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Este já é o seu plano atual.' })
   }
 
-  const [currentPlan] = await db.select().from(plans).where(eq(plans.id, sub.planId)).limit(1)
-  const [newPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1)
-  if (!currentPlan || !newPlan) {
-    throw createError({ statusCode: 404, statusMessage: 'Plano não encontrado.' })
+  // Trava por assinatura (Redis, SET NX EX): um duplo clique em "Alterar plano"
+  // dispara duas requisições que, sem isso, gerariam duas chamadas de proration
+  // no Stripe (duas faturas, possível crédito em dobro no upgrade). A segunda
+  // requisição concorrente recebe 409 em vez de seguir em paralelo.
+  const { connection } = useQueues()
+  const lockKey = `lock:change-plan:${sub.id}`
+  const acquired = await connection.set(lockKey, '1', 'EX', 30, 'NX')
+  if (!acquired) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Já existe uma alteração de plano em andamento para esta assinatura. Aguarde e tente novamente.',
+    })
   }
 
-  // Mantém o ciclo atual (mensal/anual) — a troca de ciclo fica fora do escopo
-  const stripeSub = await stripe.subscriptions.retrieve(sub.providerSubscriptionId)
-  const item = stripeSub.items.data[0]
-  if (!item) throw createError({ statusCode: 502, statusMessage: 'Assinatura sem itens no Stripe.' })
-
-  const interval = item.price.recurring?.interval === 'year' ? 'year' : 'month'
-  const cycle = interval === 'year' ? 'anual' : 'mensal'
-  const isUpgrade = newPlan.monthlyPriceCents > currentPlan.monthlyPriceCents
-
-  // Produto do novo plano: reutiliza um ativo com o mesmo nome ou cria um novo.
-  // Não herda o produto do item atual — ele carrega o nome do plano antigo e
-  // pode ter sido arquivado no dashboard (produto inativo rejeita preços novos).
-  const productName = `Lidimus ${newPlan.name}`
-  const activeProducts = await stripe.products.list({ active: true, limit: 100 })
-  const product =
-    activeProducts.data.find((p) => p.name === productName) ??
-    (await stripe.products.create({ name: productName }))
-
-  const updated = await stripe.subscriptions
-    .update(sub.providerSubscriptionId, {
-      items: [
-        {
-          id: item.id,
-          price_data: {
-            currency: 'brl',
-            unit_amount: cycle === 'anual' ? newPlan.annualPriceCents : newPlan.monthlyPriceCents,
-            recurring: { interval },
-            product: product.id,
-          },
-        },
-      ],
-      // upgrade cobra a diferença proporcional agora; downgrade só muda o preço da renovação
-      proration_behavior: isUpgrade ? 'always_invoice' : 'none',
-      metadata: { orgId, planId: newPlan.id, cycle },
-      expand: ['latest_invoice'],
-    })
-    .catch((err: unknown) => {
-      // Erros do Stripe carregam statusCode 400 e vazariam como "Server Error" na tela
-      console.error('change-plan: falha ao atualizar assinatura no Stripe', err)
-      throw createError({
-        statusCode: 502,
-        statusMessage: 'O Stripe recusou a alteração do plano. Tente novamente ou fale com o suporte.',
-      })
-    })
-
-  await db.update(subscriptions).set({ planId: newPlan.id }).where(eq(subscriptions.id, sub.id))
-
-  let creditsDelta = 0
-  if (isUpgrade) {
-    // Credita só a diferença do ciclo — a fatura proporcional é ignorada pelo
-    // webhook (billing_reason subscription_update), então não há crédito em dobro
-    const multiplier = cycle === 'anual' ? 12 : 1
-    const delta = (newPlan.creditsPerCycle - currentPlan.creditsPerCycle) * multiplier
-    const latestInvoice = updated.latest_invoice
-    const invoiceId =
-      typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id ?? null
-
-    if (delta > 0) {
-      creditsDelta = delta
-      await db
-        .insert(creditTransactions)
-        .values({
-          orgId,
-          delta,
-          reason: 'purchase',
-          providerRef: invoiceId ? `upgrade_${invoiceId}` : `upgrade_${sub.id}_${Date.now()}`,
-        })
-        .onConflictDoNothing({ target: creditTransactions.providerRef })
+  try {
+    const [currentPlan] = await db.select().from(plans).where(eq(plans.id, sub.planId)).limit(1)
+    const [newPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1)
+    if (!currentPlan || !newPlan) {
+      throw createError({ statusCode: 404, statusMessage: 'Plano não encontrado.' })
     }
-  }
 
-  await sendPlanChangedEmail(user.email, user.name, {
-    planName: newPlan.name,
-    change: isUpgrade ? 'upgrade' : 'downgrade',
-    creditsDelta,
-  })
+    // Mantém o ciclo atual (mensal/anual) — a troca de ciclo fica fora do escopo
+    const stripeSub = await stripe.subscriptions.retrieve(sub.providerSubscriptionId)
+    const item = stripeSub.items.data[0]
+    if (!item) throw createError({ statusCode: 502, statusMessage: 'Assinatura sem itens no Stripe.' })
 
-  return {
-    ok: true,
-    change: isUpgrade ? 'upgrade' : 'downgrade',
-    planName: newPlan.name,
-    effective: isUpgrade ? 'agora' : 'proxima_renovacao',
+    const interval = item.price.recurring?.interval === 'year' ? 'year' : 'month'
+    const cycle = interval === 'year' ? 'anual' : 'mensal'
+    const isUpgrade = newPlan.monthlyPriceCents > currentPlan.monthlyPriceCents
+
+    // Produto do novo plano: reutiliza um ativo com o mesmo nome ou cria um novo.
+    // Não herda o produto do item atual — ele carrega o nome do plano antigo e
+    // pode ter sido arquivado no dashboard (produto inativo rejeita preços novos).
+    const productName = `Lidimus ${newPlan.name}`
+    const activeProducts = await stripe.products.list({ active: true, limit: 100 })
+    const product =
+      activeProducts.data.find((p) => p.name === productName) ??
+      (await stripe.products.create({ name: productName }))
+
+    const updated = await stripe.subscriptions
+      .update(sub.providerSubscriptionId, {
+        items: [
+          {
+            id: item.id,
+            price_data: {
+              currency: 'brl',
+              unit_amount: cycle === 'anual' ? newPlan.annualPriceCents : newPlan.monthlyPriceCents,
+              recurring: { interval },
+              product: product.id,
+            },
+          },
+        ],
+        // upgrade cobra a diferença proporcional agora; downgrade só muda o preço da renovação
+        proration_behavior: isUpgrade ? 'always_invoice' : 'none',
+        metadata: { orgId, planId: newPlan.id, cycle },
+        expand: ['latest_invoice'],
+      })
+      .catch((err: unknown) => {
+        // Erros do Stripe carregam statusCode 400 e vazariam como "Server Error" na tela
+        console.error('change-plan: falha ao atualizar assinatura no Stripe', err)
+        throw createError({
+          statusCode: 502,
+          statusMessage: 'O Stripe recusou a alteração do plano. Tente novamente ou fale com o suporte.',
+        })
+      })
+
+    await db.update(subscriptions).set({ planId: newPlan.id }).where(eq(subscriptions.id, sub.id))
+
+    let creditsDelta = 0
+    if (isUpgrade) {
+      // Credita só a diferença do ciclo — a fatura proporcional é ignorada pelo
+      // webhook (billing_reason subscription_update), então não há crédito em dobro
+      const multiplier = cycle === 'anual' ? 12 : 1
+      const delta = (newPlan.creditsPerCycle - currentPlan.creditsPerCycle) * multiplier
+      const latestInvoice = updated.latest_invoice
+      const invoiceId =
+        typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id ?? null
+
+      if (delta > 0) {
+        creditsDelta = delta
+        await db
+          .insert(creditTransactions)
+          .values({
+            orgId,
+            delta,
+            reason: 'purchase',
+            providerRef: invoiceId ? `upgrade_${invoiceId}` : `upgrade_${sub.id}_${Date.now()}`,
+          })
+          .onConflictDoNothing({ target: creditTransactions.providerRef })
+      }
+    }
+
+    await sendPlanChangedEmail(user.email, user.name, {
+      planName: newPlan.name,
+      change: isUpgrade ? 'upgrade' : 'downgrade',
+      creditsDelta,
+    })
+
+    return {
+      ok: true,
+      change: isUpgrade ? 'upgrade' : 'downgrade',
+      planName: newPlan.name,
+      effective: isUpgrade ? 'agora' : 'proxima_renovacao',
+    }
+  } finally {
+    await connection.del(lockKey)
   }
 })

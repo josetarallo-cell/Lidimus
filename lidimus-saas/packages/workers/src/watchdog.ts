@@ -27,7 +27,7 @@ export function startStuckJobWatchdog(
       .where(
         and(
           inArray(jobs.status, ['pending', 'queued', 'processing']),
-          lt(jobs.createdAt, cutoff),
+          lt(jobs.updatedAt, cutoff),
         ),
       )
       .returning({ id: jobs.id })

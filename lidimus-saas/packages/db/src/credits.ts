@@ -57,6 +57,24 @@ export async function getOrgCreditBalance(db: Db, orgId: string): Promise<number
   return row.balance
 }
 
+// Aceita tanto a conexão quanto uma transação em aberto (drizzle-orm não
+// unifica os dois tipos, e essa função precisa rodar dentro de transações).
+type QueryRunner = Pick<Db, 'select' | 'execute'>
+
+// Lê o saldo da org travando a linha correspondente em `organizations`
+// (SELECT ... FOR UPDATE). Chamada dentro de uma transação, serializa
+// checagens concorrentes de saldo: a segunda chamada só prossegue depois que
+// a primeira commita seu débito, eliminando a corrida de saldo (TOCTOU) em
+// uploads simultâneos da mesma org.
+export async function lockOrgCreditBalance(tx: QueryRunner, orgId: string): Promise<number> {
+  await tx.execute(sql`select id from organizations where id = ${orgId} for update`)
+  const [row] = await tx
+    .select({ balance: sql<number>`coalesce(sum(${creditTransactions.delta}), 0)::int` })
+    .from(creditTransactions)
+    .where(eq(creditTransactions.orgId, orgId))
+  return row?.balance ?? 0
+}
+
 // Estorna o consumo de um job que terminou em erro. Idempotente: o índice único
 // parcial (um refund por job) garante no máximo um estorno mesmo se chamado de
 // mais de um lugar (callback do n8n e handler 'failed' do worker).

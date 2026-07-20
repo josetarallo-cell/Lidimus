@@ -6,7 +6,8 @@ import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
 import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
 import { checkRateLimit } from '../../lib/rateLimit'
-import { jobs, creditTransactions, creditCostFor, getOrgCreditBalance } from '@lidimus/db'
+import { assertKmlSignature } from '../../lib/fileSignature'
+import { jobs, creditTransactions, creditCostFor, lockOrgCreditBalance } from '@lidimus/db'
 
 const paramsSchema = z.object({
   nomeImovel: z.string().optional().default(''),
@@ -29,29 +30,32 @@ export default defineEventHandler(async (event) => {
   const rawParams = paramsPart?.data ? JSON.parse(paramsPart.data.toString()) : {}
   const params = paramsSchema.parse(rawParams)
 
+  assertKmlSignature(filePart.data)
+
   const mimeType = filePart.type ?? 'application/vnd.google-earth.kml+xml'
   const originalName = filePart.filename ?? 'terreno.kml'
-
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
-
-  const { connection, kmlQueue } = useQueues()
-  await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
 
   const maxBytes = config.maxUploadSizeMb * 1024 * 1024
   if (filePart.data.length > maxBytes) {
     throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
   }
 
+  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+
+  const { connection, kmlQueue } = useQueues()
+  await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
+
   const custo = creditCostFor('kml')
-  const saldo = await getOrgCreditBalance(db, orgId)
-  if (saldo < custo) {
-    throw createError({
-      statusCode: 402,
-      statusMessage: `Créditos insuficientes. Saldo: ${saldo}, necessário: ${custo}.`,
-    })
-  }
 
   const job = await db.transaction(async (tx) => {
+    const saldo = await lockOrgCreditBalance(tx, orgId)
+    if (saldo < custo) {
+      throw createError({
+        statusCode: 402,
+        statusMessage: `Créditos insuficientes. Saldo: ${saldo}, necessário: ${custo}.`,
+      })
+    }
+
     const [created] = await tx
       .insert(jobs)
       .values({

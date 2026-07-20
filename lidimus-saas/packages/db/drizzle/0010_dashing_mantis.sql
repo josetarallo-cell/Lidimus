@@ -1,0 +1,2 @@
+ALTER TABLE "jobs" ADD COLUMN "updated_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "org_members_one_owner_per_user_idx" ON "org_members" USING btree ("user_id") WHERE "org_members"."role" = 'owner';

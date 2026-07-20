@@ -127,6 +127,14 @@ export const orgMembers = pgTable(
     role: orgRoleEnum('role').notNull().default('member'),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
   },
+  (t) => [
+    // No máximo uma org pessoal (owner) por usuário — dá ao getOrCreatePersonalOrg
+    // um alvo de ON CONFLICT para resolver a corrida do primeiro login sem
+    // duplicar org/bônus de créditos quando duas requisições chegam juntas.
+    uniqueIndex('org_members_one_owner_per_user_idx')
+      .on(t.userId)
+      .where(sql`${t.role} = 'owner'`),
+  ],
 )
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
@@ -149,6 +157,10 @@ export const jobs = pgTable(
     result: jsonb('result').$type<Record<string, unknown>>(),
     errorMessage: text('error_message'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    // Atualizado automaticamente ($onUpdate) a cada UPDATE — o watchdog usa
+    // esta coluna (não createdAt) para medir jobs presos, já que um pipeline
+    // de matrícula legitimamente em andamento segue avançando de etapa.
+    updatedAt: timestamp('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
     completedAt: timestamp('completed_at'),
   },
   (t) => [index('jobs_org_id_idx').on(t.orgId), index('jobs_status_idx').on(t.status)],
