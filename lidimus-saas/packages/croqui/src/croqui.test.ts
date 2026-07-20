@@ -91,6 +91,32 @@ describe('retangular 4 lados (trapézio)', () => {
     expect(r.avisos.join(' ')).toContain('trapézio')
   })
 
+  it('desenha lote de esquina com frente ≠ fundos e chanfro sem medida (caso Av. Condessa de São Joaquim)', () => {
+    // Matrícula 153.288: frente 17,30m, fundos 17,15m, 28,15m de ambos os lados,
+    // chanfro na esquina não quantificado. As 4 medidas bastam — trapézio viável.
+    const r = gerarCroqui(
+      base({
+        formato: 'retangular_4lados',
+        rua_frente: 'Avenida Condessa de São Joaquim',
+        segmentos: [
+          seg({ de: 'frente', ate: 'lateral_direita', distancia: 17.3, confrontante: 'Avenida Condessa de São Joaquim' }),
+          seg({ de: 'lateral_direita', ate: 'fundos', distancia: 28.15 }),
+          seg({ de: 'fundos', ate: 'lateral_esquerda', distancia: 17.15 }),
+          seg({ de: 'lateral_esquerda', ate: 'frente', distancia: 28.15 }),
+          // chanfro citado mas sem medida — deve ser ignorado, não bloquear o croqui
+          seg({ de: 'chanfro', ate: 'chanfro', tipo: 'chanfro', distancia: null }),
+        ],
+      }),
+    )
+    expect(r.ok).toBe(true)
+    // trapézio de bases 17,30 e 17,15 com altura ~28,15 → área ~485 m²
+    expect(r.areaCalculadaM2).toBeGreaterThan(480)
+    expect(r.areaCalculadaM2).toBeLessThan(490)
+    expect(r.avisos.join(' ')).toContain('trapézio')
+    expect(r.svg).toContain('17,30 m')
+    expect(r.svg).toContain('17,15 m')
+  })
+
   it('corta o chanfro no canto', () => {
     const r = gerarCroqui(
       base({

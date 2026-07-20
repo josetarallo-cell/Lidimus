@@ -50,7 +50,7 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 - **`formato`** — método de descrição identificado (ver métodos abaixo e a cadeia de fallback).
 - **`croqui_viavel`** — `true` somente quando o código conseguirá desenhar um polígono fechado:
   - `retangular`: testada e profundidade conhecidas;
-  - `retangular_4lados` e `confrontantes`: as 4 medidas conhecidas;
+  - `retangular_4lados` e `confrontantes`: as 4 medidas conhecidas (frente ≠ fundos é permitido — é um trapézio; uma profundidade única "de ambos os lados" fornece as duas laterais, logo as 4 estão conhecidas);
   - `deflexao`, `azimute`, `rumo`: todos os segmentos com distância E dado angular;
   - `utm`: pelo menos 3 vértices;
   - `irregular`: pelo menos 3 lados com medida (croqui apenas esquemático).
@@ -71,9 +71,11 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 ## MÉTODOS DE DESCRIÇÃO — REGRAS DE IDENTIFICAÇÃO E PARSING
 
 ### MÉTODO 1: Retangular Simples ("por")
-**Gatilho:** frases como `"medindo X,Xm de frente... por Y,Ym da frente aos fundos"` ou `"Xm × Ym"` ou `"Xm x Ym"`.
+**Gatilho:** frases como `"medindo X,Xm de frente... por Y,Ym da frente aos fundos"` ou `"Xm × Ym"` ou `"Xm x Ym"`, **e o texto NÃO traz uma medida própria de fundos** (só duas medidas: frente e profundidade).
 
 **Regras:**
+- Use este método **somente** quando houver exatamente duas medidas (frente e profundidade). Se o texto declara uma medida de fundos distinta — ainda que difira da frente por poucos centímetros — use o **MÉTODO 2**; não force um retângulo nem descarte a medida dos fundos.
+- A palavra **"retangular"** (ou "de forma retangular") na matrícula **não obriga este método**: matrículas chamam de "retangular" até lotes levemente trapezoidais (frente ≠ fundos). Deixe as medidas decidirem o formato, não o adjetivo.
 - `testada` = medida antes de "de frente" ou "de frente para a [rua]"
 - `profundidade` = medida após "por" ou "da frente aos fundos"
 - O terreno é um **retângulo**: frente = fundos = testada; lado direito = lado esquerdo = profundidade
@@ -88,13 +90,21 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 ---
 
 ### MÉTODO 2: Retangular com 4 Medidas Explícitas
-**Gatilho:** frente + fundos + lado direito + lado esquerdo mencionados separadamente.
+**Gatilho:** o texto declara medida de frente **e** de fundos (mais as laterais/profundidade). As laterais podem vir como um único valor "de ambos os lados" ou "em ambas as laterais".
 
 **Regras:**
-- Extrair cada medida individualmente; o terreno pode ser trapézio se frente ≠ fundos ou os lados diferirem
+- **Frente ≠ fundos é NORMAL e totalmente desenhável.** Um lote com frente 17,30m e fundos 17,15m é um **trapézio** (as bases só diferem por poucos centímetros), e as 4 linhas do perímetro bastam para construí-lo. **Nunca** trate a diferença entre frente e fundos como motivo para abortar, reduzir a um retângulo, ou marcar `croqui_viavel: false`. Não é preciso que frente e fundos tenham o mesmo valor.
+- **Emita SEMPRE os 4 segmentos com distância**, na ordem `frente → lateral_direita → fundos → lateral_esquerda`, cada um com sua `distancia`. Isto é o que o código exige; faltando a distância de um único lado, o croqui não é desenhado.
+- **"de ambos os lados" / "em ambas as laterais" / "de cada lado" = as duas laterais medem esse valor.** Você DEVE gerar **dois** segmentos — `lateral_direita` e `lateral_esquerda` — cada um com essa mesma distância. Nunca colapse as duas laterais em um único segmento: isso deixa um lado sem medida e quebra o desenho.
+- `croqui_viavel` = `true` sempre que as 4 medidas forem conhecidas (uma profundidade única que vale "para ambos os lados" já fornece as duas laterais → as 4 estão conhecidas).
 - `area_calculada_m2` = `null` (o código calcula)
-- Se frente ≠ fundos, anotar em `observacoes` (ex.: "trapézio: frente 10,00m, fundos 12,50m")
-- Gerar os 4 segmentos com as medidas de cada lado
+- Anotar em `observacoes` quando frente ≠ fundos (ex.: "frente 17,30m e fundos 17,15m diferem — lote é um trapézio; croqui viável").
+
+**Chanfro de esquina não quantificado:** se o texto cita um chanfro/canto cortado mas **não dá a medida** dele, **não deixe isso bloquear o croqui**. Mantenha os 4 segmentos dos lados principais com suas distâncias e `croqui_viavel: true`; **não** emita segmento de chanfro sem medida (o código desenha o quadrilátero fechado e ignora chanfro sem medida). Registre em `observacoes`: "Chanfro na esquina não quantificado — não representado no desenho". Só gere o segmento `tipo: "chanfro"` quando houver medida para ele.
+
+**Exemplo (frente ≠ fundos, laterais iguais, chanfro sem medida):**
+> "Terreno de forma retangular com chanfro na esquina da Rua dos Bororós, medindo 17,30m de frente para a Avenida Condessa de São Joaquim, 17,15m nos fundos, e 28,15m de profundidade de ambos os lados."
+> → `formato: "retangular_4lados"`, `croqui_viavel: true`, `precisao: "aproximada"`, 4 segmentos: `frente=17.30`, `lateral_direita=28.15`, `fundos=17.15`, `lateral_esquerda=28.15`; sem segmento de chanfro (sem medida); `observacoes: "Frente (17,30m) e fundos (17,15m) diferem — trapézio, croqui viável. Chanfro na esquina não quantificado — não representado."`
 
 ---
 
@@ -249,7 +259,7 @@ Prioridade de identificação:
 
 Tentar os métodos nesta ordem ao classificar o texto:
 1. Retangular Simples (busca "de frente... por" ou "X × Y")
-2. Retangular 4 Lados (busca frente + fundos + lados explícitos)
+2. Retangular 4 Lados (busca frente + fundos + laterais explícitas; a profundidade "de ambos os lados" conta como as duas laterais). Preferir este método ao Método 1 sempre que houver medida própria de fundos, mesmo que frente ≠ fundos.
 3. Deflexão com Ângulo Interno (busca "Ponto N" + "deflete")
 4. Azimute (busca "azimute" + ângulo)
 5. Rumo N/S/E/W (busca padrão `[NS] XX°YY'ZZ" [EW/O]`)
