@@ -53,6 +53,7 @@ export type KmlJobPayload = {
     nomeImovel?: string
     municipio?: string
     estado?: string
+    rua?: string
   }
 }
 

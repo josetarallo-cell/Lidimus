@@ -5,6 +5,7 @@ useHead({ title: 'Memorial descritivo — Lidimus' })
 
 const uploading = ref(false)
 const erro = ref<ErroUpload | null>(null)
+const rua = ref('')
 
 async function onSubmit(file: File) {
   uploading.value = true
@@ -12,7 +13,7 @@ async function onSubmit(file: File) {
   try {
     const form = new FormData()
     form.append('file', file)
-    form.append('params', JSON.stringify({}))
+    form.append('params', JSON.stringify({ rua: rua.value.trim() }))
 
     const { jobId } = await $fetch<{ jobId: string }>('/api/kml', {
       method: 'POST',
@@ -43,7 +44,26 @@ async function onSubmit(file: File) {
       :uploading="uploading"
       :custo-creditos="50"
       @submit="onSubmit"
-    />
+    >
+      <template #campos>
+        <div class="ld-campo">
+          <label for="rua-frente">Inclua a Rua/Av para a qual o imóvel faz frente</label>
+          <input
+            id="rua-frente"
+            v-model="rua"
+            type="text"
+            class="ld-input"
+            placeholder="Ex.: Rua Luiz Gama"
+            maxlength="120"
+            :disabled="uploading"
+          />
+          <p class="campo-ajuda">
+            Opcional — o memorial abre situando o imóvel neste logradouro. Sem preencher, o texto
+            sai sem a rua.
+          </p>
+        </div>
+      </template>
+    </UploadCard>
 
     <p v-if="erro" class="ld-erro pagina-erro" role="alert">
       {{ erro.texto }}
@@ -68,6 +88,11 @@ async function onSubmit(file: File) {
   color: var(--ld-tinta-suave);
   font-size: 0.9375rem;
   max-width: 60ch;
+}
+.campo-ajuda {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
 }
 .pagina-erro {
   margin-top: var(--ld-space-md);

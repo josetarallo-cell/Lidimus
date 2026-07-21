@@ -13,6 +13,7 @@ const paramsSchema = z.object({
   nomeImovel: z.string().optional().default(''),
   municipio: z.string().optional().default(''),
   estado: z.string().optional().default(''),
+  rua: z.string().trim().max(120).optional().default(''),
 })
 
 export default defineEventHandler(async (event) => {

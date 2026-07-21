@@ -32,6 +32,7 @@ export function startKmlWorker(
         nomeImovel: params.nomeImovel ?? '',
         municipio: params.municipio ?? '',
         estado: params.estado ?? '',
+        rua: params.rua ?? '',
       })
     },
     {

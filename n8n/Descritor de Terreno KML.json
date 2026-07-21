@@ -1,0 +1,873 @@
+﻿{
+    "updatedAt":  "2026-07-21T16:43:03.777Z",
+    "createdAt":  "2026-06-12T17:59:22.102Z",
+    "id":  "M8ehnr7BviJ9ShfP",
+    "name":  "Descritor de Terreno KML",
+    "description":  null,
+    "active":  true,
+    "isArchived":  false,
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "path":  "descritor-terreno-kml",
+                                         "responseMode":  "lastNode",
+                                         "options":  {
+
+                                                     },
+                                         "httpMethod":  "POST"
+                                     },
+                      "id":  "e76e2467-55a6-43ce-921e-52c5d37c3b82",
+                      "name":  "Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -672,
+                                       432
+                                   ],
+                      "webhookId":  "a0f6e5c5-ba05-4de1-a42f-1f7ed3b78d7f"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const raw = $input.first().json;\nconst body = raw.body || raw;\nconst jobId = body.jobId || \u0027\u0027;\nconst fileUrl = body.fileUrl || \u0027\u0027;\nconst callbackUrl = body.callbackUrl || \u0027\u0027;\nconst callbackSecret = body.callbackSecret || \u0027\u0027;\nconst kml_content = body.kml_content || null;\nconst kml_url = fileUrl || body.kml_url || null;\n// O worker do app envia os campos soltos (nomeImovel, municipio, estado, rua);\n// chamadas manuais podem usar params.* ou os nomes antigos (nome_terreno, uf).\nconst nome_terreno = body.params?.nomeImovel || body.nomeImovel || body.nome_terreno || \u0027Terreno\u0027;\nconst municipio = body.params?.municipio || body.municipio || \u0027Município não informado\u0027;\nconst uf = body.params?.estado || body.estado || body.uf || \u0027SP\u0027;\nconst rua = String(body.params?.rua || body.rua || \u0027\u0027).trim();\nconst confrontantes = body.confrontantes || {};\n\nif (!kml_content \u0026\u0026 !kml_url) {\n  throw new Error(\u0027Forneça kml_content (string XML) ou kml_url (URL do arquivo KML)\u0027);\n}\n\nreturn {\n  kml_content,\n  kml_url,\n  jobId,\n  callbackUrl,\n  callbackSecret,\n  nome_terreno,\n  municipio,\n  uf,\n  rua,\n  confrontantes\n};"
+                                     },
+                      "id":  "1450f38b-a4fe-4439-b752-0bb7e4b38935",
+                      "name":  "Normalizar Input",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -464,
+                                       432
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $json.kml_url }}",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "dc45d232-0f0f-4043-a036-bc7acc00a055",
+                      "name":  "Buscar KML (se URL)",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.1,
+                      "position":  [
+                                       -272,
+                                       368
+                                   ],
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const items = $input.all();\n\nfunction extractKmlText(item) {\n  const j = item.json || {};\n  if (typeof j.kml_content === \u0027string\u0027 \u0026\u0026 j.kml_content.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.kml_content;\n  if (typeof j.body === \u0027string\u0027 \u0026\u0026 j.body.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.body;\n  if (typeof j.data === \u0027string\u0027 \u0026\u0026 j.data.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.data;\n  return null;\n}\n\nlet kmlText = null;\nfor (const item of items) {\n  kmlText = extractKmlText(item);\n  if (kmlText) break;\n}\n\nif (!kmlText) {\n  throw new Error(\u0027Nenhum conteudo KML valido encontrado (kml_content ou resultado de kml_url)\u0027);\n}\n\nconst coordRegex = /\u003ccoordinates\u003e([^\u003c]+)\u003c\\/coordinates\u003e/g;\nconst matches = [...kmlText.matchAll(coordRegex)];\n\nif (matches.length === 0) {\n  throw new Error(\u0027Nenhuma tag \u003ccoordinates\u003e encontrada no KML\u0027);\n}\n\nconst coordText = matches[0][1].trim();\nconst points = coordText.split(/\\s+/).filter(c =\u003e c.length \u003e 0);\nconst coordinates = points.map(point =\u003e {\n  const [lon, lat, elev] = point.split(\u0027,\u0027).map(Number);\n  return { lon, lat, elev: elev || 0 };\n});\n\nreturn {\n  coordinates,\n  numPoints: coordinates.length\n};"
+                                     },
+                      "id":  "864fdb22-f98b-4fc5-8f8e-60165c945281",
+                      "name":  "Parsear KML",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -272,
+                                       528
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const { coordinates } = $input.first().json;\nconst { lon: centralLon, lat: centralLat } = coordinates[0];\n\n// Fuso UTM: formula padrao (valida globalmente, inclusive para todas as zonas do Brasil)\nconst fuso = Math.floor((centralLon + 180) / 6) + 1;\nconst isSouth = centralLat \u003c 0;\nconst falseNorthing = isSouth ? 10000000 : 0;\n\n// Conversao WGS84/SIRGAS2000 (elipsoide GRS80) para UTM\nfunction wgs84ToUTM(lat, lon, fuso) {\n  const k0 = 0.9996;\n  const a = 6378137;\n  const e2 = 0.00669438;\n\n  const lonOrigin = fuso * 6 - 183;\n  const dLon = (lon - lonOrigin) * Math.PI / 180;\n  const latRad = lat * Math.PI / 180;\n\n  const n = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);\n  const t = Math.tan(latRad) ** 2;\n  const c = e2 / (1 - e2) * Math.cos(latRad) ** 2;\n  const a_ = Math.cos(latRad) * dLon;\n\n  const m = a * ((1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256)*latRad -\n    (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024)*Math.sin(2*latRad) +\n    (15*e2*e2/256 + 45*e2*e2*e2/1024)*Math.sin(4*latRad) -\n    (35*e2*e2*e2/3072)*Math.sin(6*latRad));\n\n  const easting = k0 * n * (a_ + a_*a_*a_/6 * (1-t+c) + a_*a_*a_*a_*a_/120 * (5 - 18*t + t*t + 72*c - 58*(e2/(1-e2)))) + 500000;\n  const northing = k0 * (m + n * Math.tan(latRad) * (a_*a_/2 + a_*a_*a_*a_/24 * (5 - t + 9*c + 4*c*c) + a_*a_*a_*a_*a_*a_/720 * (61 - 58*t + t*t + 600*c - 330*(e2/(1-e2))))) + falseNorthing;\n\n  return { easting, northing };\n}\n\nconst vertices = coordinates.map((coord, idx) =\u003e {\n  const { easting, northing } = wgs84ToUTM(coord.lat, coord.lon, fuso);\n  return {\n    label: `P-${String(idx + 1).padStart(2, \u00270\u0027)}`,\n    lat: parseFloat(coord.lat.toFixed(6)),\n    lon: parseFloat(coord.lon.toFixed(6)),\n    utm_e: parseFloat(easting.toFixed(2)),\n    utm_n: parseFloat(northing.toFixed(2))\n  };\n});\n\nconst segmentos = [];\nfor (let i = 0; i \u003c vertices.length; i++) {\n  const p1 = vertices[i];\n  const p2 = vertices[(i + 1) % vertices.length];\n\n  const dE = p2.utm_e - p1.utm_e;\n  const dN = p2.utm_n - p1.utm_n;\n  const distancia = Math.sqrt(dE*dE + dN*dN);\n\n  let azimute = Math.atan2(dE, dN) * 180 / Math.PI;\n  if (azimute \u003c 0) azimute += 360;\n\n  const graus = Math.floor(azimute);\n  const minDecimal = (azimute - graus) * 60;\n  const minutos = Math.floor(minDecimal);\n  const segundos = (minDecimal - minutos) * 60;\n\n  const azimuteSex = `${graus.toString().padStart(3, \u00270\u0027)}°${minutos.toString().padStart(2, \u00270\u0027)}\u0027${segundos.toFixed(0).padStart(2, \u00270\u0027)}\\\"`;\n\n  segmentos.push({\n    de: p1.label,\n    ate: p2.label,\n    azimute: azimuteSex,\n    distancia_m: parseFloat(distancia.toFixed(2)),\n    confrontante: \u0027\u0027\n  });\n}\n\nlet area = 0;\nfor (let i = 0; i \u003c vertices.length; i++) {\n  const v1 = vertices[i];\n  const v2 = vertices[(i + 1) % vertices.length];\n  area += (v1.utm_e * v2.utm_n - v2.utm_e * v1.utm_n);\n}\narea = Math.abs(area) / 2;\n\nconst perimetro = segmentos.reduce((sum, seg) =\u003e sum + seg.distancia_m, 0);\n\nreturn {\n  vertices,\n  segmentos,\n  area_m2: parseFloat(area.toFixed(2)),\n  perimetro_m: parseFloat(perimetro.toFixed(2)),\n  fuso_utm: `${fuso}${isSouth ? \u0027S\u0027 : \u0027N\u0027}`\n};"
+                                     },
+                      "id":  "e0bcf8bf-be48-4258-831a-717f3b007471",
+                      "name":  "Calcular Geometria",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -96,
+                                       576
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "https://gvlar.com.br/skills/descritor-terreno-kml/SKILL.md",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "3f7f165f-55cb-4094-b052-5a1b36d09c79",
+                      "name":  "Carregar Skill",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.1,
+                      "position":  [
+                                       16,
+                                       320
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const skillItem = $(\u0027Carregar Skill\u0027).first().json;\nconst skill = skillItem.data || skillItem.body || (typeof skillItem === \u0027string\u0027 ? skillItem : JSON.stringify(skillItem));\nconst geometry = $(\u0027Calcular Geometria\u0027).first().json;\nconst input = $(\u0027Normalizar Input\u0027).first().json;\n\n// Rua de frente informada pelo usuário no upload; vazia =\u003e memorial sem logradouro\nconst rua = String(input.rua || \u0027\u0027).trim();\n\nconst confrontantesText = Object.entries(input.confrontantes || {})\n  .map(([dir, nome]) =\u003e `${dir}: ${nome}`)\n  .join(\u0027; \u0027) || \u0027nao informados\u0027;\n\nconst verticesJson = JSON.stringify(geometry.vertices, null, 2);\nconst segmentosJson = JSON.stringify(geometry.segmentos, null, 2);\n\nconst linhaRua = rua\n  ? `- Logradouro de frente (informado pelo usuario): ${rua}\\n`\n  : \u0027\u0027;\nconst instrucaoRua = rua\n  ? `\\n\\nIMPORTANTE: inicie o cabecalho de identificacao situando o imovel no logradouro informado (ex.: \"Imovel situado na(o) ${rua}, ${input.municipio}/${input.uf}\"), logo no inicio do memorial, e trate esse logradouro como a frente do imovel. Nao abrevie o tipo do logradouro e nao invente numero predial.`\n  : \u0027\u0027;\n\nconst prompt = `Gere o memorial descritivo completo para o seguinte terreno.\\n\\nDados calculados:\\n- Nome: ${input.nome_terreno}\\n${linhaRua}- Municipio/UF: ${input.municipio}/${input.uf}\\n- Area: ${geometry.area_m2} m2\\n- Perimetro: ${geometry.perimetro_m} m\\n- Datum: SIRGAS 2000 - Fuso ${geometry.fuso_utm}\\n- Vertices UTM: ${verticesJson}\\n- Segmentos: ${segmentosJson}\\n- Confrontantes informados: ${confrontantesText}${instrucaoRua}\\n\\nRetorne APENAS JSON valido (sem markdown, sem \\`\\`\\`), com os campos: memorial_descritivo, area_m2, perimetro_m, vertices, segmentos, datum, fuso_utm.`;\n\nreturn {\n  prompt,\n  skill,\n  geometry,\n  logradouro: rua\n};"
+                                     },
+                      "id":  "f7238007-0657-4610-9b47-948cc188498f",
+                      "name":  "Montar Prompt IA",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       160,
+                                       320
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const aiOutput = $input.first().json;\nconst geometry = $(\u0027Calcular Geometria\u0027).first().json;\n\nconst rawText = aiOutput.output || aiOutput.text || aiOutput.content || \u0027\u0027;\nconst cleaned = String(rawText).replace(/```json\\s*/gi, \u0027\u0027).replace(/```/g, \u0027\u0027).trim();\n\nlet memorial_json = {};\ntry {\n  memorial_json = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error(\u0027Falha ao parsear resposta JSON da IA: \u0027 + e.message + \u0027 | Conteudo: \u0027 + cleaned.slice(0, 300));\n}\n\nif (!memorial_json.memorial_descritivo) {\n  throw new Error(\u0027Campo memorial_descritivo ausente na resposta\u0027);\n}\n\nif (!memorial_json.descricao_perimetro) memorial_json.descricao_perimetro = \u0027\u0027;\nif (!memorial_json.vertices) memorial_json.vertices = geometry.vertices;\nif (!memorial_json.segmentos) memorial_json.segmentos = geometry.segmentos;\nif (!memorial_json.area_m2) memorial_json.area_m2 = geometry.area_m2;\nif (!memorial_json.perimetro_m) memorial_json.perimetro_m = geometry.perimetro_m;\nif (!memorial_json.fuso_utm) memorial_json.fuso_utm = geometry.fuso_utm;\nif (!memorial_json.datum) memorial_json.datum = \u0027SIRGAS 2000\u0027;\nif (!memorial_json.logradouro) memorial_json.logradouro = $(\u0027Montar Prompt IA\u0027).first().json.logradouro || \u0027\u0027;\n\nreturn memorial_json;"
+                                     },
+                      "id":  "9ce36312-58ed-401d-8bca-4480ad56678a",
+                      "name":  "Formatar Resposta",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       800,
+                                       400
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "options":  {
+                                                         "systemMessage":  "={{ $json.skill }}"
+                                                     },
+                                         "promptType":  "define",
+                                         "text":  "={{ $json.prompt }}"
+                                     },
+                      "type":  "@n8n/n8n-nodes-langchain.agent",
+                      "typeVersion":  3.1,
+                      "position":  [
+                                       384,
+                                       272
+                                   ],
+                      "id":  "8e44006e-93d0-4acb-8d45-b66d4e6e5478",
+                      "name":  "AI Agent"
+                  },
+                  {
+                      "parameters":  {
+                                         "model":  {
+                                                       "__rl":  true,
+                                                       "value":  "gpt-4o",
+                                                       "mode":  "list",
+                                                       "cachedResultName":  "gpt-4o"
+                                                   },
+                                         "builtInTools":  {
+
+                                                          },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "type":  "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+                      "typeVersion":  1.3,
+                      "position":  [
+                                       368,
+                                       512
+                                   ],
+                      "id":  "11ea00e1-c33b-4441-b3fe-085cc72c86b8",
+                      "name":  "OpenAI Chat Model",
+                      "credentials":  {
+                                          "openAiApi":  {
+                                                            "id":  "a3DkELcl5jrfSMWc",
+                                                            "name":  "OpenAi account"
+                                                        }
+                                      },
+                      "disabled":  true
+                  },
+                  {
+                      "id":  "217d458c-d8e2-4259-bd86-cbf16c474026",
+                      "name":  "Tem URL?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -560,
+                                       432
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict"
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "cond-kml-url",
+                                                                                   "leftValue":  "={{ $json.kml_url }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "string",
+                                                                                                    "operation":  "notEmpty",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "b723d74e-edd2-4337-989f-09f61f01f23b",
+                      "name":  "Claude Sonnet",
+                      "type":  "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                      "typeVersion":  1.3,
+                      "position":  [
+                                       368,
+                                       672
+                                   ],
+                      "parameters":  {
+                                         "model":  {
+                                                       "__rl":  true,
+                                                       "mode":  "id",
+                                                       "value":  "claude-sonnet-4-6"
+                                                   },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "credentials":  {
+                                          "anthropicApi":  {
+                                                               "id":  "zFz3yevxjq1CrKUn",
+                                                               "name":  "Anthropic account"
+                                                           }
+                                      }
+                  },
+                  {
+                      "id":  "2d101c6d-ecd4-4b3a-95ee-24f1d74aa572",
+                      "name":  "Callback Lidimus",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.4,
+                      "position":  [
+                                       992,
+                                       400
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $(\u0027Normalizar Input\u0027).first().json.callbackUrl }}",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "X-Lidimus-Secret",
+                                                                                         "value":  "={{ $(\u0027Normalizar Input\u0027).first().json.callbackSecret }}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ jobId: $(\u0027Normalizar Input\u0027).first().json.jobId, result: $input.first().json }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "Webhook":  {
+                                        "main":  [
+                                                     [
+                                                         {
+                                                             "node":  "Normalizar Input",
+                                                             "type":  "main",
+                                                             "index":  0
+                                                         }
+                                                     ]
+                                                 ]
+                                    },
+                        "Buscar KML (se URL)":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Parsear KML",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Parsear KML":  {
+                                            "main":  [
+                                                         [
+                                                             {
+                                                                 "node":  "Calcular Geometria",
+                                                                 "type":  "main",
+                                                                 "index":  0
+                                                             }
+                                                         ]
+                                                     ]
+                                        },
+                        "Carregar Skill":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Montar Prompt IA",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Montar Prompt IA":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "AI Agent",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "OpenAI Chat Model":  {
+                                                  "ai_languageModel":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "AI Agent",
+                                                                                   "type":  "ai_languageModel",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                              },
+                        "AI Agent":  {
+                                         "main":  [
+                                                      [
+                                                          {
+                                                              "node":  "Formatar Resposta",
+                                                              "type":  "main",
+                                                              "index":  0
+                                                          }
+                                                      ]
+                                                  ]
+                                     },
+                        "Normalizar Input":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Tem URL?",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Tem URL?":  {
+                                         "main":  [
+                                                      [
+                                                          {
+                                                              "node":  "Buscar KML (se URL)",
+                                                              "type":  "main",
+                                                              "index":  0
+                                                          }
+                                                      ],
+                                                      [
+                                                          {
+                                                              "node":  "Parsear KML",
+                                                              "type":  "main",
+                                                              "index":  0
+                                                          }
+                                                      ]
+                                                  ]
+                                     },
+                        "Claude Sonnet":  {
+                                              "ai_languageModel":  [
+                                                                       [
+                                                                           {
+                                                                               "node":  "AI Agent",
+                                                                               "type":  "ai_languageModel",
+                                                                               "index":  0
+                                                                           }
+                                                                       ]
+                                                                   ]
+                                          },
+                        "Formatar Resposta":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Callback Lidimus",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Calcular Geometria":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Carregar Skill",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "binaryMode":  "separate",
+                     "timeSavedMode":  "fixed",
+                     "callerPolicy":  "workflowsFromSameOwner",
+                     "availableInMCP":  true
+                 },
+    "staticData":  null,
+    "meta":  {
+                 "templateCredsSetupCompleted":  true
+             },
+    "pinData":  {
+
+                },
+    "versionId":  "bcf61bf7-337b-4e7e-b43c-881ef31f53e8",
+    "activeVersionId":  "bcf61bf7-337b-4e7e-b43c-881ef31f53e8",
+    "versionCounter":  80,
+    "triggerCount":  1,
+    "shared":  [
+                   {
+                       "updatedAt":  "2026-06-12T17:59:22.107Z",
+                       "createdAt":  "2026-06-12T17:59:22.107Z",
+                       "role":  "workflow:owner",
+                       "workflowId":  "M8ehnr7BviJ9ShfP",
+                       "projectId":  "n8u85tVxWqa1HXNM",
+                       "project":  {
+                                       "updatedAt":  "2026-04-29T17:46:38.456Z",
+                                       "createdAt":  "2026-04-29T17:45:06.294Z",
+                                       "id":  "n8u85tVxWqa1HXNM",
+                                       "name":  "JOSE jose.tarallo@gmail.com \u003cjose.tarallo@gmail.com\u003e",
+                                       "type":  "personal",
+                                       "icon":  null,
+                                       "description":  null,
+                                       "creatorId":  "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+                                   }
+                   }
+               ],
+    "tags":  [
+
+             ],
+    "activeVersion":  {
+                          "updatedAt":  "2026-07-21T16:43:03.778Z",
+                          "createdAt":  "2026-07-21T16:43:03.778Z",
+                          "versionId":  "bcf61bf7-337b-4e7e-b43c-881ef31f53e8",
+                          "workflowId":  "M8ehnr7BviJ9ShfP",
+                          "nodes":  [
+                                        {
+                                            "parameters":  {
+                                                               "path":  "descritor-terreno-kml",
+                                                               "responseMode":  "lastNode",
+                                                               "options":  {
+
+                                                                           },
+                                                               "httpMethod":  "POST"
+                                                           },
+                                            "id":  "e76e2467-55a6-43ce-921e-52c5d37c3b82",
+                                            "name":  "Webhook",
+                                            "type":  "n8n-nodes-base.webhook",
+                                            "typeVersion":  1,
+                                            "position":  [
+                                                             -672,
+                                                             432
+                                                         ],
+                                            "webhookId":  "a0f6e5c5-ba05-4de1-a42f-1f7ed3b78d7f"
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "jsCode":  "const raw = $input.first().json;\nconst body = raw.body || raw;\nconst jobId = body.jobId || \u0027\u0027;\nconst fileUrl = body.fileUrl || \u0027\u0027;\nconst callbackUrl = body.callbackUrl || \u0027\u0027;\nconst callbackSecret = body.callbackSecret || \u0027\u0027;\nconst kml_content = body.kml_content || null;\nconst kml_url = fileUrl || body.kml_url || null;\n// O worker do app envia os campos soltos (nomeImovel, municipio, estado, rua);\n// chamadas manuais podem usar params.* ou os nomes antigos (nome_terreno, uf).\nconst nome_terreno = body.params?.nomeImovel || body.nomeImovel || body.nome_terreno || \u0027Terreno\u0027;\nconst municipio = body.params?.municipio || body.municipio || \u0027Município não informado\u0027;\nconst uf = body.params?.estado || body.estado || body.uf || \u0027SP\u0027;\nconst rua = String(body.params?.rua || body.rua || \u0027\u0027).trim();\nconst confrontantes = body.confrontantes || {};\n\nif (!kml_content \u0026\u0026 !kml_url) {\n  throw new Error(\u0027Forneça kml_content (string XML) ou kml_url (URL do arquivo KML)\u0027);\n}\n\nreturn {\n  kml_content,\n  kml_url,\n  jobId,\n  callbackUrl,\n  callbackSecret,\n  nome_terreno,\n  municipio,\n  uf,\n  rua,\n  confrontantes\n};"
+                                                           },
+                                            "id":  "1450f38b-a4fe-4439-b752-0bb7e4b38935",
+                                            "name":  "Normalizar Input",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             -464,
+                                                             432
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "url":  "={{ $json.kml_url }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           },
+                                            "id":  "dc45d232-0f0f-4043-a036-bc7acc00a055",
+                                            "name":  "Buscar KML (se URL)",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.1,
+                                            "position":  [
+                                                             -272,
+                                                             368
+                                                         ],
+                                            "onError":  "continueRegularOutput"
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "jsCode":  "const items = $input.all();\n\nfunction extractKmlText(item) {\n  const j = item.json || {};\n  if (typeof j.kml_content === \u0027string\u0027 \u0026\u0026 j.kml_content.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.kml_content;\n  if (typeof j.body === \u0027string\u0027 \u0026\u0026 j.body.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.body;\n  if (typeof j.data === \u0027string\u0027 \u0026\u0026 j.data.includes(\u0027\u003ccoordinates\u003e\u0027)) return j.data;\n  return null;\n}\n\nlet kmlText = null;\nfor (const item of items) {\n  kmlText = extractKmlText(item);\n  if (kmlText) break;\n}\n\nif (!kmlText) {\n  throw new Error(\u0027Nenhum conteudo KML valido encontrado (kml_content ou resultado de kml_url)\u0027);\n}\n\nconst coordRegex = /\u003ccoordinates\u003e([^\u003c]+)\u003c\\/coordinates\u003e/g;\nconst matches = [...kmlText.matchAll(coordRegex)];\n\nif (matches.length === 0) {\n  throw new Error(\u0027Nenhuma tag \u003ccoordinates\u003e encontrada no KML\u0027);\n}\n\nconst coordText = matches[0][1].trim();\nconst points = coordText.split(/\\s+/).filter(c =\u003e c.length \u003e 0);\nconst coordinates = points.map(point =\u003e {\n  const [lon, lat, elev] = point.split(\u0027,\u0027).map(Number);\n  return { lon, lat, elev: elev || 0 };\n});\n\nreturn {\n  coordinates,\n  numPoints: coordinates.length\n};"
+                                                           },
+                                            "id":  "864fdb22-f98b-4fc5-8f8e-60165c945281",
+                                            "name":  "Parsear KML",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             -272,
+                                                             528
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "jsCode":  "const { coordinates } = $input.first().json;\nconst { lon: centralLon, lat: centralLat } = coordinates[0];\n\n// Fuso UTM: formula padrao (valida globalmente, inclusive para todas as zonas do Brasil)\nconst fuso = Math.floor((centralLon + 180) / 6) + 1;\nconst isSouth = centralLat \u003c 0;\nconst falseNorthing = isSouth ? 10000000 : 0;\n\n// Conversao WGS84/SIRGAS2000 (elipsoide GRS80) para UTM\nfunction wgs84ToUTM(lat, lon, fuso) {\n  const k0 = 0.9996;\n  const a = 6378137;\n  const e2 = 0.00669438;\n\n  const lonOrigin = fuso * 6 - 183;\n  const dLon = (lon - lonOrigin) * Math.PI / 180;\n  const latRad = lat * Math.PI / 180;\n\n  const n = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);\n  const t = Math.tan(latRad) ** 2;\n  const c = e2 / (1 - e2) * Math.cos(latRad) ** 2;\n  const a_ = Math.cos(latRad) * dLon;\n\n  const m = a * ((1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256)*latRad -\n    (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024)*Math.sin(2*latRad) +\n    (15*e2*e2/256 + 45*e2*e2*e2/1024)*Math.sin(4*latRad) -\n    (35*e2*e2*e2/3072)*Math.sin(6*latRad));\n\n  const easting = k0 * n * (a_ + a_*a_*a_/6 * (1-t+c) + a_*a_*a_*a_*a_/120 * (5 - 18*t + t*t + 72*c - 58*(e2/(1-e2)))) + 500000;\n  const northing = k0 * (m + n * Math.tan(latRad) * (a_*a_/2 + a_*a_*a_*a_/24 * (5 - t + 9*c + 4*c*c) + a_*a_*a_*a_*a_*a_/720 * (61 - 58*t + t*t + 600*c - 330*(e2/(1-e2))))) + falseNorthing;\n\n  return { easting, northing };\n}\n\nconst vertices = coordinates.map((coord, idx) =\u003e {\n  const { easting, northing } = wgs84ToUTM(coord.lat, coord.lon, fuso);\n  return {\n    label: `P-${String(idx + 1).padStart(2, \u00270\u0027)}`,\n    lat: parseFloat(coord.lat.toFixed(6)),\n    lon: parseFloat(coord.lon.toFixed(6)),\n    utm_e: parseFloat(easting.toFixed(2)),\n    utm_n: parseFloat(northing.toFixed(2))\n  };\n});\n\nconst segmentos = [];\nfor (let i = 0; i \u003c vertices.length; i++) {\n  const p1 = vertices[i];\n  const p2 = vertices[(i + 1) % vertices.length];\n\n  const dE = p2.utm_e - p1.utm_e;\n  const dN = p2.utm_n - p1.utm_n;\n  const distancia = Math.sqrt(dE*dE + dN*dN);\n\n  let azimute = Math.atan2(dE, dN) * 180 / Math.PI;\n  if (azimute \u003c 0) azimute += 360;\n\n  const graus = Math.floor(azimute);\n  const minDecimal = (azimute - graus) * 60;\n  const minutos = Math.floor(minDecimal);\n  const segundos = (minDecimal - minutos) * 60;\n\n  const azimuteSex = `${graus.toString().padStart(3, \u00270\u0027)}°${minutos.toString().padStart(2, \u00270\u0027)}\u0027${segundos.toFixed(0).padStart(2, \u00270\u0027)}\\\"`;\n\n  segmentos.push({\n    de: p1.label,\n    ate: p2.label,\n    azimute: azimuteSex,\n    distancia_m: parseFloat(distancia.toFixed(2)),\n    confrontante: \u0027\u0027\n  });\n}\n\nlet area = 0;\nfor (let i = 0; i \u003c vertices.length; i++) {\n  const v1 = vertices[i];\n  const v2 = vertices[(i + 1) % vertices.length];\n  area += (v1.utm_e * v2.utm_n - v2.utm_e * v1.utm_n);\n}\narea = Math.abs(area) / 2;\n\nconst perimetro = segmentos.reduce((sum, seg) =\u003e sum + seg.distancia_m, 0);\n\nreturn {\n  vertices,\n  segmentos,\n  area_m2: parseFloat(area.toFixed(2)),\n  perimetro_m: parseFloat(perimetro.toFixed(2)),\n  fuso_utm: `${fuso}${isSouth ? \u0027S\u0027 : \u0027N\u0027}`\n};"
+                                                           },
+                                            "id":  "e0bcf8bf-be48-4258-831a-717f3b007471",
+                                            "name":  "Calcular Geometria",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             -96,
+                                                             576
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "url":  "https://gvlar.com.br/skills/descritor-terreno-kml/SKILL.md",
+                                                               "options":  {
+
+                                                                           }
+                                                           },
+                                            "id":  "3f7f165f-55cb-4094-b052-5a1b36d09c79",
+                                            "name":  "Carregar Skill",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.1,
+                                            "position":  [
+                                                             16,
+                                                             320
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "jsCode":  "const skillItem = $(\u0027Carregar Skill\u0027).first().json;\nconst skill = skillItem.data || skillItem.body || (typeof skillItem === \u0027string\u0027 ? skillItem : JSON.stringify(skillItem));\nconst geometry = $(\u0027Calcular Geometria\u0027).first().json;\nconst input = $(\u0027Normalizar Input\u0027).first().json;\n\n// Rua de frente informada pelo usuário no upload; vazia =\u003e memorial sem logradouro\nconst rua = String(input.rua || \u0027\u0027).trim();\n\nconst confrontantesText = Object.entries(input.confrontantes || {})\n  .map(([dir, nome]) =\u003e `${dir}: ${nome}`)\n  .join(\u0027; \u0027) || \u0027nao informados\u0027;\n\nconst verticesJson = JSON.stringify(geometry.vertices, null, 2);\nconst segmentosJson = JSON.stringify(geometry.segmentos, null, 2);\n\nconst linhaRua = rua\n  ? `- Logradouro de frente (informado pelo usuario): ${rua}\\n`\n  : \u0027\u0027;\nconst instrucaoRua = rua\n  ? `\\n\\nIMPORTANTE: inicie o cabecalho de identificacao situando o imovel no logradouro informado (ex.: \"Imovel situado na(o) ${rua}, ${input.municipio}/${input.uf}\"), logo no inicio do memorial, e trate esse logradouro como a frente do imovel. Nao abrevie o tipo do logradouro e nao invente numero predial.`\n  : \u0027\u0027;\n\nconst prompt = `Gere o memorial descritivo completo para o seguinte terreno.\\n\\nDados calculados:\\n- Nome: ${input.nome_terreno}\\n${linhaRua}- Municipio/UF: ${input.municipio}/${input.uf}\\n- Area: ${geometry.area_m2} m2\\n- Perimetro: ${geometry.perimetro_m} m\\n- Datum: SIRGAS 2000 - Fuso ${geometry.fuso_utm}\\n- Vertices UTM: ${verticesJson}\\n- Segmentos: ${segmentosJson}\\n- Confrontantes informados: ${confrontantesText}${instrucaoRua}\\n\\nRetorne APENAS JSON valido (sem markdown, sem \\`\\`\\`), com os campos: memorial_descritivo, area_m2, perimetro_m, vertices, segmentos, datum, fuso_utm.`;\n\nreturn {\n  prompt,\n  skill,\n  geometry,\n  logradouro: rua\n};"
+                                                           },
+                                            "id":  "f7238007-0657-4610-9b47-948cc188498f",
+                                            "name":  "Montar Prompt IA",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             160,
+                                                             320
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "jsCode":  "const aiOutput = $input.first().json;\nconst geometry = $(\u0027Calcular Geometria\u0027).first().json;\n\nconst rawText = aiOutput.output || aiOutput.text || aiOutput.content || \u0027\u0027;\nconst cleaned = String(rawText).replace(/```json\\s*/gi, \u0027\u0027).replace(/```/g, \u0027\u0027).trim();\n\nlet memorial_json = {};\ntry {\n  memorial_json = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error(\u0027Falha ao parsear resposta JSON da IA: \u0027 + e.message + \u0027 | Conteudo: \u0027 + cleaned.slice(0, 300));\n}\n\nif (!memorial_json.memorial_descritivo) {\n  throw new Error(\u0027Campo memorial_descritivo ausente na resposta\u0027);\n}\n\nif (!memorial_json.descricao_perimetro) memorial_json.descricao_perimetro = \u0027\u0027;\nif (!memorial_json.vertices) memorial_json.vertices = geometry.vertices;\nif (!memorial_json.segmentos) memorial_json.segmentos = geometry.segmentos;\nif (!memorial_json.area_m2) memorial_json.area_m2 = geometry.area_m2;\nif (!memorial_json.perimetro_m) memorial_json.perimetro_m = geometry.perimetro_m;\nif (!memorial_json.fuso_utm) memorial_json.fuso_utm = geometry.fuso_utm;\nif (!memorial_json.datum) memorial_json.datum = \u0027SIRGAS 2000\u0027;\nif (!memorial_json.logradouro) memorial_json.logradouro = $(\u0027Montar Prompt IA\u0027).first().json.logradouro || \u0027\u0027;\n\nreturn memorial_json;"
+                                                           },
+                                            "id":  "9ce36312-58ed-401d-8bca-4480ad56678a",
+                                            "name":  "Formatar Resposta",
+                                            "type":  "n8n-nodes-base.code",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             800,
+                                                             400
+                                                         ]
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "options":  {
+                                                                               "systemMessage":  "={{ $json.skill }}"
+                                                                           },
+                                                               "promptType":  "define",
+                                                               "text":  "={{ $json.prompt }}"
+                                                           },
+                                            "type":  "@n8n/n8n-nodes-langchain.agent",
+                                            "typeVersion":  3.1,
+                                            "position":  [
+                                                             384,
+                                                             272
+                                                         ],
+                                            "id":  "8e44006e-93d0-4acb-8d45-b66d4e6e5478",
+                                            "name":  "AI Agent"
+                                        },
+                                        {
+                                            "parameters":  {
+                                                               "model":  {
+                                                                             "__rl":  true,
+                                                                             "value":  "gpt-4o",
+                                                                             "mode":  "list",
+                                                                             "cachedResultName":  "gpt-4o"
+                                                                         },
+                                                               "builtInTools":  {
+
+                                                                                },
+                                                               "options":  {
+
+                                                                           }
+                                                           },
+                                            "type":  "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+                                            "typeVersion":  1.3,
+                                            "position":  [
+                                                             368,
+                                                             512
+                                                         ],
+                                            "id":  "11ea00e1-c33b-4441-b3fe-085cc72c86b8",
+                                            "name":  "OpenAI Chat Model",
+                                            "credentials":  {
+                                                                "openAiApi":  {
+                                                                                  "id":  "a3DkELcl5jrfSMWc",
+                                                                                  "name":  "OpenAi account"
+                                                                              }
+                                                            },
+                                            "disabled":  true
+                                        },
+                                        {
+                                            "id":  "217d458c-d8e2-4259-bd86-cbf16c474026",
+                                            "name":  "Tem URL?",
+                                            "type":  "n8n-nodes-base.if",
+                                            "typeVersion":  2,
+                                            "position":  [
+                                                             -560,
+                                                             432
+                                                         ],
+                                            "parameters":  {
+                                                               "conditions":  {
+                                                                                  "options":  {
+                                                                                                  "caseSensitive":  true,
+                                                                                                  "leftValue":  "",
+                                                                                                  "typeValidation":  "strict"
+                                                                                              },
+                                                                                  "conditions":  [
+                                                                                                     {
+                                                                                                         "id":  "cond-kml-url",
+                                                                                                         "leftValue":  "={{ $json.kml_url }}",
+                                                                                                         "rightValue":  "",
+                                                                                                         "operator":  {
+                                                                                                                          "type":  "string",
+                                                                                                                          "operation":  "notEmpty",
+                                                                                                                          "singleValue":  true
+                                                                                                                      }
+                                                                                                     }
+                                                                                                 ],
+                                                                                  "combinator":  "and"
+                                                                              },
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        },
+                                        {
+                                            "id":  "b723d74e-edd2-4337-989f-09f61f01f23b",
+                                            "name":  "Claude Sonnet",
+                                            "type":  "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                                            "typeVersion":  1.3,
+                                            "position":  [
+                                                             368,
+                                                             672
+                                                         ],
+                                            "parameters":  {
+                                                               "model":  {
+                                                                             "__rl":  true,
+                                                                             "mode":  "id",
+                                                                             "value":  "claude-sonnet-4-6"
+                                                                         },
+                                                               "options":  {
+
+                                                                           }
+                                                           },
+                                            "credentials":  {
+                                                                "anthropicApi":  {
+                                                                                     "id":  "zFz3yevxjq1CrKUn",
+                                                                                     "name":  "Anthropic account"
+                                                                                 }
+                                                            }
+                                        },
+                                        {
+                                            "id":  "2d101c6d-ecd4-4b3a-95ee-24f1d74aa572",
+                                            "name":  "Callback Lidimus",
+                                            "type":  "n8n-nodes-base.httpRequest",
+                                            "typeVersion":  4.4,
+                                            "position":  [
+                                                             992,
+                                                             400
+                                                         ],
+                                            "parameters":  {
+                                                               "method":  "POST",
+                                                               "url":  "={{ $(\u0027Normalizar Input\u0027).first().json.callbackUrl }}",
+                                                               "sendHeaders":  true,
+                                                               "headerParameters":  {
+                                                                                        "parameters":  [
+                                                                                                           {
+                                                                                                               "name":  "X-Lidimus-Secret",
+                                                                                                               "value":  "={{ $(\u0027Normalizar Input\u0027).first().json.callbackSecret }}"
+                                                                                                           }
+                                                                                                       ]
+                                                                                    },
+                                                               "sendBody":  true,
+                                                               "specifyBody":  "json",
+                                                               "jsonBody":  "={{ JSON.stringify({ jobId: $(\u0027Normalizar Input\u0027).first().json.jobId, result: $input.first().json }) }}",
+                                                               "options":  {
+
+                                                                           }
+                                                           }
+                                        }
+                                    ],
+                          "connections":  {
+                                              "Webhook":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Normalizar Input",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          },
+                                              "Buscar KML (se URL)":  {
+                                                                          "main":  [
+                                                                                       [
+                                                                                           {
+                                                                                               "node":  "Parsear KML",
+                                                                                               "type":  "main",
+                                                                                               "index":  0
+                                                                                           }
+                                                                                       ]
+                                                                                   ]
+                                                                      },
+                                              "Parsear KML":  {
+                                                                  "main":  [
+                                                                               [
+                                                                                   {
+                                                                                       "node":  "Calcular Geometria",
+                                                                                       "type":  "main",
+                                                                                       "index":  0
+                                                                                   }
+                                                                               ]
+                                                                           ]
+                                                              },
+                                              "Carregar Skill":  {
+                                                                     "main":  [
+                                                                                  [
+                                                                                      {
+                                                                                          "node":  "Montar Prompt IA",
+                                                                                          "type":  "main",
+                                                                                          "index":  0
+                                                                                      }
+                                                                                  ]
+                                                                              ]
+                                                                 },
+                                              "Montar Prompt IA":  {
+                                                                       "main":  [
+                                                                                    [
+                                                                                        {
+                                                                                            "node":  "AI Agent",
+                                                                                            "type":  "main",
+                                                                                            "index":  0
+                                                                                        }
+                                                                                    ]
+                                                                                ]
+                                                                   },
+                                              "OpenAI Chat Model":  {
+                                                                        "ai_languageModel":  [
+                                                                                                 [
+                                                                                                     {
+                                                                                                         "node":  "AI Agent",
+                                                                                                         "type":  "ai_languageModel",
+                                                                                                         "index":  0
+                                                                                                     }
+                                                                                                 ]
+                                                                                             ]
+                                                                    },
+                                              "AI Agent":  {
+                                                               "main":  [
+                                                                            [
+                                                                                {
+                                                                                    "node":  "Formatar Resposta",
+                                                                                    "type":  "main",
+                                                                                    "index":  0
+                                                                                }
+                                                                            ]
+                                                                        ]
+                                                           },
+                                              "Normalizar Input":  {
+                                                                       "main":  [
+                                                                                    [
+                                                                                        {
+                                                                                            "node":  "Tem URL?",
+                                                                                            "type":  "main",
+                                                                                            "index":  0
+                                                                                        }
+                                                                                    ]
+                                                                                ]
+                                                                   },
+                                              "Tem URL?":  {
+                                                               "main":  [
+                                                                            [
+                                                                                {
+                                                                                    "node":  "Buscar KML (se URL)",
+                                                                                    "type":  "main",
+                                                                                    "index":  0
+                                                                                }
+                                                                            ],
+                                                                            [
+                                                                                {
+                                                                                    "node":  "Parsear KML",
+                                                                                    "type":  "main",
+                                                                                    "index":  0
+                                                                                }
+                                                                            ]
+                                                                        ]
+                                                           },
+                                              "Claude Sonnet":  {
+                                                                    "ai_languageModel":  [
+                                                                                             [
+                                                                                                 {
+                                                                                                     "node":  "AI Agent",
+                                                                                                     "type":  "ai_languageModel",
+                                                                                                     "index":  0
+                                                                                                 }
+                                                                                             ]
+                                                                                         ]
+                                                                },
+                                              "Formatar Resposta":  {
+                                                                        "main":  [
+                                                                                     [
+                                                                                         {
+                                                                                             "node":  "Callback Lidimus",
+                                                                                             "type":  "main",
+                                                                                             "index":  0
+                                                                                         }
+                                                                                     ]
+                                                                                 ]
+                                                                    },
+                                              "Calcular Geometria":  {
+                                                                         "main":  [
+                                                                                      [
+                                                                                          {
+                                                                                              "node":  "Carregar Skill",
+                                                                                              "type":  "main",
+                                                                                              "index":  0
+                                                                                          }
+                                                                                      ]
+                                                                                  ]
+                                                                     }
+                                          },
+                          "authors":  "JOSE jose.tarallo@gmail.com",
+                          "name":  null,
+                          "description":  null,
+                          "autosaved":  false,
+                          "workflowPublishHistory":  [
+                                                         {
+                                                             "createdAt":  "2026-07-21T16:43:03.982Z",
+                                                             "id":  531,
+                                                             "workflowId":  "M8ehnr7BviJ9ShfP",
+                                                             "versionId":  "bcf61bf7-337b-4e7e-b43c-881ef31f53e8",
+                                                             "event":  "activated",
+                                                             "userId":  "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+                                                         },
+                                                         {
+                                                             "createdAt":  "2026-07-21T16:43:03.888Z",
+                                                             "id":  530,
+                                                             "workflowId":  "M8ehnr7BviJ9ShfP",
+                                                             "versionId":  "bcf61bf7-337b-4e7e-b43c-881ef31f53e8",
+                                                             "event":  "deactivated",
+                                                             "userId":  "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+                                                         }
+                                                     ]
+                      }
+}

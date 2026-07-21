@@ -129,6 +129,11 @@ function submit() {
       </template>
     </div>
 
+    <!-- Campos extras da análise (ex.: rua de frente no KML), entre a zona e o rodapé -->
+    <div v-if="$slots.campos" class="envio-campos">
+      <slot name="campos" />
+    </div>
+
     <footer class="envio-rodape">
       <p v-if="textoCusto != null" class="envio-custo" :class="{ 'envio-custo--alerta': saldoInsuficiente }">
         {{ textoCusto }}<template v-if="creditos != null"> · você tem {{ creditos.balance }}</template>.
@@ -253,6 +258,10 @@ function submit() {
 .envio-trocar:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.envio-campos {
+  margin: 0 var(--ld-space-lg) var(--ld-space-lg);
 }
 
 .envio-rodape {
