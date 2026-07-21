@@ -37,8 +37,29 @@ type Job = {
   type: string
   status: string
   stage?: string | null
+  inputMeta?: Record<string, any> | null
   result?: Record<string, any> | null
   createdAt: string
+}
+
+// Nome do PDF original enviado — guardado em inputMeta.originalName por todos os
+// tipos de job (matrícula, memorial, croqui, verificação)
+function arquivoNome(job: Job): string {
+  const nome = job.inputMeta?.originalName
+  return typeof nome === 'string' && nome.trim() ? nome : '—'
+}
+
+// Número do documento — só faz sentido em Matrícula e Croqui. A matrícula guarda
+// no cabeçalho do parecer; o croqui, no topo do JSON de extração (numero_matricula).
+function numeroDocumento(job: Job): string | null {
+  let bruto: unknown = null
+  if (job.type === 'matricula') {
+    bruto = job.result?.documento?.cabecalho?.numero_matricula ?? job.result?.numero_matricula
+  } else if (job.type === 'croqui') {
+    bruto = job.result?.numero_matricula
+  }
+  const texto = bruto == null ? '' : String(bruto).trim()
+  return texto ? texto : null
 }
 
 function statusSelo(job: Job): { classe: string; texto: string } {
@@ -140,6 +161,8 @@ onMounted(() => {
           <thead>
             <tr>
               <th scope="col">Tipo</th>
+              <th scope="col">Arquivo</th>
+              <th scope="col">Nº do documento</th>
               <th scope="col">Status</th>
               <th scope="col">Risco</th>
               <th scope="col">Criado em</th>
@@ -149,6 +172,13 @@ onMounted(() => {
           <tbody>
             <tr v-for="job in (jobList as Job[])" :key="job.id" class="linha" @click="abrir(job)">
               <td class="celula-tipo">{{ typeLabel[job.type] ?? job.type }}</td>
+              <td class="celula-arquivo">
+                <span class="arquivo-nome" :title="arquivoNome(job)">{{ arquivoNome(job) }}</span>
+              </td>
+              <td class="celula-numero">
+                <span v-if="numeroDocumento(job)" class="numero-doc">{{ numeroDocumento(job) }}</span>
+                <span v-else class="celula-na">—</span>
+              </td>
               <td class="celula-status">
                 <span class="ld-selo" :class="statusSelo(job).classe">{{ statusSelo(job).texto }}</span>
               </td>
@@ -314,6 +344,25 @@ onMounted(() => {
   font-weight: 500;
   white-space: nowrap;
 }
+.celula-arquivo {
+  max-width: 22ch;
+  color: var(--ld-tinta-suave);
+}
+.arquivo-nome {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+.celula-numero {
+  white-space: nowrap;
+}
+.numero-doc {
+  font-family: var(--ld-font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
 .celula-data {
   color: var(--ld-tinta-suave);
   font-variant-numeric: tabular-nums;
@@ -369,6 +418,8 @@ onMounted(() => {
     border: none;
   }
   .celula-tipo,
+  .celula-arquivo,
+  .celula-numero,
   .celula-status,
   .celula-risco,
   .celula-data {
@@ -376,8 +427,13 @@ onMounted(() => {
   }
   .celula-acao {
     grid-column: 2;
-    grid-row: 1 / span 4;
+    grid-row: 1 / span 6;
     align-self: center;
+  }
+  /* No card, o nome do arquivo usa a largura disponível (com reticências),
+     não o teto estreito da coluna da tabela */
+  .celula-arquivo {
+    max-width: none;
   }
   .celula-data {
     font-size: 0.8125rem;

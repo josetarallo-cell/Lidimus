@@ -18,6 +18,14 @@ const veioDeMatricula = computed(() => {
   return !!meta?.origem
 })
 
+// Matrícula de origem, quando o croqui veio de uma análise já feita — o croqui
+// leva de volta ao parecer ("Visualizar matrícula"). Não há caminho daqui para
+// disparar a análise jurídica: essa é a ferramenta principal, não a secundária.
+const matriculaOrigemId = computed(() => {
+  const origem = (job.value?.inputMeta as Record<string, any> | undefined)?.origem
+  return origem?.tipo === 'matricula' && origem?.jobId ? String(origem.jobId) : null
+})
+
 const STAGES = computed(() =>
   veioDeMatricula.value
     ? [{ key: 'croqui', label: 'Desenho do croqui' }]
@@ -101,6 +109,13 @@ const arquivoOriginal = computed(() => {
   return meta?.originalName ?? 'matricula.pdf'
 })
 
+// Número da matrícula, quando a extração o identificou no cabeçalho do documento
+const numeroMatricula = computed(() => {
+  const n = extracao.value?.numero_matricula
+  const texto = n == null ? '' : String(n).trim()
+  return texto || null
+})
+
 const mensagemFalha = computed(() => {
   const msg = job.value?.errorMessage as string | undefined
   if (!msg) return 'Ocorreu um erro inesperado durante o processamento.'
@@ -132,6 +147,13 @@ function exportarPdf() {
     <!-- Barra de ações -->
     <div class="acoes print-hidden">
       <NuxtLink to="/dashboard" class="ld-btn ld-btn--ghost">← Painel</NuxtLink>
+      <NuxtLink
+        v-if="matriculaOrigemId"
+        :to="`/matriculas/${matriculaOrigemId}`"
+        class="ld-btn ld-btn--secondary"
+      >
+        Visualizar matrícula
+      </NuxtLink>
       <template v-if="job?.status === 'done' && resultado?.ok">
         <button class="ld-btn ld-btn--secondary acoes-baixar" @click="baixarSvg">Baixar SVG</button>
         <button class="ld-btn ld-btn--primary" @click="exportarPdf">Exportar PDF</button>
@@ -189,6 +211,7 @@ function exportarPdf() {
         <div class="prancha-titulo">
           <h1>Croqui do terreno</h1>
           <p class="prancha-eyebrow">{{ arquivoOriginal }}</p>
+          <p v-if="numeroMatricula" class="prancha-matricula">Matrícula nº {{ numeroMatricula }}</p>
           <dl v-if="resultado.ok" class="meta-grid">
             <div v-if="resultado.areaCalculadaM2 != null">
               <dt>Área do desenho</dt>
@@ -348,6 +371,12 @@ function exportarPdf() {
   font-weight: 500;
   color: var(--ld-tinta-suave);
   overflow-wrap: anywhere;
+}
+.prancha-matricula {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .meta-grid {
   display: grid;

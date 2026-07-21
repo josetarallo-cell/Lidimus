@@ -178,6 +178,7 @@ function normalizar(bruto: unknown): CroquiData | null {
       : null
 
   return {
+    numero_matricula: str(d.numero_matricula),
     formato,
     croqui_viavel: d.croqui_viavel === true,
     precisao,

@@ -19,9 +19,24 @@ type JobItem = {
   createdAt: string
 }
 
+// Matrículas cujo croqui já foi gerado — o vínculo mora no croqui
+// (inputMeta.origem.jobId). Como o croqui nasce sempre depois da matrícula, se a
+// matrícula está nesta janela de jobs, o croqui dela (mais novo) também está.
+const matriculasComCroqui = computed(() => {
+  const ids = new Set<string>()
+  for (const j of (jobData.value?.items ?? []) as JobItem[]) {
+    if (j.type !== 'croqui' || j.status === 'error') continue
+    const origem = j.inputMeta?.origem as { tipo?: string; jobId?: string } | undefined
+    if (origem?.tipo === 'matricula' && origem.jobId) ids.add(origem.jobId)
+  }
+  return ids
+})
+
+// Só matrículas lidas que ainda não têm croqui — as que já têm são acessíveis
+// pelo próprio parecer ("Visualizar croqui"), não faz sentido gerar de novo aqui
 const matriculasProntas = computed(() =>
   ((jobData.value?.items ?? []) as JobItem[]).filter(
-    (j) => j.type === 'matricula' && j.status === 'done',
+    (j) => j.type === 'matricula' && j.status === 'done' && !matriculasComCroqui.value.has(j.id),
   ),
 )
 

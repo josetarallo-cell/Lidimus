@@ -16,6 +16,7 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 
 ```json
 {
+  "numero_matricula": "número da matrícula (só dígitos) ou null",
   "formato": "retangular | retangular_4lados | deflexao | azimute | rumo | utm | confrontantes | irregular | nao_identificado",
   "croqui_viavel": true,
   "precisao": "exata | aproximada | esquematica",
@@ -47,6 +48,7 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 
 ### Regras dos campos
 
+- **`numero_matricula`** — o número da matrícula imobiliária deste documento, como aparece no cabeçalho ("MATRÍCULA Nº 12.345", "Matrícula 12345", "Mat. 12.345"). Copie **apenas os dígitos**, sem pontos nem o prefixo "nº" (ex.: `"12.345"` → `"12345"`). Se o texto não trouxer o número de forma inequívoca, use `null`. Não confunda com número de registro/transcrição anterior, inscrição de contribuinte/IPTU nem protocolo.
 - **`formato`** — método de descrição identificado (ver métodos abaixo e a cadeia de fallback).
 - **`croqui_viavel`** — `true` somente quando o código conseguirá desenhar um polígono fechado:
   - `retangular`: testada e profundidade conhecidas;

@@ -145,15 +145,23 @@ function exportarPdf() {
 const gerandoCroqui = ref(false)
 const erroCroqui = ref<string | null>(null)
 
+// Um croqui já gerado a partir desta matrícula? Se sim, o parecer leva a ele
+// ("Visualizar croqui") em vez de oferecer gerar de novo — o croqui é acessível
+// pelo laudo, e não se duplica trabalho já pago.
+const { data: croquiVinculado } = await useFetch<{ croquiJobId: string | null }>(
+  () => `/api/jobs/${jobId.value}/croqui`,
+)
+const croquiJobId = computed(() => croquiVinculado.value?.croquiJobId ?? null)
+
 async function gerarCroquiDaMatricula() {
   gerandoCroqui.value = true
   erroCroqui.value = null
   try {
-    const { jobId: croquiJobId } = await $fetch<{ jobId: string }>('/api/croqui', {
+    const { jobId: novoCroquiId } = await $fetch<{ jobId: string }>('/api/croqui', {
       method: 'POST',
       body: { matriculaJobId: jobId.value },
     })
-    await navigateTo(`/croqui/${croquiJobId}`)
+    await navigateTo(`/croqui/${novoCroquiId}`)
   } catch (err) {
     erroCroqui.value = mensagemDeErroDeUpload(err).texto
     gerandoCroqui.value = false
@@ -166,8 +174,15 @@ async function gerarCroquiDaMatricula() {
     <!-- Barra de ações (fora do documento; some na impressão) -->
     <div class="acoes print-hidden">
       <NuxtLink to="/dashboard" class="ld-btn ld-btn--ghost">← Painel</NuxtLink>
+      <NuxtLink
+        v-if="job?.status === 'done' && croquiJobId"
+        :to="`/croqui/${croquiJobId}`"
+        class="ld-btn ld-btn--secondary acoes-croqui"
+      >
+        Visualizar croqui
+      </NuxtLink>
       <button
-        v-if="job?.status === 'done' && textoOcr"
+        v-else-if="job?.status === 'done' && textoOcr"
         class="ld-btn ld-btn--secondary acoes-croqui"
         :disabled="gerandoCroqui"
         @click="gerarCroquiDaMatricula"

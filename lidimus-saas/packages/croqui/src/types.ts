@@ -36,6 +36,9 @@ export interface VerticeUtm {
 }
 
 export interface CroquiData {
+  // Número da matrícula do documento (só dígitos), extraído do cabeçalho. Não
+  // participa da geometria — serve para identificar o documento no painel.
+  numero_matricula?: string | null
   formato: Formato
   croqui_viavel: boolean
   precisao?: Precisao | null
