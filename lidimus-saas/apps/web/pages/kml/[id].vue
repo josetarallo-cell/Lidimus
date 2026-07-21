@@ -465,6 +465,16 @@ function exportarPdf() {
 .croqui-mapa--rodape {
   align-self: flex-start;
   margin-left: auto;
+  flex: 0 0 auto;
+  width: min(360px, 100%);
+  min-height: 260px;
+}
+/* No rodapé o croqui cresce para preencher a coluna à direita dos vértices;
+   o polígono já traz recuo interno (CROQUI_VIEWBOX.pad), então o SVG pode
+   ocupar toda a largura da caixa. */
+.croqui-mapa--rodape svg {
+  width: 100%;
+  height: auto;
 }
 
 /* Descrição do perímetro — o destaque cartorial: folha de certidão (papel
