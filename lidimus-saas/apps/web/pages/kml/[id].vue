@@ -57,10 +57,64 @@ const croqui = computed(() => {
     y: h - (offY + (v.utm_n - minY) * scale),
   }))
 
+  // Frente do imóvel: por convenção do levantamento, o vértice P-01 é o marco
+  // da frente, então o lado P-01→P-02 confronta com o logradouro informado.
+  // A linha e o rótulo da rua ficam deslocados para fora do polígono, ao
+  // longo desse lado.
+  let frente: {
+    linhaAttr: string
+    labelX: number
+    labelY: number
+    angulo: number
+  } | null = null
+  if (pontos.length >= 2) {
+    const [p1, p2] = pontos
+    const dx = p2.x - p1.x
+    const dy = p2.y - p1.y
+    const comprimento = Math.hypot(dx, dy) || 1
+    let nx = -dy / comprimento
+    let ny = dx / comprimento
+
+    // A normal aponta para fora do polígono: escolhe o sentido que se afasta
+    // do centroide dos vértices.
+    const cx = pontos.reduce((s, p) => s + p.x, 0) / pontos.length
+    const cy = pontos.reduce((s, p) => s + p.y, 0) / pontos.length
+    const midX = (p1.x + p2.x) / 2
+    const midY = (p1.y + p2.y) / 2
+    if (nx * (midX - cx) + ny * (midY - cy) < 0) {
+      nx = -nx
+      ny = -ny
+    }
+
+    const offsetLinha = 5
+    const lx1 = p1.x + nx * offsetLinha
+    const ly1 = p1.y + ny * offsetLinha
+    const lx2 = p2.x + nx * offsetLinha
+    const ly2 = p2.y + ny * offsetLinha
+
+    // Ângulo do texto: acompanha o lado, mas nunca fica de cabeça para baixo.
+    let angulo = (Math.atan2(dy, dx) * 180) / Math.PI
+    if (angulo > 90) angulo -= 180
+    else if (angulo < -90) angulo += 180
+
+    frente = {
+      linhaAttr: `${lx1.toFixed(1)},${ly1.toFixed(1)} ${lx2.toFixed(1)},${ly2.toFixed(1)}`,
+      labelX: (lx1 + lx2) / 2 + nx * 7,
+      labelY: (ly1 + ly2) / 2 + ny * 7,
+      angulo,
+    }
+  }
+
   return {
     pontos,
     pontosAttr: pontos.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
+    frente,
   }
+})
+
+const ruaFrente = computed(() => {
+  const r = result.value?.logradouro
+  return typeof r === 'string' && r.trim() ? r.trim() : ''
 })
 
 const arquivoOriginal = computed(() => {
@@ -222,6 +276,16 @@ function exportarPdf() {
           <svg viewBox="0 0 160 120" width="180" height="132">
             <polygon :points="croqui.pontosAttr" fill="rgba(228,243,234,0.14)" stroke="#8FC3A8" stroke-width="1.5" />
             <circle v-for="(p, i) in croqui.pontos" :key="i" :cx="p.x" :cy="p.y" r="2.5" fill="#8FC3A8" />
+            <template v-if="croqui.frente && ruaFrente">
+              <polyline :points="croqui.frente.linhaAttr" fill="none" stroke="#E8C170" stroke-width="1.5" stroke-linecap="round" />
+              <text
+                :x="croqui.frente.labelX"
+                :y="croqui.frente.labelY"
+                :transform="`rotate(${croqui.frente.angulo} ${croqui.frente.labelX} ${croqui.frente.labelY})`"
+                text-anchor="middle"
+                class="croqui-rua-texto"
+              >{{ ruaFrente }}</text>
+            </template>
           </svg>
           <span class="croqui-arquivo">{{ arquivoOriginal }}</span>
         </div>
@@ -242,6 +306,16 @@ function exportarPdf() {
               <svg viewBox="0 0 160 120" width="180" height="132">
                 <polygon :points="croqui.pontosAttr" fill="rgba(228,243,234,0.14)" stroke="#8FC3A8" stroke-width="1.5" />
                 <circle v-for="(p, i) in croqui.pontos" :key="i" :cx="p.x" :cy="p.y" r="2.5" fill="#8FC3A8" />
+                <template v-if="croqui.frente && ruaFrente">
+                  <polyline :points="croqui.frente.linhaAttr" fill="none" stroke="#E8C170" stroke-width="1.5" stroke-linecap="round" />
+                  <text
+                    :x="croqui.frente.labelX"
+                    :y="croqui.frente.labelY"
+                    :transform="`rotate(${croqui.frente.angulo} ${croqui.frente.labelX} ${croqui.frente.labelY})`"
+                    text-anchor="middle"
+                    class="croqui-rua-texto"
+                  >{{ ruaFrente }}</text>
+                </template>
               </svg>
               <span class="croqui-arquivo">{{ arquivoOriginal }}</span>
             </div>
@@ -362,6 +436,13 @@ function exportarPdf() {
 .croqui-mapa svg {
   max-width: 100%;
   height: auto;
+}
+.croqui-rua-texto {
+  font-family: var(--ld-font-sans);
+  font-size: 5.5px;
+  font-weight: 600;
+  fill: #e8c170;
+  letter-spacing: 0.01em;
 }
 .croqui-arquivo {
   position: absolute;
