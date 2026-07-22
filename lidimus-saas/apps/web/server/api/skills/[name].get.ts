@@ -10,12 +10,14 @@ const FILES: Record<string, string[]> = {
   'analise-juridica-legal-sources': ['analise-juridica-legal-sources.md'],
   'manual-registro-cheatsheet': ['manual-registro-cheatsheet.md'],
   'manual-registro-patterns': ['manual-registro-patterns.md'],
+  // O manual (cheatsheet + patterns) NÃO entra aqui: já está indexado no Qdrant
+  // e é recuperado pelo RAG (nós Consultas/Embeddings/Qdrant/Consolidar) só
+  // quando relevante ao tipo de ato. Mantê-lo fixo aqui dobrava a carga de
+  // tokens do system prompt sem ganho — o RAG passou a ser a fonte do manual.
   'analise-juridica-completa': [
     'analise-juridica.md',
     'analise-juridica-output-schema.md',
     'analise-juridica-legal-sources.md',
-    'manual-registro-cheatsheet.md',
-    'manual-registro-patterns.md',
   ],
 }
 

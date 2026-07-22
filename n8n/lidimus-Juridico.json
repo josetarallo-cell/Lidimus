@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-16T17:04:29.412Z",
+  "updatedAt": "2026-07-21T18:44:49.295Z",
   "createdAt": "2026-07-02T19:05:07.204Z",
   "id": "XakDkY7aCjCYkyqt",
   "name": "lidimus-Juridico",
@@ -222,7 +222,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ─── EXTRAIR SEGMENTOS DO PERÍMETRO (v4) — stub portado do monolito\nconst geoResp=$('Geocodificar Endereço').first().json;const geoResults=geoResp.results||[];const geoLoc=(geoResults[0]||{}).geometry?.location||null;const lat_principal=geoLoc?geoLoc.lat:null;const lng_principal=geoLoc?geoLoc.lng:null;const dados=$('Extração de Proprietários').first().json;const endereco_base=dados.endereco||'';\nreturn [{json:{...dados,segmentos_perimetro:[],pontos_ordem:[],marcos_ordem:[],sentido_poligono:'horario',vias_mencionadas:[],pracas_mencionadas:[],enderecos_confrontantes:[],enderecos_para_geocod:[endereco_base].filter(Boolean),endereco_ancora:endereco_base,lat:lat_principal,lng:lng_principal,rua_frente:null,area_calculada_m2:null,area_descrita_m2:null,perimetro_formato:'nao_calculado',perimetro_observacoes:null}}];"
+        "jsCode": "// ─── EXTRAIR SEGMENTOS DO PERÍMETRO (v4) — stub portado do monolito\nconst geoResp=$('Geocodificar Endereço').first().json;const geoResults=geoResp.results||[];const geoLoc=(geoResults[0]||{}).geometry?.location||null;const lat_principal=geoLoc?geoLoc.lat:null;const lng_principal=geoLoc?geoLoc.lng:null;const dados=$('Extração de Proprietários').first().json;const endereco_base=dados.endereco||'';\n// ─── OCR podado para a análise jurídica (metes-and-bounds colapsado) ───\n// Antes vivia no nó \"Gerar Croqui SVG\" (removido); agora aqui, o último nó\n// determinístico antes da IA. Colapsa apenas cadeias densas (3+ rumos ou 3+\n// pares UTM); rumo/coordenada isolados, atos, qualificação e ônus ficam intactos.\nfunction podarOcrJuridico(txt){let s=String(txt||'');s=s.replace(/\\d{1,3}°\\d{1,2}'(?:\\d{1,2}(?:[.,]\\d+)?\")?(?:[^.\\n]{0,160}?\\d{1,3}°\\d{1,2}'(?:\\d{1,2}(?:[.,]\\d+)?\")?){2,}/g,' [perímetro omitido] ');s=s.replace(/\\d{6,7}\\s*m?\\s*[EeLlOo]\\s+\\d{6,7}\\s*m?\\s*[NnSs](?:[^.\\n]{0,200}?\\d{6,7}\\s*m?\\s*[EeLlOo]\\s+\\d{6,7}\\s*m?\\s*[NnSs]){2,}/g,' [perímetro omitido] ');s=s.replace(/(?:\\s*\\[perímetro omitido\\]\\s*){2,}/g,' [perímetro omitido] ');return s.slice(0,30000);}\nconst texto_ocr_juridico=podarOcrJuridico(dados.texto_ocr);\nreturn [{json:{...dados,texto_ocr_juridico,segmentos_perimetro:[],pontos_ordem:[],marcos_ordem:[],sentido_poligono:'horario',vias_mencionadas:[],pracas_mencionadas:[],enderecos_confrontantes:[],enderecos_para_geocod:[endereco_base].filter(Boolean),endereco_ancora:endereco_base,lat:lat_principal,lng:lng_principal,rua_frente:null,area_calculada_m2:null,area_descrita_m2:null,perimetro_formato:'nao_calculado',perimetro_observacoes:null}}];"
       },
       "id": "node-segmentos",
       "name": "Extrair Segmentos Perímetro",
@@ -230,19 +230,6 @@
       "typeVersion": 2,
       "position": [
         1760,
-        304
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ─── GERAR CROQUI SVG (v4) — stub portado do monolito\nconst dados=$input.first().json;\nreturn [{json:{...dados,lat:dados.lat||dados.ref_lat||null,lng:dados.lng||dados.ref_lng||null,map_zoom:18,croqui_svg:'',croqui_data_uri:'',croqui_precisao:'N/D',croqui_valido:false,croqui_falta_info:false,geojson_data:{type:'FeatureCollection',features:[]},poligono_vertices:[]}}];"
-      },
-      "id": "node-croqui",
-      "name": "Gerar Croqui SVG",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1984,
         304
       ]
     },
@@ -288,7 +275,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, system: $('Carregar Skill Analise Juridica').first()?.json?.data || 'Você é um advogado especializado em direito imobiliário e registral brasileiro. Retorne JSON estruturado incluindo o bloco legacy_compatibility.', messages: [{ role: 'user', content: 'Analise a matrícula abaixo e retorne JSON completo.\\n\\n' + 'IMPORTANTE — LIMITE DE TOKENS: produza um JSON ENXUTO. NAO gere os campos \"linha_tempo\" nem \"json_final\" (sao redundantes e montados por codigo a partir dos ATOS DETECTADOS abaixo). GERE OBRIGATORIAMENTE o bloco \"legacy_compatibility\" completo (classificacao_risco, parecer_geral, riscos, inconsistencias, onus, gravames, possiveis_problemas, cadeia_dominial) e tambem estado_atual, classes_juridicas, fundamentacao_legal, riscos e resumo_executivo. Conclua primeiro proprietarios_atuais, legacy_compatibility e resumo_executivo. Nao repita a lista completa de atos.\\n\\n' + 'PROPRIETARIO ATUAL — OBRIGATORIO: gere no nivel raiz do JSON o campo proprietarios_atuais, um array de objetos com as chaves nome, documento_tipo (CPF ou CNPJ), documento_numero, qualificacao, estado_civil, regime_bens, endereco_domicilio, ato_aquisitivo (ex: R-19), data_aquisicao, percentual e observacao — use null quando o dado nao constar. Proprietario atual = titular do DOMINIO segundo o ULTIMO ato dominial registrado (compra e venda, venda e compra, permuta, adjudicacao, arrematacao, dacao em pagamento, integralizacao de capital, partilha ou heranca), ja atualizado pelas averbacoes posteriores de alteracao de denominacao, incorporacao, cisao ou transformacao societaria que renomeiem esse titular: nesse caso use a denominacao atual e registre a anterior em observacao. NAO confunda o proprietario atual com o proprietario original do cabecalho da matricula, nem com promitente comprador de compromisso de venda e compra, cessionario de direitos, credor hipotecario ou fiduciario, exequente de penhora, locatario, usufrutuario ou confrontante. Se houver promitente comprador ou cessionario de direitos, liste-os em separado no campo promissarios_cessionarios, no mesmo formato, acrescentando a chave natureza. Nesse campo inclua APENAS quem mantem posicao ATIVA na data da certidao: quem ja transferiu, cedeu ou teve baixados os seus direitos NAO entra na lista. Estes dois campos sao PRIORITARIOS: gere-os PRIMEIRO, antes de qualquer outro bloco.\\n\\n' + String($('Consolidar Fundamentos').first()?.json?.fundamentos_rag || '') + 'ATOS DETECTADOS:\\n' + JSON.stringify($('Gerar Croqui SVG').first().json.atos || []) + '\\n\\nÔNUS ATIVOS:\\n' + JSON.stringify(($('Gerar Croqui SVG').first().json.onus_ativos || []).map(o => o.sequencia)) + '\\n\\nTEXTO OCR:\\n' + String($('Gerar Croqui SVG').first().json.texto_ocr || '').slice(0, 40000) }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, system: [{ type: 'text', text: ($('Carregar Skill Analise Juridica').first()?.json?.data || 'Você é um advogado especializado em direito imobiliário e registral brasileiro. Retorne JSON estruturado incluindo o bloco legacy_compatibility.'), cache_control: { type: 'ephemeral' } }], messages: [{ role: 'user', content: 'Analise a matrícula abaixo e retorne JSON completo.\\n\\n' + 'IMPORTANTE — LIMITE DE TOKENS: produza um JSON ENXUTO. NAO gere os campos \"linha_tempo\" nem \"json_final\" (sao redundantes e montados por codigo a partir dos ATOS DETECTADOS abaixo). GERE OBRIGATORIAMENTE o bloco \"legacy_compatibility\" completo (classificacao_risco, parecer_geral, riscos, inconsistencias, onus, gravames, possiveis_problemas, cadeia_dominial) e tambem estado_atual, classes_juridicas, fundamentacao_legal, riscos e resumo_executivo. Conclua primeiro proprietarios_atuais, legacy_compatibility e resumo_executivo. Nao repita a lista completa de atos.\\n\\n' + 'PROPRIETARIO ATUAL — OBRIGATORIO: gere no nivel raiz do JSON o campo proprietarios_atuais, um array de objetos com as chaves nome, documento_tipo (CPF ou CNPJ), documento_numero, qualificacao, estado_civil, regime_bens, endereco_domicilio, ato_aquisitivo (ex: R-19), data_aquisicao, percentual e observacao — use null quando o dado nao constar. Proprietario atual = titular do DOMINIO segundo o ULTIMO ato dominial registrado (compra e venda, venda e compra, permuta, adjudicacao, arrematacao, dacao em pagamento, integralizacao de capital, partilha ou heranca), ja atualizado pelas averbacoes posteriores de alteracao de denominacao, incorporacao, cisao ou transformacao societaria que renomeiem esse titular: nesse caso use a denominacao atual e registre a anterior em observacao. NAO confunda o proprietario atual com o proprietario original do cabecalho da matricula, nem com promitente comprador de compromisso de venda e compra, cessionario de direitos, credor hipotecario ou fiduciario, exequente de penhora, locatario, usufrutuario ou confrontante. Se houver promitente comprador ou cessionario de direitos, liste-os em separado no campo promissarios_cessionarios, no mesmo formato, acrescentando a chave natureza. Nesse campo inclua APENAS quem mantem posicao ATIVA na data da certidao: quem ja transferiu, cedeu ou teve baixados os seus direitos NAO entra na lista. Estes dois campos sao PRIORITARIOS: gere-os PRIMEIRO, antes de qualquer outro bloco.\\n\\n' + String($('Consolidar Fundamentos').first()?.json?.fundamentos_rag || '') + 'ATOS DETECTADOS:\\n' + JSON.stringify($('Extrair Segmentos Perímetro').first().json.atos || []) + '\\n\\nÔNUS ATIVOS:\\n' + JSON.stringify(($('Extrair Segmentos Perímetro').first().json.onus_ativos || []).map(o => o.sequencia)) + '\\n\\nTEXTO OCR:\\n' + String($('Extrair Segmentos Perímetro').first().json.texto_ocr_juridico || $('Extrair Segmentos Perímetro').first().json.texto_ocr || '').slice(0, 30000) }] }) }}",
         "options": {}
       },
       "id": "node-analise",
@@ -296,7 +283,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2432,
+        3280,
         304
       ],
       "credentials": {
@@ -309,27 +296,27 @@
     },
     {
       "parameters": {
-        "jsCode": "// ─── RESUMO JURÍDICO v3 ───────────────────────────────────────────────\n// v2: reparo de JSON truncado + parecer degradado determinístico.\n// v3: proprietário atual passa a vir da IA (que lê a cadeia dominial inteira),\n// com o parser de atos como fallback. O regex sozinho errava o titular quando a\n// matrícula tinha permuta/cessão ou fichas no formato \"R.14/82.662\".\nconst analiseNode = $('Análise Jurídica').first().json;\nconst croquiDados = $('Gerar Croqui SVG').first().json;\nconst stopReason = analiseNode.stop_reason\n  || (analiseNode.choices && analiseNode.choices[0] && analiseNode.choices[0].finish_reason) || null;\n\n// Reparador de JSON: parse direto; se falhar (truncamento), corta no último\n// fechamento seguro fora de string e rebalanceia { } [ ] pendentes.\nfunction repararJson(raw) {\n  let s = String(raw || '').trim();\n  const fence = s.match(/```(?:json)?\\s*([\\s\\S]*?)```/i);\n  if (fence) s = fence[1].trim();\n  const ini = s.indexOf('{');\n  if (ini === -1) return null;\n  s = s.slice(ini);\n  try { return JSON.parse(s); } catch (e) { /* trunca — repara abaixo */ }\n  let inStr = false, escp = false, lastSafe = -1;\n  for (let i = 0; i < s.length; i++) {\n    const c = s[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '}' || c === ']' || c === '\"') lastSafe = i;\n  }\n  if (lastSafe === -1) return null;\n  let t = s.slice(0, lastSafe + 1).replace(/,\\s*$/, '');\n  const st = []; inStr = false; escp = false;\n  for (let i = 0; i < t.length; i++) {\n    const c = t[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '{') st.push('}'); else if (c === '[') st.push(']');\n    else if (c === '}' || c === ']') st.pop();\n  }\n  while (st.length) t += st.pop();\n  try { return JSON.parse(t); } catch (e) { return null; }\n}\n\nlet analise = repararJson((analiseNode.content || []).find(b => b.type === 'text')?.text\n  || ((analiseNode.choices || [])[0] || {}).message?.content || '');\nif (analise && analise.analise_matricula) analise = analise.analise_matricula;\n\nlet degraded = (stopReason === 'max_tokens' || stopReason === 'length');\nif (!analise || typeof analise !== 'object') {\n  // Parecer degradado determinístico — NUNCA \"indeterminado\" mudo.\n  degraded = true;\n  const oa = croquiDados.onus_ativos || [];\n  analise = { legacy_compatibility: {\n    classificacao_risco: oa.length > 0 ? 'alto' : 'indeterminado',\n    parecer_geral: 'Análise detalhada indisponível (resposta da IA não pôde ser interpretada). '\n      + 'Detecção determinística: ' + oa.length + ' ônus ativos sobre o imóvel'\n      + (oa.length > 0 ? ' — risco ALTO até verificação individual dos gravames. Reprocessamento recomendado.' : '.'),\n    riscos: oa.map(o => ({ tipo: 'onus_ativo', severidade: 'alta',\n      descricao: (o.tipo_ato || 'ônus') + ' ' + (o.sequencia || '') + (o.partes ? ' — ' + o.partes : '') + (o.valor ? ' — R$ ' + o.valor : '') })),\n  } };\n}\n\nconst legacy = analise.legacy_compatibility || analise;\n// Se a IA truncou antes de gerar classificação/parecer (resumo_executivo e\n// legacy_compatibility ficam de fora), deriva ambos dos riscos já parseados.\n(function derivar(){\n  const temClassif = legacy.classificacao_risco || legacy.nivel_risco\n    || (analise.resumo_executivo && analise.resumo_executivo.classificacao_risco);\n  if (temClassif) return;\n  const riscos = (Array.isArray(legacy.riscos) ? legacy.riscos : (analise.riscos || []));\n  const sevs = riscos.map(r => String((r && (r.severidade || r.gravidade || r.nivel)) || '').toLowerCase());\n  const nivel = sevs.some(s => s.includes('crit')) ? 'crítico'\n    : sevs.some(s => s.includes('alt')) ? 'alto'\n    : riscos.length ? 'medio' : 'indeterminado';\n  legacy.classificacao_risco = nivel;\n  if (!legacy.parecer_geral && !analise.parecer_geral) {\n    legacy.parecer_geral = 'Parecer resumido gerado automaticamente (a análise detalhada da IA foi truncada): '\n      + riscos.length + ' risco(s) identificado(s) e ' + (croquiDados.onus_ativos || []).length\n      + ' ônus ativos sobre o imóvel. Classificação de risco estimada: ' + nivel\n      + '. Recomenda-se reprocessamento para o parecer completo.';\n  }\n  degraded = true;\n})();\nfunction esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nfunction asArray(v){if(Array.isArray(v))return v;if(v==null||v==='')return[];return[v];}\nfunction itemToText(item){if(item==null)return'';if(typeof item==='string'||typeof item==='number')return esc(item);if(typeof item==='object'){const titulo=item.titulo||item.tipo||item.tipo_ato||item.nome||item.sequencia||'';const sev=item.severidade||item.gravidade||item.nivel||item.classificacao||item.risco||'';const desc=item.descricao||item.detalhe||item.texto||item.observacao||item.recomendacao||item.parecer||'';const parts=[];if(titulo)parts.push('<strong>'+esc(titulo)+'</strong>');if(sev)parts.push('<em style=\"color:#b45309\">('+esc(sev)+')</em>');if(desc)parts.push(esc(desc));if(parts.length)return parts.join(' ');const vals=Object.values(item).filter(x=>typeof x==='string'||typeof x==='number').map(x=>esc(x));return vals.join(' — ')||esc(JSON.stringify(item));}return esc(item);}\nfunction listHtml(arr,vazio){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'<p style=\"color:#888;font-size:13px;\">'+esc(vazio)+'</p>';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\nfunction listOrEmpty(arr){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\n\n// ─── PROPRIETÁRIO ATUAL ───────────────────────────────────────────────\n// A IA é a fonte primária: só ela lê a cadeia inteira e sabe distinguir o\n// titular do domínio do promitente comprador, do cessionário e do credor.\n// O parser entra como fallback quando a IA não devolve o bloco (ou trunca).\nfunction fmtDoc(v){const d=String(v||'').replace(/\\D/g,'');if(d.length===14)return d.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5');if(d.length===11)return d.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4');const s=String(v||'').trim();return s||null;}\nfunction tipoDoc(o){const t=String(o.documento_tipo||'').toUpperCase();if(t==='CPF'||t==='CNPJ')return t;const d=String(o.documento_numero||o.documento||o.cpf_cnpj||'').replace(/\\D/g,'');if(d.length===14)return'CNPJ';if(d.length===11)return'CPF';return null;}\nfunction normProp(p,i){\n  // A IA às vezes devolve string solta (\"FULANO — CPF 123...\") em vez de objeto.\n  if(typeof p==='string'){\n    const dm=p.match(/[\\d][\\d.\\/-]{10,19}/);\n    const nome=p.replace(/[\\d][\\d.\\/-]{10,19}/,'').replace(/\\s*[—–,-]\\s*(CPF|CNPJ)[:\\s]*$/i,'').replace(/\\s*[—–-]\\s*$/,'').trim();\n    return{ordem:i+1,nome,documento_tipo:dm?(dm[0].replace(/\\D/g,'').length===14?'CNPJ':'CPF'):null,documento_numero:dm?fmtDoc(dm[0]):null,estado_civil:null,regime_bens:null,endereco_domicilio:null,ato_aquisitivo:null,data_aquisicao:null,percentual:null,observacao:null,natureza:null,fonte:'ia'};\n  }\n  const o=p||{};\n  return{ordem:i+1,nome:String(o.nome||o.proprietario||o.titular||'').trim(),documento_tipo:tipoDoc(o),documento_numero:fmtDoc(o.documento_numero||o.documento||o.cpf_cnpj),estado_civil:o.estado_civil??null,regime_bens:o.regime_bens??null,endereco_domicilio:o.endereco_domicilio??o.endereco??null,ato_aquisitivo:o.ato_aquisitivo??o.ato??null,data_aquisicao:o.data_aquisicao??null,percentual:o.percentual??null,observacao:o.observacao??null,natureza:o.natureza??null,fonte:'ia'};\n}\nconst propsIa=[analise.proprietarios_atuais,legacy.proprietarios_atuais,(analise.estado_atual||{}).proprietarios_atuais].find(a=>Array.isArray(a)&&a.length)||[];\nlet proprietarios=(croquiDados.proprietarios||[]).map((p,i)=>({...p,ordem:i+1,fonte:p.fonte||'parser'}));\nlet proprietarios_origem=proprietarios.length?'parser':'nenhum';\nif(propsIa.length){\n  const norm=propsIa.map(normProp).filter(p=>p.nome&&p.nome.length>2);\n  if(norm.length){proprietarios=norm;proprietarios_origem='ia';}\n}\nconst promissariosRaw=[analise.promissarios_cessionarios,legacy.promissarios_cessionarios].find(a=>Array.isArray(a)&&a.length)||[];\nconst promissarios=promissariosRaw.map(normProp).filter(p=>p.nome&&p.nome.length>2);\nfunction propCard(p){\n  const meta=[\n    p.documento_tipo&&p.documento_numero?'📄 '+esc(p.documento_tipo)+': '+esc(p.documento_numero):null,\n    p.natureza?'⚖️ '+esc(p.natureza):null,\n    p.estado_civil?'💍 '+esc(p.estado_civil)+(p.regime_bens?' — '+esc(p.regime_bens):''):null,\n    p.ato_aquisitivo?'📌 Aquisição: '+esc(p.ato_aquisitivo)+(p.data_aquisicao?' — '+esc(p.data_aquisicao):''):null,\n    p.percentual?'📊 '+esc(p.percentual):null,\n    p.endereco_domicilio?'📍 '+esc(p.endereco_domicilio):null,\n  ].filter(Boolean).map(s=>'<span>'+s+'</span>').join('');\n  return'<div class=\"prop-card\"><h4>'+p.ordem+'. '+esc(p.nome)+'</h4><div class=\"prop-meta\">'+meta+'</div></div>';\n}\nconst proprietarios_html=proprietarios.length\n  ? proprietarios.map(propCard).join('')\n  : '<p style=\"color:#888;font-size:13px;\">Não foi possível identificar proprietários automaticamente. Consulte o documento original.</p>';\nconst promissarios_html=promissarios.length?promissarios.map(propCard).join(''):'';\n\nconst risco=String(legacy.classificacao_risco||legacy.nivel_risco||'indeterminado').toLowerCase().trim();\nconst RISCO_COR={'baixo':'#16a34a','baixíssimo':'#16a34a','medio':'#d97706','médio':'#d97706','moderado':'#d97706','alto':'#dc2626','crítico':'#991b1b','critico':'#991b1b','critica':'#991b1b','crítica':'#991b1b','altíssimo':'#991b1b','altissimo':'#991b1b','indeterminado':'#6b7280'};\nconst cor=RISCO_COR[risco]||'#6b7280';\nconst badge_risco_html='<span style=\"display:inline-block;background:'+cor+';color:#fff;font-weight:600;font-size:13px;padding:4px 14px;border-radius:14px;text-transform:capitalize\">'+esc(legacy.classificacao_risco||legacy.nivel_risco||'Indeterminado')+'</span>';\nconst parecer=legacy.parecer_geral||legacy.parecer||analise.parecer_geral||(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo))||'';\nconst parecer_juridico_html=parecer?'<p style=\"line-height:1.7;margin:0\">'+esc(parecer)+'</p>':'<p style=\"color:#888;font-size:13px;\">Parecer não disponível.</p>';\nconst riscos_html=listHtml(legacy.riscos||analise.riscos||analise.alertas,'Nenhum risco identificado.');\nconst inconsistencias_html=listHtml(legacy.inconsistencias||analise.inconsistencias,'Nenhuma inconsistência identificada.');\nconst problemas_html=listHtml(legacy.possiveis_problemas||legacy.problemas||analise.possiveis_problemas,'Nenhum problema identificado.');\nconst onus_juridico_html=listHtml(legacy.onus||analise.onus||(analise.onus_restricoes&&analise.onus_restricoes.onus_ativos),'Nenhum ônus identificado na análise jurídica.');\nconst gravames_juridico_html=listHtml(legacy.gravames||analise.gravames,'Nenhum gravame identificado.');\nconst cadeia_dominial_html=listHtml(legacy.cadeia_dominial||(analise.cadeia_dominial&&analise.cadeia_dominial.historico)||analise.cadeia_dominial,'Cadeia dominial não detalhada.');\nconst total_riscos=asArray(legacy.riscos||analise.riscos||analise.alertas).length;\n// linha_tempo montada por CÓDIGO a partir dos atos do parser (não mais pela IA)\nconst linha_tempo=(croquiDados.atos||[]).map(a=>({sequencia:a.sequencia,data:a.data,tipo:a.tipo_ato,classe:a.classe||null,partes:a.partes||null,valor:a.valor||null,status:a.status,cancelado_por:a.cancelado_por||null}));\nreturn[{json:{...croquiDados,analise_juridica:analise,linha_tempo,\n  proprietarios,proprietarios_html,\n  promissarios_cessionarios:promissarios,promissarios_html,\n  resumo_juridico:{classificacao_risco:legacy.classificacao_risco||legacy.nivel_risco||'indeterminado',parecer_geral:parecer,total_riscos,total_onus_ativos:(croquiDados.onus_ativos||[]).length,proprietarios_origem,degraded,stop_reason:stopReason},\n  badge_risco_html,cadeia_dominial_html,riscos_html,inconsistencias_html,problemas_html,onus_juridico_html,gravames_juridico_html,parecer_juridico_html,\n  analise_fundamentacao_html:listOrEmpty(analise.fundamentacao||analise.fundamentacao_legal),\n  analise_classes_juridicas_html:listOrEmpty(analise.classes_juridicas),\n  analise_regras_html:listOrEmpty(analise.regras||analise.regras_aplicadas),\n  analise_resumo_executivo:(typeof analise.resumo_executivo==='string'?analise.resumo_executivo:(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo)))||parecer}}];\n"
+        "jsCode": "// ─── RESUMO JURÍDICO v3 ───────────────────────────────────────────────\n// v2: reparo de JSON truncado + parecer degradado determinístico.\n// v3: proprietário atual passa a vir da IA (que lê a cadeia dominial inteira),\n// com o parser de atos como fallback. O regex sozinho errava o titular quando a\n// matrícula tinha permuta/cessão ou fichas no formato \"R.14/82.662\".\nconst analiseNode = $('Análise Jurídica').first().json;\nconst croquiDados = $('Extrair Segmentos Perímetro').first().json;\nconst stopReason = analiseNode.stop_reason\n  || (analiseNode.choices && analiseNode.choices[0] && analiseNode.choices[0].finish_reason) || null;\n\n// Reparador de JSON: parse direto; se falhar (truncamento), corta no último\n// fechamento seguro fora de string e rebalanceia { } [ ] pendentes.\nfunction repararJson(raw) {\n  let s = String(raw || '').trim();\n  const fence = s.match(/```(?:json)?\\s*([\\s\\S]*?)```/i);\n  if (fence) s = fence[1].trim();\n  const ini = s.indexOf('{');\n  if (ini === -1) return null;\n  s = s.slice(ini);\n  try { return JSON.parse(s); } catch (e) { /* trunca — repara abaixo */ }\n  let inStr = false, escp = false, lastSafe = -1;\n  for (let i = 0; i < s.length; i++) {\n    const c = s[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '}' || c === ']' || c === '\"') lastSafe = i;\n  }\n  if (lastSafe === -1) return null;\n  let t = s.slice(0, lastSafe + 1).replace(/,\\s*$/, '');\n  const st = []; inStr = false; escp = false;\n  for (let i = 0; i < t.length; i++) {\n    const c = t[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '{') st.push('}'); else if (c === '[') st.push(']');\n    else if (c === '}' || c === ']') st.pop();\n  }\n  while (st.length) t += st.pop();\n  try { return JSON.parse(t); } catch (e) { return null; }\n}\n\nlet analise = repararJson((analiseNode.content || []).find(b => b.type === 'text')?.text\n  || ((analiseNode.choices || [])[0] || {}).message?.content || '');\nif (analise && analise.analise_matricula) analise = analise.analise_matricula;\n\nlet degraded = (stopReason === 'max_tokens' || stopReason === 'length');\nif (!analise || typeof analise !== 'object') {\n  // Parecer degradado determinístico — NUNCA \"indeterminado\" mudo.\n  degraded = true;\n  const oa = croquiDados.onus_ativos || [];\n  analise = { legacy_compatibility: {\n    classificacao_risco: oa.length > 0 ? 'alto' : 'indeterminado',\n    parecer_geral: 'Análise detalhada indisponível (resposta da IA não pôde ser interpretada). '\n      + 'Detecção determinística: ' + oa.length + ' ônus ativos sobre o imóvel'\n      + (oa.length > 0 ? ' — risco ALTO até verificação individual dos gravames. Reprocessamento recomendado.' : '.'),\n    riscos: oa.map(o => ({ tipo: 'onus_ativo', severidade: 'alta',\n      descricao: (o.tipo_ato || 'ônus') + ' ' + (o.sequencia || '') + (o.partes ? ' — ' + o.partes : '') + (o.valor ? ' — R$ ' + o.valor : '') })),\n  } };\n}\n\nconst legacy = analise.legacy_compatibility || analise;\n// Se a IA truncou antes de gerar classificação/parecer (resumo_executivo e\n// legacy_compatibility ficam de fora), deriva ambos dos riscos já parseados.\n(function derivar(){\n  const temClassif = legacy.classificacao_risco || legacy.nivel_risco\n    || (analise.resumo_executivo && analise.resumo_executivo.classificacao_risco);\n  if (temClassif) return;\n  const riscos = (Array.isArray(legacy.riscos) ? legacy.riscos : (analise.riscos || []));\n  const sevs = riscos.map(r => String((r && (r.severidade || r.gravidade || r.nivel)) || '').toLowerCase());\n  const nivel = sevs.some(s => s.includes('crit')) ? 'crítico'\n    : sevs.some(s => s.includes('alt')) ? 'alto'\n    : riscos.length ? 'medio' : 'indeterminado';\n  legacy.classificacao_risco = nivel;\n  if (!legacy.parecer_geral && !analise.parecer_geral) {\n    legacy.parecer_geral = 'Parecer resumido gerado automaticamente (a análise detalhada da IA foi truncada): '\n      + riscos.length + ' risco(s) identificado(s) e ' + (croquiDados.onus_ativos || []).length\n      + ' ônus ativos sobre o imóvel. Classificação de risco estimada: ' + nivel\n      + '. Recomenda-se reprocessamento para o parecer completo.';\n  }\n  degraded = true;\n})();\nfunction esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nfunction asArray(v){if(Array.isArray(v))return v;if(v==null||v==='')return[];return[v];}\nfunction itemToText(item){if(item==null)return'';if(typeof item==='string'||typeof item==='number')return esc(item);if(typeof item==='object'){const titulo=item.titulo||item.tipo||item.tipo_ato||item.nome||item.sequencia||'';const sev=item.severidade||item.gravidade||item.nivel||item.classificacao||item.risco||'';const desc=item.descricao||item.detalhe||item.texto||item.observacao||item.recomendacao||item.parecer||'';const parts=[];if(titulo)parts.push('<strong>'+esc(titulo)+'</strong>');if(sev)parts.push('<em style=\"color:#b45309\">('+esc(sev)+')</em>');if(desc)parts.push(esc(desc));if(parts.length)return parts.join(' ');const vals=Object.values(item).filter(x=>typeof x==='string'||typeof x==='number').map(x=>esc(x));return vals.join(' — ')||esc(JSON.stringify(item));}return esc(item);}\nfunction listHtml(arr,vazio){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'<p style=\"color:#888;font-size:13px;\">'+esc(vazio)+'</p>';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\nfunction listOrEmpty(arr){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\n\n// ─── PROPRIETÁRIO ATUAL ───────────────────────────────────────────────\n// A IA é a fonte primária: só ela lê a cadeia inteira e sabe distinguir o\n// titular do domínio do promitente comprador, do cessionário e do credor.\n// O parser entra como fallback quando a IA não devolve o bloco (ou trunca).\nfunction fmtDoc(v){const d=String(v||'').replace(/\\D/g,'');if(d.length===14)return d.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5');if(d.length===11)return d.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4');const s=String(v||'').trim();return s||null;}\nfunction tipoDoc(o){const t=String(o.documento_tipo||'').toUpperCase();if(t==='CPF'||t==='CNPJ')return t;const d=String(o.documento_numero||o.documento||o.cpf_cnpj||'').replace(/\\D/g,'');if(d.length===14)return'CNPJ';if(d.length===11)return'CPF';return null;}\nfunction normProp(p,i){\n  // A IA às vezes devolve string solta (\"FULANO — CPF 123...\") em vez de objeto.\n  if(typeof p==='string'){\n    const dm=p.match(/[\\d][\\d.\\/-]{10,19}/);\n    const nome=p.replace(/[\\d][\\d.\\/-]{10,19}/,'').replace(/\\s*[—–,-]\\s*(CPF|CNPJ)[:\\s]*$/i,'').replace(/\\s*[—–-]\\s*$/,'').trim();\n    return{ordem:i+1,nome,documento_tipo:dm?(dm[0].replace(/\\D/g,'').length===14?'CNPJ':'CPF'):null,documento_numero:dm?fmtDoc(dm[0]):null,estado_civil:null,regime_bens:null,endereco_domicilio:null,ato_aquisitivo:null,data_aquisicao:null,percentual:null,observacao:null,natureza:null,fonte:'ia'};\n  }\n  const o=p||{};\n  return{ordem:i+1,nome:String(o.nome||o.proprietario||o.titular||'').trim(),documento_tipo:tipoDoc(o),documento_numero:fmtDoc(o.documento_numero||o.documento||o.cpf_cnpj),estado_civil:o.estado_civil??null,regime_bens:o.regime_bens??null,endereco_domicilio:o.endereco_domicilio??o.endereco??null,ato_aquisitivo:o.ato_aquisitivo??o.ato??null,data_aquisicao:o.data_aquisicao??null,percentual:o.percentual??null,observacao:o.observacao??null,natureza:o.natureza??null,fonte:'ia'};\n}\nconst propsIa=[analise.proprietarios_atuais,legacy.proprietarios_atuais,(analise.estado_atual||{}).proprietarios_atuais].find(a=>Array.isArray(a)&&a.length)||[];\nlet proprietarios=(croquiDados.proprietarios||[]).map((p,i)=>({...p,ordem:i+1,fonte:p.fonte||'parser'}));\nlet proprietarios_origem=proprietarios.length?'parser':'nenhum';\nif(propsIa.length){\n  const norm=propsIa.map(normProp).filter(p=>p.nome&&p.nome.length>2);\n  if(norm.length){proprietarios=norm;proprietarios_origem='ia';}\n}\nconst promissariosRaw=[analise.promissarios_cessionarios,legacy.promissarios_cessionarios].find(a=>Array.isArray(a)&&a.length)||[];\nconst promissarios=promissariosRaw.map(normProp).filter(p=>p.nome&&p.nome.length>2);\nfunction propCard(p){\n  const meta=[\n    p.documento_tipo&&p.documento_numero?'📄 '+esc(p.documento_tipo)+': '+esc(p.documento_numero):null,\n    p.natureza?'⚖️ '+esc(p.natureza):null,\n    p.estado_civil?'💍 '+esc(p.estado_civil)+(p.regime_bens?' — '+esc(p.regime_bens):''):null,\n    p.ato_aquisitivo?'📌 Aquisição: '+esc(p.ato_aquisitivo)+(p.data_aquisicao?' — '+esc(p.data_aquisicao):''):null,\n    p.percentual?'📊 '+esc(p.percentual):null,\n    p.endereco_domicilio?'📍 '+esc(p.endereco_domicilio):null,\n  ].filter(Boolean).map(s=>'<span>'+s+'</span>').join('');\n  return'<div class=\"prop-card\"><h4>'+p.ordem+'. '+esc(p.nome)+'</h4><div class=\"prop-meta\">'+meta+'</div></div>';\n}\nconst proprietarios_html=proprietarios.length\n  ? proprietarios.map(propCard).join('')\n  : '<p style=\"color:#888;font-size:13px;\">Não foi possível identificar proprietários automaticamente. Consulte o documento original.</p>';\nconst promissarios_html=promissarios.length?promissarios.map(propCard).join(''):'';\n\nconst risco=String(legacy.classificacao_risco||legacy.nivel_risco||'indeterminado').toLowerCase().trim();\nconst RISCO_COR={'baixo':'#16a34a','baixíssimo':'#16a34a','medio':'#d97706','médio':'#d97706','moderado':'#d97706','alto':'#dc2626','crítico':'#991b1b','critico':'#991b1b','critica':'#991b1b','crítica':'#991b1b','altíssimo':'#991b1b','altissimo':'#991b1b','indeterminado':'#6b7280'};\nconst cor=RISCO_COR[risco]||'#6b7280';\nconst badge_risco_html='<span style=\"display:inline-block;background:'+cor+';color:#fff;font-weight:600;font-size:13px;padding:4px 14px;border-radius:14px;text-transform:capitalize\">'+esc(legacy.classificacao_risco||legacy.nivel_risco||'Indeterminado')+'</span>';\nconst parecer=legacy.parecer_geral||legacy.parecer||analise.parecer_geral||(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo))||'';\nconst parecer_juridico_html=parecer?'<p style=\"line-height:1.7;margin:0\">'+esc(parecer)+'</p>':'<p style=\"color:#888;font-size:13px;\">Parecer não disponível.</p>';\nconst riscos_html=listHtml(legacy.riscos||analise.riscos||analise.alertas,'Nenhum risco identificado.');\nconst inconsistencias_html=listHtml(legacy.inconsistencias||analise.inconsistencias,'Nenhuma inconsistência identificada.');\nconst problemas_html=listHtml(legacy.possiveis_problemas||legacy.problemas||analise.possiveis_problemas,'Nenhum problema identificado.');\nconst onus_juridico_html=listHtml(legacy.onus||analise.onus||(analise.onus_restricoes&&analise.onus_restricoes.onus_ativos),'Nenhum ônus identificado na análise jurídica.');\nconst gravames_juridico_html=listHtml(legacy.gravames||analise.gravames,'Nenhum gravame identificado.');\nconst cadeia_dominial_html=listHtml(legacy.cadeia_dominial||(analise.cadeia_dominial&&analise.cadeia_dominial.historico)||analise.cadeia_dominial,'Cadeia dominial não detalhada.');\nconst total_riscos=asArray(legacy.riscos||analise.riscos||analise.alertas).length;\n// linha_tempo montada por CÓDIGO a partir dos atos do parser (não mais pela IA)\nconst linha_tempo=(croquiDados.atos||[]).map(a=>({sequencia:a.sequencia,data:a.data,tipo:a.tipo_ato,classe:a.classe||null,partes:a.partes||null,valor:a.valor||null,status:a.status,cancelado_por:a.cancelado_por||null}));\nreturn[{json:{...croquiDados,analise_juridica:analise,linha_tempo,\n  proprietarios,proprietarios_html,\n  promissarios_cessionarios:promissarios,promissarios_html,\n  resumo_juridico:{classificacao_risco:legacy.classificacao_risco||legacy.nivel_risco||'indeterminado',parecer_geral:parecer,total_riscos,total_onus_ativos:(croquiDados.onus_ativos||[]).length,proprietarios_origem,degraded,stop_reason:stopReason},\n  badge_risco_html,cadeia_dominial_html,riscos_html,inconsistencias_html,problemas_html,onus_juridico_html,gravames_juridico_html,parecer_juridico_html,\n  analise_fundamentacao_html:listOrEmpty(analise.fundamentacao||analise.fundamentacao_legal),\n  analise_classes_juridicas_html:listOrEmpty(analise.classes_juridicas),\n  analise_regras_html:listOrEmpty(analise.regras||analise.regras_aplicadas),\n  analise_resumo_executivo:(typeof analise.resumo_executivo==='string'?analise.resumo_executivo:(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo)))||parecer}}];\n"
       },
       "id": "node-resumo",
       "name": "Resumo Jurídico",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
+        3488,
         304
       ]
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nconst result = {\n  numero_matricula: d.numero_matricula ?? null,\n  cartorio: d.cartorio ?? null,\n  endereco: d.endereco ?? null,\n  endereco_curto: d.endereco_curto ?? null,\n  sql_iptu: d.sql_iptu ?? null,\n  data_abertura: d.data_abertura ?? null,\n  livro_folha: d.livro_folha ?? null,\n  matricula_anterior: d.matricula_anterior ?? null,\n  area_total_m2: d.area_total_m2 ?? null,\n  area_construida_m2: d.area_construida_m2 ?? null,\n  testada: d.testada ?? null,\n  confrontantes: d.confrontantes ?? null,\n  proprietarios: d.proprietarios ?? [],\n  proprietarios_html: d.proprietarios_html ?? '',\n  promissarios_cessionarios: d.promissarios_cessionarios ?? [],\n  promissarios_html: d.promissarios_html ?? '',\n  atos: d.atos ?? [],\n  onus_ativos: d.onus_ativos ?? [],\n  areas_destacadas: d.areas_destacadas ?? [],\n  ultimo_ato_tipo: d.ultimo_ato_tipo ?? null,\n  lat: d.lat ?? null,\n  lng: d.lng ?? null,\n  croqui_svg: d.croqui_svg ?? '',\n  croqui_data_uri: d.croqui_data_uri ?? '',\n  croqui_precisao: d.croqui_precisao ?? 'N/D',\n  analise_juridica: d.analise_juridica ?? {},\n  resumo_juridico: d.resumo_juridico ?? {},\n  badge_risco_html: d.badge_risco_html ?? '',\n  parecer_juridico_html: d.parecer_juridico_html ?? '',\n  riscos_html: d.riscos_html ?? '',\n  inconsistencias_html: d.inconsistencias_html ?? '',\n  problemas_html: d.problemas_html ?? '',\n  onus_juridico_html: d.onus_juridico_html ?? '',\n  gravames_juridico_html: d.gravames_juridico_html ?? '',\n  cadeia_dominial_html: d.cadeia_dominial_html ?? '',\n  analise_fundamentacao_html: d.analise_fundamentacao_html ?? '',\n  analise_classes_juridicas_html: d.analise_classes_juridicas_html ?? '',\n  analise_regras_html: d.analise_regras_html ?? '',\n  analise_resumo_executivo: d.analise_resumo_executivo ?? '',\n};\n// Uso real do modelo (Análise Jurídica = Anthropic claude-sonnet-4-6) para telemetria de margem.\nconst _an = $('Análise Jurídica').first().json || {};\nconst _u = _an.usage || {};\nconst _inTok = (Number(_u.input_tokens) || 0) + (Number(_u.cache_read_input_tokens) || 0) + (Number(_u.cache_creation_input_tokens) || 0);\nconst _outTok = Number(_u.output_tokens) || 0;\n// Preços claude-sonnet-4-6: US$3/1M input, US$15/1M output\nconst _costUsd = Number(((_inTok * 3 + _outTok * 15) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: 'lidimus-Juridico', model: 'claude-sonnet-4-6', promptTokens: _inTok, completionTokens: _outTok, totalTokens: _inTok + _outTok, costUsd: _costUsd }] };\ntry { const _em = $('Embeddings Consultas').first().json || {}; const _eu = _em.usage || {}; const _etot = Number(_eu.total_tokens) || Number(_eu.prompt_tokens) || 0; if (_etot) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-embed', promptTokens: Number(_eu.prompt_tokens) || 0, completionTokens: 0, totalTokens: _etot, costUsd: Number((_etot * 0.1 / 1e6).toFixed(6)) }); } catch (e) {}\nreturn [{ json: { jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', result, usage } }];"
+        "jsCode": "const d = $input.first().json;\nconst result = {\n  numero_matricula: d.numero_matricula ?? null,\n  cartorio: d.cartorio ?? null,\n  endereco: d.endereco ?? null,\n  endereco_curto: d.endereco_curto ?? null,\n  sql_iptu: d.sql_iptu ?? null,\n  data_abertura: d.data_abertura ?? null,\n  livro_folha: d.livro_folha ?? null,\n  matricula_anterior: d.matricula_anterior ?? null,\n  area_total_m2: d.area_total_m2 ?? null,\n  area_construida_m2: d.area_construida_m2 ?? null,\n  testada: d.testada ?? null,\n  confrontantes: d.confrontantes ?? null,\n  proprietarios: d.proprietarios ?? [],\n  proprietarios_html: d.proprietarios_html ?? '',\n  promissarios_cessionarios: d.promissarios_cessionarios ?? [],\n  promissarios_html: d.promissarios_html ?? '',\n  atos: d.atos ?? [],\n  onus_ativos: d.onus_ativos ?? [],\n  areas_destacadas: d.areas_destacadas ?? [],\n  ultimo_ato_tipo: d.ultimo_ato_tipo ?? null,\n  lat: d.lat ?? null,\n  lng: d.lng ?? null,\n  analise_juridica: d.analise_juridica ?? {},\n  resumo_juridico: d.resumo_juridico ?? {},\n  badge_risco_html: d.badge_risco_html ?? '',\n  parecer_juridico_html: d.parecer_juridico_html ?? '',\n  riscos_html: d.riscos_html ?? '',\n  inconsistencias_html: d.inconsistencias_html ?? '',\n  problemas_html: d.problemas_html ?? '',\n  onus_juridico_html: d.onus_juridico_html ?? '',\n  gravames_juridico_html: d.gravames_juridico_html ?? '',\n  cadeia_dominial_html: d.cadeia_dominial_html ?? '',\n  analise_fundamentacao_html: d.analise_fundamentacao_html ?? '',\n  analise_classes_juridicas_html: d.analise_classes_juridicas_html ?? '',\n  analise_regras_html: d.analise_regras_html ?? '',\n  analise_resumo_executivo: d.analise_resumo_executivo ?? '',\n};\n// Uso real do modelo (Análise Jurídica = Anthropic claude-sonnet-4-6) para telemetria de margem.\nconst _an = $('Análise Jurídica').first().json || {};\nconst _u = _an.usage || {};\nconst _inTok = (Number(_u.input_tokens) || 0) + (Number(_u.cache_read_input_tokens) || 0) + (Number(_u.cache_creation_input_tokens) || 0);\nconst _outTok = Number(_u.output_tokens) || 0;\n// Preços claude-sonnet-4-6: US$3/1M input, US$15/1M output\nconst _costUsd = Number(((_inTok * 3 + _outTok * 15) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: 'lidimus-Juridico', model: 'claude-sonnet-4-6', promptTokens: _inTok, completionTokens: _outTok, totalTokens: _inTok + _outTok, costUsd: _costUsd }] };\ntry { const _em = $('Embeddings Consultas').first().json || {}; const _eu = _em.usage || {}; const _etot = Number(_eu.total_tokens) || Number(_eu.prompt_tokens) || 0; if (_etot) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-embed', promptTokens: Number(_eu.prompt_tokens) || 0, completionTokens: 0, totalTokens: _etot, costUsd: Number((_etot * 0.1 / 1e6).toFixed(6)) }); } catch (e) {}\n// Estimativa do custo da Extração de Campos (mistral-large; nó langchain não expõe usage real).\ntry { const _ocrLen = String($('Preparar Input').first().json.texto_ocr || '').length; const _mlIn = Math.round(_ocrLen / 4); const _mlOut = 400; if (_mlIn) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-large-latest', promptTokens: _mlIn, completionTokens: _mlOut, totalTokens: _mlIn + _mlOut, costUsd: Number(((_mlIn * 2 + _mlOut * 6) / 1e6).toFixed(6)), estimated: true }); } catch (e) {}\nreturn [{ json: { jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', result, usage } }];"
       },
       "id": "node-montar-callback",
       "name": "Montar Callback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2864,
+        3712,
         304
       ]
     },
@@ -360,7 +347,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3088,
+        3936,
         304
       ]
     },
@@ -373,7 +360,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
+        3488,
         544
       ]
     },
@@ -404,21 +391,21 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2864,
+        3712,
         544
       ]
     },
     {
       "parameters": {
-        "jsCode": "const dados = $('Gerar Croqui SVG').first().json;\nconst atos = dados.atos || [];\nconst onus = dados.onus_ativos || [];\nconst MAPA = {\n  hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  transporte_onus_hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  penhora: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus_penhora: ['penhora transportada de matrícula anterior cancelamento', 'fraude à execução penhora averbada presunção contra terceiro adquirente'],\n  transporte_onus_arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus: ['ônus transportados abertura de matrícula continuidade registral'],\n  cancelamento_onus: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  cancelamento: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  adjudicacao: ['carta de adjudicação título judicial efeitos sobre gravames anteriores'],\n  arrematacao: ['carta de arrematação hasta pública aquisição efeitos sobre penhoras'],\n  destacamento: ['desapropriação destacamento de área abertura de matrícula área remanescente'],\n  retificacao: ['retificação de registro erro procedimento'],\n  compra_e_venda: ['compra e venda registro qualificação do título'],\n  alienacao_fiduciaria: ['alienação fiduciária consolidação da propriedade mora'],\n  usufruto: ['usufruto uso e habitação constituição e extinção'],\n  doacao: ['doação cláusulas de inalienabilidade e reversão'],\n  heranca: ['inventário arrolamento partilha registro do formal'],\n  partilha: ['inventário arrolamento partilha registro do formal'],\n};\nconst consultas = [];\nfor (const a of atos) { for (const q of (MAPA[a.tipo_ato] || [])) { if (!consultas.includes(q)) consultas.push(q); } }\nif (onus.length > 0) { const q = 'fraude à execução penhora inscrita presunção absoluta perante terceiros'; if (!consultas.includes(q)) consultas.push(q); }\nif (consultas.length === 0) consultas.push('princípios do registro de imóveis qualificação continuidade');\nreturn [{ json: { consultas: consultas.slice(0, 6) } }];"
+        "jsCode": "const dados = $('Extrair Segmentos Perímetro').first().json;\nconst atos = dados.atos || [];\nconst onus = dados.onus_ativos || [];\nconst MAPA = {\n  hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  transporte_onus_hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  penhora: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus_penhora: ['penhora transportada de matrícula anterior cancelamento', 'fraude à execução penhora averbada presunção contra terceiro adquirente'],\n  transporte_onus_arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus: ['ônus transportados abertura de matrícula continuidade registral'],\n  cancelamento_onus: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  cancelamento: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  adjudicacao: ['carta de adjudicação título judicial efeitos sobre gravames anteriores'],\n  arrematacao: ['carta de arrematação hasta pública aquisição efeitos sobre penhoras'],\n  destacamento: ['desapropriação destacamento de área abertura de matrícula área remanescente'],\n  retificacao: ['retificação de registro erro procedimento'],\n  compra_e_venda: ['compra e venda registro qualificação do título'],\n  alienacao_fiduciaria: ['alienação fiduciária consolidação da propriedade mora'],\n  usufruto: ['usufruto uso e habitação constituição e extinção'],\n  doacao: ['doação cláusulas de inalienabilidade e reversão'],\n  heranca: ['inventário arrolamento partilha registro do formal'],\n  partilha: ['inventário arrolamento partilha registro do formal'],\n};\nconst consultas = [];\nfor (const a of atos) { for (const q of (MAPA[a.tipo_ato] || [])) { if (!consultas.includes(q)) consultas.push(q); } }\nif (onus.length > 0) { const q = 'fraude à execução penhora inscrita presunção absoluta perante terceiros'; if (!consultas.includes(q)) consultas.push(q); }\nif (consultas.length === 0) consultas.push('princípios do registro de imóveis qualificação continuidade');\nreturn [{ json: { consultas: consultas.slice(0, 6) } }];"
       },
       "id": "node-rag-consultas",
       "name": "Montar Consultas RAG",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2336,
-        80
+        2400,
+        304
       ]
     },
     {
@@ -446,8 +433,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2560,
-        80
+        2624,
+        304
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -482,8 +469,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2752,
-        80
+        2816,
+        304
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -502,8 +489,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2976,
-        80
+        3040,
+        304
       ]
     }
   ],
@@ -608,17 +595,6 @@
       ]
     },
     "Extrair Segmentos Perímetro": {
-      "main": [
-        [
-          {
-            "node": "Gerar Croqui SVG",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gerar Croqui SVG": {
       "main": [
         [
           {
@@ -749,9 +725,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "fa05bea6-bd24-4ee4-9a64-cf9ee4561635",
-  "activeVersionId": "fa05bea6-bd24-4ee4-9a64-cf9ee4561635",
-  "versionCounter": 45,
+  "versionId": "d20c65d9-fc97-4bd7-b224-d4e43b17093e",
+  "activeVersionId": "d20c65d9-fc97-4bd7-b224-d4e43b17093e",
+  "versionCounter": 58,
   "triggerCount": 1,
   "shared": [
     {
@@ -772,763 +748,5 @@
       }
     }
   ],
-  "tags": [],
-  "activeVersion": {
-    "updatedAt": "2026-07-16T17:04:29.414Z",
-    "createdAt": "2026-07-16T17:04:29.414Z",
-    "versionId": "fa05bea6-bd24-4ee4-9a64-cf9ee4561635",
-    "workflowId": "XakDkY7aCjCYkyqt",
-    "nodes": [
-      {
-        "parameters": {
-          "httpMethod": "POST",
-          "path": "lidimus-juridico",
-          "responseMode": "responseNode",
-          "options": {}
-        },
-        "id": "node-webhook",
-        "name": "Webhook",
-        "type": "n8n-nodes-base.webhook",
-        "typeVersion": 2,
-        "position": [
-          0,
-          304
-        ],
-        "webhookId": "55f5889b-01e4-4ccc-84aa-68ce68742bc5",
-        "onError": "continueRegularOutput"
-      },
-      {
-        "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nconst params = body.params || {};\nreturn [{ json: {\n  jobId: body.jobId || '',\n  callbackUrl: body.callbackUrl || '',\n  callbackSecret: body.callbackSecret || '',\n  skillBaseUrl: body.skillBaseUrl || '',\n  texto_ocr: String(body.textoOcr || ''),\n  total_paginas: body.totalPaginas ?? null,\n  incluir_memorial: String(params.incluirMemorial ?? 'true').toLowerCase() === 'true',\n  incluir_croqui: String(params.incluirCroqui ?? 'false').toLowerCase() === 'true',\n  geocodificar: String(params.geocodificar ?? 'true').toLowerCase() === 'true',\n} }];"
-        },
-        "id": "node-preparar",
-        "name": "Preparar Input",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          224,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "respondWith": "json",
-          "responseBody": "={{ ({ status: 'processing', stage: 'juridico', jobId: $('Preparar Input').first().json.jobId }) }}",
-          "options": {}
-        },
-        "id": "node-responder",
-        "name": "Responder Webhook",
-        "type": "n8n-nodes-base.respondToWebhook",
-        "typeVersion": 1.1,
-        "position": [
-          448,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "text": "={{ $('Preparar Input').first().json.texto_ocr }}",
-          "attributes": {
-            "attributes": [
-              {
-                "name": "numero_matricula",
-                "description": "Número da matrícula imobiliária. Ex: 15.727 ou 123456. Geralmente aparece após a palavra 'matrícula' ou 'MATRICULA'."
-              },
-              {
-                "name": "cartorio",
-                "description": "Nome completo do Cartório de Registro de Imóveis onde a matrícula está registrada."
-              },
-              {
-                "name": "data_abertura",
-                "description": "Data de abertura ou instituição da matrícula no formato DD/MM/AAAA."
-              },
-              {
-                "name": "livro_folha",
-                "description": "Referência do livro e folha da matrícula. Ex: 'Livro 2, Folha 157'."
-              },
-              {
-                "name": "matricula_anterior",
-                "description": "Número da matrícula ou transcrição anterior de onde este imóvel se originou."
-              },
-              {
-                "name": "endereco",
-                "description": "Endereço completo do imóvel conforme descrito na matrícula, incluindo logradouro, número, bairro, cidade e CEP se disponíveis."
-              },
-              {
-                "name": "sql_iptu",
-                "description": "Número SQL ou código IPTU do imóvel. Formato típico: xxx.xxx.xxxx.x (10 dígitos separados por pontos)."
-              },
-              {
-                "name": "area_total_m2",
-                "description": "Área total do terreno ou imóvel em metros quadrados, exatamente como consta no documento."
-              },
-              {
-                "name": "area_construida_m2",
-                "description": "Área construída, edificada ou de construção em metros quadrados."
-              },
-              {
-                "name": "testada",
-                "description": "Medida da testada ou frente do lote em metros lineares."
-              },
-              {
-                "name": "confrontante_norte",
-                "description": "Descrição do confrontante ao Norte do imóvel (quem faz divisa ao norte)."
-              },
-              {
-                "name": "confrontante_sul",
-                "description": "Descrição do confrontante ao Sul do imóvel (quem faz divisa ao sul)."
-              },
-              {
-                "name": "confrontante_leste",
-                "description": "Descrição do confrontante ao Leste do imóvel (quem faz divisa ao leste)."
-              },
-              {
-                "name": "confrontante_oeste",
-                "description": "Descrição do confrontante ao Oeste do imóvel (quem faz divisa ao oeste)."
-              },
-              {
-                "name": "endereco_curto",
-                "description": "Endereço RESUMIDO do imóvel para exibição e geocodificação: logradouro ou rodovia (com número ou km), bairro, cidade e UF. Ex: \"Rodovia Raposo Tavares, Km 64,5, Bairro Marmeleiro, Mairinque - SP\". NÃO incluir descrição de divisas, rumos, medidas ou confrontações."
-              }
-            ]
-          },
-          "options": {
-            "systemPromptTemplate": "Você é um especialista em matrículas imobiliárias brasileiras. Extraia com precisão os campos solicitados do texto de matrícula fornecido. Se um campo não estiver presente no documento, retorne null. Mantenha os valores exatamente como aparecem no documento, preservando formatação original, pontuação e acentos.\n\n{format_instructions}\n\nTexto da Matrícula:\n{text}"
-          }
-        },
-        "id": "node-extracao",
-        "name": "Extração de Campos",
-        "type": "@n8n/n8n-nodes-langchain.informationExtractor",
-        "typeVersion": 1.2,
-        "position": [
-          672,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "model": "mistral-large-latest",
-          "options": {}
-        },
-        "id": "node-mistral",
-        "name": "Mistral Chat Model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
-        "typeVersion": 1,
-        "position": [
-          672,
-          528
-        ],
-        "credentials": {
-          "mistralCloudApi": {
-            "id": "hzQgrXg6Fw5ZxPLQ",
-            "name": "Mistral API"
-          }
-        }
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── CONVERTER PALAVRAS NUMÉRICAS EM NÚMEROS ─────────────────────────\nconst dados = $input.first().json;\nfunction normalizarSimbolosAngulo(t) {\n  t = t.replace(/[‘’‚‛′ʼ´]/g, \"'\");\n  t = t.replace(/[“”„‟″]/g, '\"');\n  t = t.replace(/\\b(\\d{1,3})2(\\d{2})'(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'°'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/\\b(\\d{1,3})2(\\d{2})\"(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'°'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/(\\d{1,3})[°º](\\d{1,2})\"(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'°'+min+\"'\"+seg+'\"' : m);\n  t = t.replace(/(\\d{1,3})º(\\d{1,2})'(\\d{1,2}(?:[.,]\\d+)?)\"?/g, (m,g,min,seg) => parseInt(min,10)<=59 && parseFloat(seg.replace(',','.'))<=59 ? g+'°'+min+\"'\"+seg+'\"' : m);\n  return t;\n}\nlet texto = normalizarSimbolosAngulo(dados.texto_ocr || $('Preparar Input').first().json.texto_ocr || '');\nconst UNIDADES = {'zero':0,'um':1,'uma':1,'dois':2,'duas':2,'três':3,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10,'onze':11,'doze':12,'treze':13,'quatorze':14,'catorze':14,'quinze':15,'dezesseis':16,'dezessete':17,'dezoito':18,'dezenove':19,'vinte':20,'trinta':30,'quarenta':40,'cinquenta':50,'sessenta':60,'setenta':70,'oitenta':80,'noventa':90,'cem':100,'cento':100,'duzentos':200,'duzentas':200,'trezentos':300,'trezentas':300,'quatrocentos':400,'quatrocentas':400,'quinhentos':500,'quinhentas':500,'seiscentos':600,'seiscentas':600,'setecentos':700,'setecentas':700,'oitocentos':800,'oitocentas':800,'novecentos':900,'novecentas':900,'mil':1000,'milhão':1000000,'milhao':1000000};\nfunction palavrasParaNumero(expr){const tokens=expr.toLowerCase().replace(/\\be\\b/g,' ').replace(/[,]/g,'.').trim().split(/\\s+/);let total=0,atual=0,temDecimal=false,parteDecimal='',i=0;while(i<tokens.length){const t=tokens[i];if(UNIDADES[t]!==undefined){const v=UNIDADES[t];if(v===1000){atual=atual===0?1000:atual*1000;}else if(v>=1000000){total=(total+atual)*v;atual=0;}else if(v>=100){atual=atual===0?v:atual*v;}else{atual+=v;}}else if(/^vírgula$|^virgula$/.test(t)){temDecimal=true;total+=atual;atual=0;}else if(temDecimal&&/^\\d+$/.test(t)){parteDecimal=t;}i++;}total+=atual;if(temDecimal&&parteDecimal)return parseFloat(total+'.'+parteDecimal);return total;}\nconst palavrasNum=Object.keys(UNIDADES).join('|');\nconst RE=new RegExp(`\\\\b((${palavrasNum})(?:\\\\s+e\\\\s+(${palavrasNum}))*(?:\\\\s+vírgula\\\\s+\\\\d+)?(?:\\\\s+(${palavrasNum})(?:\\\\s+e\\\\s+(${palavrasNum}))*)*)\\\\b`,'gi');\ntexto=texto.replace(RE,(match)=>{const temEspaco=match.includes(' ');const num=palavrasParaNumero(match);if(num>0)return temEspaco?String(num):match;return match;});\nreturn [{json:{...dados,texto_ocr:texto}}];"
-        },
-        "id": "node-converter",
-        "name": "Converter Palavras Numéricas",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          944,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── PROCESSAR ATOS DOMINIAIS E COORDENADAS (v3) ──────────────────────\n// v3: detecta atos no formato moderno \"R.14/82.662,\" (número do ato seguido da\n// matrícula), classifica venda e compra na ordem invertida, permuta, cessão,\n// compromisso, dação, integralização e alterações de denominação societária.\nconst campos=$input.first().json.output||{};\nconst texto=$input.first().json.texto_ocr||$('Preparar Input').first().json.texto_ocr||'';\nconst pdf_url=null;\nif(!texto.trim())throw new Error('Texto OCR vazio.');\nfunction matchAll(regex,text){return[...text.matchAll(regex)];}\nfunction normalizarValor(raw){if(!raw)return null;const digits=String(raw).replace(/\\D/g,'');if(digits.length<3)return null;const cents=digits.slice(-2);const int=digits.slice(0,-2).replace(/^0+(?=\\d)/,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');return int+','+cents;}\nconst fimAtosM=texto.match(/O\\s+ATO\\s+ACIMA\\s+[ÉE]\\s+O\\s+[ÚU]LTIMO|CERTIFICO\\s+que\\s+em\\s+atendimento/i);\nconst fimAtos=fimAtosM?fimAtosM.index:texto.length;\n// Aceita \"R-1,\", \"R.8, em\", \"Av.1.\" e o formato de ficha moderna \"R.14/82.662, em\".\nconst actPattern=/\\b(R|AV|Av|r|av)\\s*[-.]?\\s*(\\d{1,3})\\s*(?:[\\/\\-]\\s*[\\d.]{3,12})?\\s*[-:,.]/gim;\nconst actStarts=[...texto.matchAll(actPattern)].filter(m=>m.index<fimAtos);\nconst blocosPorSeq={};\n// Classificação por palavra-chave, da mais específica para a mais genérica.\n// A ordem importa: \"cessão de direitos do compromisso\" é cessão, não compromisso.\nconst CLASSIF=[\n  [/matr[íi]cula\\s+aberta/i,'abertura_matricula'],\n  [/cancelamento\\s+d[ae]\\s+indisponibilidade/i,'cancelamento_indisponibilidade'],\n  [/indisponibilidade/i,'indisponibilidade'],\n  // Antes de doação e penhora: o texto da cláusula fala em \"doadores\" e\n  // \"impenhorabilidade\", que casariam nos padrões mais genéricos abaixo.\n  [/inalienabilidade|incomunicabilidade|impenhorabilidade|cl[áa]usulas?\\s+restritiv/i,'clausula_restritiva'],\n  [/cess[aã]o/i,'cessao_direitos'],\n  [/compromisso\\s+de\\s+(?:venda\\s+e\\s+compra|compra\\s+e\\s+venda)|promessa\\s+de\\s+(?:venda\\s+e\\s+compra|compra\\s+e\\s+venda)/i,'compromisso_venda_compra'],\n  [/permuta/i,'permuta'],\n  [/da[cç][aã]o\\s+em\\s+pagamento/i,'dacao_pagamento'],\n  [/integraliza[cç][aã]o|confer[êe]ncia\\s+de\\s+bens/i,'integralizacao'],\n  [/sobrepartilha/i,'sobrepartilha'],\n  [/adjudica[cç][aã]o/i,'adjudicacao'],\n  [/arremata[cç][aã]o/i,'arrematacao'],\n  [/servid[aã]o/i,'servidao'],\n  [/retifica[cç][aã]o|r[ée]tifica[cç][aã]o/i,'retificacao'],\n  [/destacamento|desapropria/i,'destacamento'],\n  [/compra\\s+e\\s+venda|venda\\s+e\\s+compra/i,'compra_e_venda'],\n  [/aliena[cç][aã]o\\s+fiduc/i,'alienacao_fiduciaria'],\n  [/hipoteca/i,'hipoteca'],\n  // \\b evita casar o \"penhora\" de dentro de \"impenhorabilidade\".\n  [/\\bpenhora/i,'penhora'],\n  [/arresto/i,'arresto'],\n  [/averba[cç][aã]o\\s+de\\s+constru/i,'averbacao_construcao'],\n  [/partilha/i,'partilha'],\n  [/usufruto/i,'usufruto'],\n  [/doa[cç][aã]o/i,'doacao'],\n  [/heran[cç]a|invent[áa]rio|arrolamento/i,'heranca'],\n  [/denomina[-\\s]?se|passou\\s+a\\s+denominar|altera[cç][aã]o\\s+de\\s+denomina|incorpora[cç][aã]o|cis[aã]o|transforma[cç][aã]o\\s+de\\s+sociedade/i,'alteracao_denominacao'],\n];\nfunction classificar(txt){for(const [re,tipo] of CLASSIF){if(re.test(txt))return tipo;}return null;}\n// Atos são numerados em ordem crescente. Um \"R.14\" que apareça depois do R.33 é\n// citação dentro do corpo de outro ato, não um ato novo — descarta.\nconst maxSeq={R:0,AV:0};\nconst actStartsValidos=actStarts.filter(m=>{\n  const p=m[1].toUpperCase().startsWith('AV')?'AV':'R';\n  const n=parseInt(m[2],10);\n  if(n>maxSeq[p]){maxSeq[p]=n;return true;}\n  return false;\n});\nconst atos=actStartsValidos.map((m,idx)=>{\n  const nextStart=idx+1<actStartsValidos.length?actStartsValidos[idx+1].index:fimAtos;\n  const fullBlock=texto.slice(m.index,Math.min(nextStart,fimAtos)).replace(/\\s+/g,' ').trim();\n  const block=fullBlock.slice(0,800);\n  const tipoNorm=m[1].toUpperCase().startsWith('AV')?'AV':'R';\n  const sequencia=tipoNorm+'-'+m[2];\n  if(!(sequencia in blocosPorSeq))blocosPorSeq[sequencia]=fullBlock;\n  // A data do ato vem logo após \"em\" no cabeçalho. O ano é grafado \"2.005\" nas\n  // fichas antigas — sem tolerar o ponto, casava a data da escritura citada.\n  const dataM=block.match(/\\bem\\s+(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})\\b/)\n    ||block.match(/\\bem\\s+(\\d{1,2}\\s+de\\s+[A-Za-zçÇáàâãéêíóôõú]+\\s+de\\s+\\d{1,2}\\.?\\d{3})/)\n    ||block.match(/\\b(\\d{1,2}\\s+de\\s+\\w+\\s+de\\s+\\d{4})\\b/i)\n    ||block.match(/\\b(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})\\b/);\n  const data=dataM?dataM[1].replace(/(\\d)\\.(\\d{3})\\b/,'$1$2'):null;\n  const header=block.slice(0,140);\n  const isTransporte=/transporte\\s+de\\s+[^\\s]*nus/i.test(header);\n  const isCancelOnus=/cancelamento\\s+de\\s+[^\\s]*nus/i.test(header);\n  const tipoOnus=(txt)=>/hipoteca/i.test(txt)?'hipoteca':/\\bpenhora/i.test(txt)?'penhora':/arresto/i.test(txt)?'arresto':null;\n  const tipoAto=(()=>{\n    if(isTransporte){const t=tipoOnus(header)||tipoOnus(block);return t?'transporte_onus_'+t:'transporte_onus';}\n    if(isCancelOnus)return'cancelamento_onus';\n    // O assunto do ato vem em CAIXA ALTA seguido de dois-pontos (\"CONFRONTAÇÃO:\",\n    // \"ADJUDICAÇÃO:\") e manda mais que palavras soltas do corpo — sem isso, uma\n    // averbação de confrontação que cita a escritura de adjudicação vira\n    // \"adjudicacao\". Janela de 600 chars porque o cabeçalho da página seguinte\n    // (rodapé ONR + carimbos) pode se intrometer entre o \"AV. n\" e o assunto.\n    const SUBJ=[[/\\bCONFRONTA[ÇC][ÃA]O\\s*:/,'averbacao'],[/\\bCASAMENTO\\s*:/,'averbacao'],[/\\b[ÓO]BITO\\s*:/,'averbacao'],[/\\bNUMERAMENTO\\s*:/,'averbacao'],[/\\bCONSTRU[ÇC][ÃA]O\\s*:/,'averbacao_construcao'],[/\\bADJUDICA[ÇC][ÃA]O\\s*:/,'adjudicacao'],[/\\bARREMATA[ÇC][ÃA]O\\s*:/,'arrematacao'],[/\\bPENHORA\\s*:/,'penhora'],[/\\bHIPOTECA\\s*:/,'hipoteca'],[/\\bUSUFRUTO\\s*:/,'usufruto'],[/\\bDOA[ÇC][ÃA]O\\s*:/,'doacao'],[/\\b(?:VENDA\\s+E\\s+COMPRA|COMPRA\\s+E\\s+VENDA)\\s*:/,'compra_e_venda']];\n    const inicio=fullBlock.slice(0,600);\n    for(const [re,tipo] of SUBJ){if(re.test(inicio))return tipo;}\n    // \"cancelamento\" genérico fica por último: o cabeçalho costuma trazer\n    // \"protocolo de cancelamento nº ...\" antes de dizer o que se cancela.\n    const t=classificar(header)||classificar(block);\n    if(t)return t;\n    if(/cancel/i.test(header)||/cancel/i.test(block))return'cancelamento';\n    return tipoNorm==='AV'?'averbacao':'registro';\n  })();\n  const valorPrefM=fullBlock.match(/(?:pelo\\s+valor|valor\\s+total(?:\\s+atualizado)?|valor\\s+da\\s+d[íi]vida|condena[cç][aã]o\\s+atinge\\s+o\\s+valor(?:\\s+total)?(?:\\s+atualizado)?)[^]{0,60}?R\\$\\s*([\\d.,\\s]*\\d)/i);\n  const valorM=valorPrefM||fullBlock.match(/R\\$\\s*([\\d.,\\s]*\\d)/);\n  const valor=valorM?normalizarValor(valorM[1]):null;\n  function limparParte(s){return s.replace(/^\\s*(?:a|o|as|os|da|do|de)\\s+/i,'').replace(/\\s+que\\s*$/i,'').replace(/[.,;\\s]+$/,'').trim();}\n  const partesArr=[];\n  const emFavorM=fullBlock.match(/em favor de[^:]*:([\\s\\S]+?)(?=para garantia|para dar|pelo valor|e demais|\\.\\s+Mairinque|$)/i);\n  if(emFavorM){const reNome=/\\d+\\)\\s+([A-ZÀ-ž][^,;(\\n]{3,80}?)(?=[,;(]|\\s+(?:que\\s|tamb|também|brasileiro|brasileira|portador|inscrit|italian|casad|menor|nascid))/gi;let mn;while((mn=reNome.exec(fullBlock))!==null){partesArr.push(limparParte(mn[1]));}}\n  // Adquirente do ato dominial: \"transmitiu por venda feita à X\", \"cederam e\n  // transferiram a título de permuta à X\", \"cedeu e transferiu a X\".\n  // Sem flag `i`: o nome do adquirente vem em CAIXA ALTA na matrícula, e é isso\n  // que distingue \"à SUZANO ...\" de \"a título de permuta à ...\".\n  if(partesArr.length===0){const trM=fullBlock.match(/(?:transmitiu|transmitiram|cederam\\s+e\\s+transferiram|cedeu\\s+e\\s+transferiu|vendeu|venderam|transferiu|transferiram|permutou|deu\\s+em\\s+pagamento)[^.]{0,140}?\\s(?:a|à|ao|aos|às|para)\\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\\s&.\\-\\/']{4,80}?)(?=,|\\s+CNPJ|\\s+CGC|\\s+CPF|\\s+com\\s+sede|\\s+com\\s+séde|\\s+inscrit)/);if(trM)partesArr.push(limparParte(trM[1]));}\n  if(partesArr.length===0){const exM=fullBlock.match(/figura como exequente\\s+([A-ZÀ-ž][^,\\n;]{3,70})(?=[,;\\n]|\\s+(?:brasileiro|brasileira|portador|inscrit|já qual))/i);if(exM)partesArr.push(limparParte(exM[1]));}\n  if(partesArr.length===0){const adjM=fullBlock.match(/ADJUDICADO\\s+a\\s+([A-ZÀ-ž][^,\\n.;]{3,70})(?=[,;\\n.]|\\s+(?:pessoa jur|CNPJ|inscrit))/i);if(adjM)partesArr.push(limparParte(adjM[1]));}\n  let cancela_sequencias=[];\n  if(tipoAto==='cancelamento_onus'||tipoAto==='cancelamento'||tipoAto==='cancelamento_indisponibilidade'){\n    const alvoM=fullBlock.match(/CANCELAD[AO]S?\\b([\\s\\S]{0,400})/i)||fullBlock.match(/cancelamento\\s+d[ae][\\s\\S]{0,400}/i);\n    const alvoTxt=alvoM?(alvoM[1]||alvoM[0]):fullBlock;\n    const refs=[...alvoTxt.matchAll(/\\b(R|AV|Av|av|r)\\s*[-.]?\\s*(\\d{1,3})\\b/gi)].map(r=>(r[1].toUpperCase().startsWith('AV')?'AV':'R')+'-'+r[2]).filter(s=>s!==sequencia);\n    cancela_sequencias=[...new Set(refs)];\n  }\n  let area_destacada_m2=null,beneficiario=null;\n  if(tipoAto==='destacamento'){const areaM=fullBlock.match(/([\\d.]+,\\d{1,2})\\s*(?:\\([^)]{0,160}\\)\\s*)?metros?\\s+quadrados?/i);if(areaM)area_destacada_m2=parseFloat(areaM[1].replace(/\\./g,'').replace(',','.'));const benM=fullBlock.match(/em\\s+favor\\s+d[oa]s?\\s+([A-ZÀ-ž][^,;.]{3,90})/);if(benM)beneficiario=benM[1].trim();if(partesArr.length===0&&beneficiario)partesArr.push(beneficiario);}\n  const partes=partesArr.length>0?partesArr.join('; '):null;\n  return{sequencia,tipo:tipoNorm,data,tipo_ato:tipoAto,valor,partes,status:'ativo',cancelado_por:null,cancela_sequencias:cancela_sequencias.length>0?cancela_sequencias:undefined,area_destacada_m2:area_destacada_m2||undefined,beneficiario:beneficiario||undefined,texto_resumo:partes?block.slice(0,120)+' | Partes: '+partes.slice(0,100):block.slice(0,200)};\n});\nconst seenSeq=new Set();const atosUnicos=atos.filter(a=>{if(seenSeq.has(a.sequencia))return false;seenSeq.add(a.sequencia);return true;});\nconst TIPOS_CANCELAMENTO=['cancelamento','cancelamento_onus','cancelamento_indisponibilidade'];\nconst cancelamentos=atosUnicos.filter(a=>TIPOS_CANCELAMENTO.includes(a.tipo_ato));\nconst canceladaPor=new Map();\nfor(const c of cancelamentos){for(const seq of(c.cancela_sequencias||[])){if(seq!==c.sequencia&&!canceladaPor.has(seq))canceladaPor.set(seq,c.sequencia);}}\nfor(const a of atosUnicos){if(canceladaPor.has(a.sequencia)){a.status='cancelado';a.cancelado_por=canceladaPor.get(a.sequencia);}}\n// Ônus reais e restrições que pesam sobre o imóvel — a própria matrícula os\n// rotula como \"ÔNUS:\" (servidão, compromisso, cessão, indisponibilidade).\nconst tiposGravame=new Set(['alienacao_fiduciaria','hipoteca','penhora','usufruto','arresto','servidao','indisponibilidade','clausula_restritiva','compromisso_venda_compra','cessao_direitos','transporte_onus_hipoteca','transporte_onus_penhora','transporte_onus_arresto','transporte_onus']);\nconst gravames=atosUnicos.filter(a=>tiposGravame.has(a.tipo_ato));\nconst onus_ativos=gravames.filter(g=>g.status!=='cancelado');\n// Só transmite domínio. Compromisso, cessão e sobrepartilha de direitos\n// obrigacionais NÃO entram — não mudam o titular do domínio.\nconst TIPOS_DOMINIAIS={compra_e_venda:'Compra e Venda',permuta:'Permuta',adjudicacao:'Adjudicação',arrematacao:'Arrematação',partilha:'Partilha',doacao:'Doação',heranca:'Herança',dacao_pagamento:'Dação em Pagamento',integralizacao:'Integralização de Capital'};\nlet ultimoDominial=null;\nfor(const a of atosUnicos){if(TIPOS_DOMINIAIS[a.tipo_ato]&&a.status!=='cancelado')ultimoDominial=a;}\nconst ultimo_ato_tipo=ultimoDominial?TIPOS_DOMINIAIS[ultimoDominial.tipo_ato]+' ('+ultimoDominial.sequencia+')':null;\nconst texto_apos_ultimo_ato=ultimoDominial?(blocosPorSeq[ultimoDominial.sequencia]||''):((texto.match(/Propriet[áa]ri[oa]s?\\s*:?[\\s\\S]{0,800}/i)||[''])[0]).replace(/\\s+/g,' ');\nconst areas_destacadas=atosUnicos.filter(a=>a.area_destacada_m2).map(a=>({sequencia:a.sequencia,area_m2:a.area_destacada_m2,beneficiario:a.beneficiario||null,data:a.data}));\nlet data_abertura=campos.data_abertura||null;\nif(!data_abertura){const MESES={janeiro:'01',fevereiro:'02',marco:'03','março':'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12'};const dm=texto.slice(0,3000).match(/\\b(\\d{1,2})\\s+de\\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\\s+de\\s+(\\d{4})\\b/i);if(dm)data_abertura=dm[1].padStart(2,'0')+'/'+MESES[dm[2].toLowerCase()]+'/'+dm[3];}\nif(!data_abertura){const aberturaAto=atosUnicos.find(a=>a.tipo_ato==='abertura_matricula');if(aberturaAto&&aberturaAto.data)data_abertura=aberturaAto.data;}\nconst bearings=matchAll(/(NSEWnsew)?\\s*(\\d{1,3})[º°]\\s*(\\d{1,2})'(?:\\s*(\\d{1,2}(?:[.,]\\d+)?)\")?\\s*([NSEWnsew]{1,2})?/g,texto).map(m=>({raw:m[0].trim(),graus:parseInt(m[2]),minutos:parseInt(m[3]),segundos:m[4]?parseFloat(m[4].replace(',','.')):0,direcao:(m[1]||m[5]||'').toUpperCase()}));\nconst utmPoints=matchAll(/(\\d{6,7})(?:\\s*m?)?\\s*[EeLlOo]\\s+(\\d{6,7})(?:\\s*m?)?\\s*[NnSs]/g,texto).map(m=>({easting:parseInt(m[1]),northing:parseInt(m[2])}));\nconst tipo_coordenada=utmPoints.length>0?'utm':bearings.length>0?'bearing_only':'sem_coordenadas';\nreturn[{json:{texto_ocr:texto,pdf_url,numero_matricula:campos.numero_matricula||null,cartorio:campos.cartorio||null,data_abertura,livro_folha:campos.livro_folha||null,matricula_anterior:campos.matricula_anterior||null,endereco:campos.endereco||null,endereco_curto:campos.endereco_curto||null,sql_iptu:campos.sql_iptu||null,area_total_m2:campos.area_total_m2||null,area_construida_m2:campos.area_construida_m2||null,testada:campos.testada||null,confrontantes:{norte:campos.confrontante_norte||null,sul:campos.confrontante_sul||null,leste:campos.confrontante_leste||null,oeste:campos.confrontante_oeste||null},atos:atosUnicos,onus_ativos,areas_destacadas,ultimo_ato_tipo,ultimo_ato_sequencia:ultimoDominial?ultimoDominial.sequencia:null,texto_apos_ultimo_ato,coordenadas_raw:{bearings,utmPoints},tipo_coordenada}}];\n"
-        },
-        "id": "node-atos",
-        "name": "Processar Atos e Coords",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1104,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── EXTRAÇÃO DE PROPRIETÁRIOS (v2, determinística) ───────────────────\n// Fallback do pipeline: a fonte primária passou a ser a IA (nó Resumo Jurídico,\n// campo proprietarios_atuais). Aqui vale a cadeia dominial já processada:\n// proprietário = adquirente do ÚLTIMO ato dominial. Só quando não há ato\n// dominial é que se recorre ao cabeçalho \"PROPRIETÁRIA:\" da matrícula.\nconst dados=$input.first().json;\nconst atos=dados.atos||[];\nconst blocoDominial=dados.texto_apos_ultimo_ato||'';\nconst textoCompleto=dados.texto_ocr||'';\nfunction limpar(s){return(s||'').replace(/\\s+/g,' ').replace(/[.,;\\s]+$/,'').trim();}\nconst CPF_RE=/(\\d{3}[.\\s]\\d{3}[.\\s]\\d{3}[-\\s]\\d{2}|\\b\\d{11}\\b)/;\nconst CNPJ_RE=/\\d{2}\\.?\\d{3}\\.?\\d{3}\\/\\d{4}-?\\d{2}/;\nconst CGC_RE=/CGC\\.?\\s*n?[º°o]?\\.?\\s*([\\d.\\/-]{14,20})/i;\nconst ESTADO_CIVIL_RE=/(solteir|casad|viúv|viuv|divorciad|separad|uni[aã]o\\s+est[áa]vel)[oa]?/i;\nconst REGIME_RE=/(comunh[aã]o\\s+(?:parcial|universal)\\s+de\\s+bens|separa[cç][aã]o\\s+(?:total|absoluta|de\\s+bens)|participa[cç][aã]o\\s+final\\s+nos\\s+aqu[eê]stos)/i;\nconst DOM_RE=/(?:domiciliad[ao]s?|com\\s+sede|com\\s+séde)\\s+(?:e\\s+residente?s?\\s+)?(?:na|no|em|à|a|nesta)?\\s*([^;.\\n]{8,140}?)(?=\\s*[;.]|,\\s*pelo\\b|,\\s*[oa]s?\\s+(?:direitos|im[óo]vel|obriga)|,\\s*CNPJ|,\\s*CGC|$)/i;\nfunction fmtDoc(raw){const d=String(raw||'').replace(/\\D/g,'');if(d.length===14)return{tipo:'CNPJ',numero:d.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5')};if(d.length===11)return{tipo:'CPF',numero:d.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4')};return{tipo:null,numero:null};}\n// Documento e qualificação são procurados na janela de texto logo APÓS o nome —\n// é onde a matrícula sempre os coloca.\nfunction qualificar(nome,contexto){\n  const i=contexto.indexOf(nome);\n  const janela=i>=0?contexto.slice(i,i+320):contexto.slice(0,320);\n  const cnpjM=janela.match(CNPJ_RE)||janela.match(CGC_RE);\n  const cpfM=janela.match(CPF_RE);\n  const doc=cnpjM?fmtDoc(cnpjM[1]||cnpjM[0]):(cpfM?fmtDoc(cpfM[0]):{tipo:null,numero:null});\n  const ecM=janela.match(ESTADO_CIVIL_RE);\n  const regM=janela.match(REGIME_RE);\n  const domM=janela.match(DOM_RE);\n  return{documento_tipo:doc.tipo,documento_numero:doc.numero,estado_civil:ecM?limpar(ecM[0]):null,regime_bens:regM?limpar(regM[0]):null,endereco_domicilio:domM?limpar(domM[1]):null};\n}\nconst proprietarios=[];\nconst atoDominial=dados.ultimo_ato_sequencia?atos.find(a=>a.sequencia===dados.ultimo_ato_sequencia):null;\n// 1) Adquirente do último ato dominial — já isolado pelo parser de atos.\nif(atoDominial&&atoDominial.partes){\n  for(const nome of String(atoDominial.partes).split(';').map(limpar).filter(n=>n.length>3)){\n    proprietarios.push({ordem:proprietarios.length+1,nome,...qualificar(nome,blocoDominial),ato_aquisitivo:atoDominial.sequencia,data_aquisicao:atoDominial.data||null,fonte:'parser'});\n  }\n}\n// 2) Sem ato dominial: cabeçalho \"PROPRIETÁRIA: X\" da abertura da matrícula.\nif(proprietarios.length===0){\n  const labelM=textoCompleto.match(/PROPRIET[ÁA]RI[OA](?:S|AS)?\\s*:?\\s*([^\\n]{5,220})/i);\n  if(labelM){\n    const linha=limpar(labelM[1]);\n    const nomeM=linha.match(/^([A-ZÀ-Ü][A-ZÀ-Ü0-9\\s&.\\-\\/']{3,80}?)(?=,|\\s+com\\s+s[eé]de|\\s+CGC|\\s+CNPJ|\\s+CPF|\\s+brasileir|\\s+inscrit|$)/);\n    const nome=nomeM?limpar(nomeM[1]):null;\n    if(nome&&nome.length>3)proprietarios.push({ordem:1,nome,...qualificar(nome,linha),ato_aquisitivo:null,data_aquisicao:null,fonte:'parser'});\n  }\n}\n// 3) Último recurso: varre o bloco em busca de pessoas qualificadas.\nif(proprietarios.length===0){\n  const blocos=blocoDominial.split(/(?:\\b(?:e\\s+sua|e\\s+seu|e\\s+outr[ao]s?|outorgante[s]?|outorgad[ao]s?|comprador|vendedor|donatário|meeiro|herdeiro)\\b)/i);\n  blocos.forEach((bloco)=>{\n    bloco=limpar(bloco);\n    if(bloco.length<10)return;\n    const nomeM=bloco.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç]+(?:\\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç]+){1,8})/);\n    const nome=nomeM?limpar(nomeM[1]):null;\n    if(!nome||nome.length<5)return;\n    proprietarios.push({ordem:proprietarios.length+1,nome,...qualificar(nome,bloco),ato_aquisitivo:null,data_aquisicao:null,fonte:'parser'});\n  });\n}\nfunction escapeHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nconst proprietarios_html=proprietarios.map(p=>{const meta=[p.documento_tipo&&p.documento_numero?`📄 ${p.documento_tipo}: ${escapeHtml(p.documento_numero)}`:null,p.estado_civil?`💍 ${escapeHtml(p.estado_civil)}${p.regime_bens?' — '+escapeHtml(p.regime_bens):''}`:null,p.ato_aquisitivo?`📌 Aquisição: ${escapeHtml(p.ato_aquisitivo)}${p.data_aquisicao?' — '+escapeHtml(p.data_aquisicao):''}`:null,p.endereco_domicilio?`📍 ${escapeHtml(p.endereco_domicilio)}`:null].filter(Boolean).map(s=>`<span>${s}</span>`).join('');return`<div class=\"prop-card\"><h4>${p.ordem}. ${escapeHtml(p.nome)}</h4><div class=\"prop-meta\">${meta}</div></div>`;}).join('');\nreturn[{json:{...dados,proprietarios,proprietarios_html:proprietarios_html||'<p style=\"color:#888;font-size:13px;\">Não foi possível identificar proprietários automaticamente. Consulte o documento original.</p>'}}];\n"
-        },
-        "id": "node-proprietarios",
-        "name": "Extração de Proprietários",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1328,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "url": "https://maps.googleapis.com/maps/api/geocode/json",
-          "sendQuery": true,
-          "queryParameters": {
-            "parameters": [
-              {
-                "name": "address",
-                "value": "={{ ($json.endereco_curto || $json.endereco || '').replace(/,?\\s*esquina\\s+com[\\s\\S]*/i,'').replace(/,?\\s*n[oº°]\\s*\\d+[ºo°]\\s*subdistr[\\s\\S]*/i,'').replace(/,?\\s*no\\s+\\d+[ºo°][\\s\\S]*/i,'').trim() }}, São Paulo, SP, Brasil"
-              },
-              {
-                "name": "key",
-                "value": "AIzaSyChEbqvHe4R8obxi7KA7cUTKuj1ZImBzu0"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "id": "node-geocod",
-        "name": "Geocodificar Endereço",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          1552,
-          304
-        ],
-        "continueOnFail": true
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── EXTRAIR SEGMENTOS DO PERÍMETRO (v4) — stub portado do monolito\nconst geoResp=$('Geocodificar Endereço').first().json;const geoResults=geoResp.results||[];const geoLoc=(geoResults[0]||{}).geometry?.location||null;const lat_principal=geoLoc?geoLoc.lat:null;const lng_principal=geoLoc?geoLoc.lng:null;const dados=$('Extração de Proprietários').first().json;const endereco_base=dados.endereco||'';\nreturn [{json:{...dados,segmentos_perimetro:[],pontos_ordem:[],marcos_ordem:[],sentido_poligono:'horario',vias_mencionadas:[],pracas_mencionadas:[],enderecos_confrontantes:[],enderecos_para_geocod:[endereco_base].filter(Boolean),endereco_ancora:endereco_base,lat:lat_principal,lng:lng_principal,rua_frente:null,area_calculada_m2:null,area_descrita_m2:null,perimetro_formato:'nao_calculado',perimetro_observacoes:null}}];"
-        },
-        "id": "node-segmentos",
-        "name": "Extrair Segmentos Perímetro",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1760,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── GERAR CROQUI SVG (v4) — stub portado do monolito\nconst dados=$input.first().json;\nreturn [{json:{...dados,lat:dados.lat||dados.ref_lat||null,lng:dados.lng||dados.ref_lng||null,map_zoom:18,croqui_svg:'',croqui_data_uri:'',croqui_precisao:'N/D',croqui_valido:false,croqui_falta_info:false,geojson_data:{type:'FeatureCollection',features:[]},poligono_vertices:[]}}];"
-        },
-        "id": "node-croqui",
-        "name": "Gerar Croqui SVG",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1984,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "url": "={{ $('Preparar Input').first().json.skillBaseUrl }}/analise-juridica-completa",
-          "options": {
-            "response": {
-              "response": {
-                "responseFormat": "text"
-              }
-            }
-          }
-        },
-        "id": "node-skill",
-        "name": "Carregar Skill Analise Juridica",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          2208,
-          304
-        ],
-        "continueOnFail": true
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "https://api.anthropic.com/v1/messages",
-          "authentication": "genericCredentialType",
-          "genericAuthType": "httpHeaderAuth",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "anthropic-version",
-                "value": "2023-06-01"
-              },
-              {
-                "name": "content-type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 16000, system: $('Carregar Skill Analise Juridica').first()?.json?.data || 'Você é um advogado especializado em direito imobiliário e registral brasileiro. Retorne JSON estruturado incluindo o bloco legacy_compatibility.', messages: [{ role: 'user', content: 'Analise a matrícula abaixo e retorne JSON completo.\\n\\n' + 'IMPORTANTE — LIMITE DE TOKENS: produza um JSON ENXUTO. NAO gere os campos \"linha_tempo\" nem \"json_final\" (sao redundantes e montados por codigo a partir dos ATOS DETECTADOS abaixo). GERE OBRIGATORIAMENTE o bloco \"legacy_compatibility\" completo (classificacao_risco, parecer_geral, riscos, inconsistencias, onus, gravames, possiveis_problemas, cadeia_dominial) e tambem estado_atual, classes_juridicas, fundamentacao_legal, riscos e resumo_executivo. Conclua primeiro proprietarios_atuais, legacy_compatibility e resumo_executivo. Nao repita a lista completa de atos.\\n\\n' + 'PROPRIETARIO ATUAL — OBRIGATORIO: gere no nivel raiz do JSON o campo proprietarios_atuais, um array de objetos com as chaves nome, documento_tipo (CPF ou CNPJ), documento_numero, qualificacao, estado_civil, regime_bens, endereco_domicilio, ato_aquisitivo (ex: R-19), data_aquisicao, percentual e observacao — use null quando o dado nao constar. Proprietario atual = titular do DOMINIO segundo o ULTIMO ato dominial registrado (compra e venda, venda e compra, permuta, adjudicacao, arrematacao, dacao em pagamento, integralizacao de capital, partilha ou heranca), ja atualizado pelas averbacoes posteriores de alteracao de denominacao, incorporacao, cisao ou transformacao societaria que renomeiem esse titular: nesse caso use a denominacao atual e registre a anterior em observacao. NAO confunda o proprietario atual com o proprietario original do cabecalho da matricula, nem com promitente comprador de compromisso de venda e compra, cessionario de direitos, credor hipotecario ou fiduciario, exequente de penhora, locatario, usufrutuario ou confrontante. Se houver promitente comprador ou cessionario de direitos, liste-os em separado no campo promissarios_cessionarios, no mesmo formato, acrescentando a chave natureza. Nesse campo inclua APENAS quem mantem posicao ATIVA na data da certidao: quem ja transferiu, cedeu ou teve baixados os seus direitos NAO entra na lista. Estes dois campos sao PRIORITARIOS: gere-os PRIMEIRO, antes de qualquer outro bloco.\\n\\n' + String($('Consolidar Fundamentos').first()?.json?.fundamentos_rag || '') + 'ATOS DETECTADOS:\\n' + JSON.stringify($('Gerar Croqui SVG').first().json.atos || []) + '\\n\\nÔNUS ATIVOS:\\n' + JSON.stringify(($('Gerar Croqui SVG').first().json.onus_ativos || []).map(o => o.sequencia)) + '\\n\\nTEXTO OCR:\\n' + String($('Gerar Croqui SVG').first().json.texto_ocr || '').slice(0, 40000) }] }) }}",
-          "options": {}
-        },
-        "id": "node-analise",
-        "name": "Análise Jurídica",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          2432,
-          304
-        ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "x0BtGwj48aRQbzJ3",
-            "name": "Anthropic API - lidimus (x-api-key)"
-          }
-        },
-        "onError": "continueErrorOutput"
-      },
-      {
-        "parameters": {
-          "jsCode": "// ─── RESUMO JURÍDICO v3 ───────────────────────────────────────────────\n// v2: reparo de JSON truncado + parecer degradado determinístico.\n// v3: proprietário atual passa a vir da IA (que lê a cadeia dominial inteira),\n// com o parser de atos como fallback. O regex sozinho errava o titular quando a\n// matrícula tinha permuta/cessão ou fichas no formato \"R.14/82.662\".\nconst analiseNode = $('Análise Jurídica').first().json;\nconst croquiDados = $('Gerar Croqui SVG').first().json;\nconst stopReason = analiseNode.stop_reason\n  || (analiseNode.choices && analiseNode.choices[0] && analiseNode.choices[0].finish_reason) || null;\n\n// Reparador de JSON: parse direto; se falhar (truncamento), corta no último\n// fechamento seguro fora de string e rebalanceia { } [ ] pendentes.\nfunction repararJson(raw) {\n  let s = String(raw || '').trim();\n  const fence = s.match(/```(?:json)?\\s*([\\s\\S]*?)```/i);\n  if (fence) s = fence[1].trim();\n  const ini = s.indexOf('{');\n  if (ini === -1) return null;\n  s = s.slice(ini);\n  try { return JSON.parse(s); } catch (e) { /* trunca — repara abaixo */ }\n  let inStr = false, escp = false, lastSafe = -1;\n  for (let i = 0; i < s.length; i++) {\n    const c = s[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '}' || c === ']' || c === '\"') lastSafe = i;\n  }\n  if (lastSafe === -1) return null;\n  let t = s.slice(0, lastSafe + 1).replace(/,\\s*$/, '');\n  const st = []; inStr = false; escp = false;\n  for (let i = 0; i < t.length; i++) {\n    const c = t[i];\n    if (inStr) { if (escp) escp = false; else if (c === '\\\\') escp = true; else if (c === '\"') inStr = false; continue; }\n    if (c === '\"') { inStr = true; continue; }\n    if (c === '{') st.push('}'); else if (c === '[') st.push(']');\n    else if (c === '}' || c === ']') st.pop();\n  }\n  while (st.length) t += st.pop();\n  try { return JSON.parse(t); } catch (e) { return null; }\n}\n\nlet analise = repararJson((analiseNode.content || []).find(b => b.type === 'text')?.text\n  || ((analiseNode.choices || [])[0] || {}).message?.content || '');\nif (analise && analise.analise_matricula) analise = analise.analise_matricula;\n\nlet degraded = (stopReason === 'max_tokens' || stopReason === 'length');\nif (!analise || typeof analise !== 'object') {\n  // Parecer degradado determinístico — NUNCA \"indeterminado\" mudo.\n  degraded = true;\n  const oa = croquiDados.onus_ativos || [];\n  analise = { legacy_compatibility: {\n    classificacao_risco: oa.length > 0 ? 'alto' : 'indeterminado',\n    parecer_geral: 'Análise detalhada indisponível (resposta da IA não pôde ser interpretada). '\n      + 'Detecção determinística: ' + oa.length + ' ônus ativos sobre o imóvel'\n      + (oa.length > 0 ? ' — risco ALTO até verificação individual dos gravames. Reprocessamento recomendado.' : '.'),\n    riscos: oa.map(o => ({ tipo: 'onus_ativo', severidade: 'alta',\n      descricao: (o.tipo_ato || 'ônus') + ' ' + (o.sequencia || '') + (o.partes ? ' — ' + o.partes : '') + (o.valor ? ' — R$ ' + o.valor : '') })),\n  } };\n}\n\nconst legacy = analise.legacy_compatibility || analise;\n// Se a IA truncou antes de gerar classificação/parecer (resumo_executivo e\n// legacy_compatibility ficam de fora), deriva ambos dos riscos já parseados.\n(function derivar(){\n  const temClassif = legacy.classificacao_risco || legacy.nivel_risco\n    || (analise.resumo_executivo && analise.resumo_executivo.classificacao_risco);\n  if (temClassif) return;\n  const riscos = (Array.isArray(legacy.riscos) ? legacy.riscos : (analise.riscos || []));\n  const sevs = riscos.map(r => String((r && (r.severidade || r.gravidade || r.nivel)) || '').toLowerCase());\n  const nivel = sevs.some(s => s.includes('crit')) ? 'crítico'\n    : sevs.some(s => s.includes('alt')) ? 'alto'\n    : riscos.length ? 'medio' : 'indeterminado';\n  legacy.classificacao_risco = nivel;\n  if (!legacy.parecer_geral && !analise.parecer_geral) {\n    legacy.parecer_geral = 'Parecer resumido gerado automaticamente (a análise detalhada da IA foi truncada): '\n      + riscos.length + ' risco(s) identificado(s) e ' + (croquiDados.onus_ativos || []).length\n      + ' ônus ativos sobre o imóvel. Classificação de risco estimada: ' + nivel\n      + '. Recomenda-se reprocessamento para o parecer completo.';\n  }\n  degraded = true;\n})();\nfunction esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\nfunction asArray(v){if(Array.isArray(v))return v;if(v==null||v==='')return[];return[v];}\nfunction itemToText(item){if(item==null)return'';if(typeof item==='string'||typeof item==='number')return esc(item);if(typeof item==='object'){const titulo=item.titulo||item.tipo||item.tipo_ato||item.nome||item.sequencia||'';const sev=item.severidade||item.gravidade||item.nivel||item.classificacao||item.risco||'';const desc=item.descricao||item.detalhe||item.texto||item.observacao||item.recomendacao||item.parecer||'';const parts=[];if(titulo)parts.push('<strong>'+esc(titulo)+'</strong>');if(sev)parts.push('<em style=\"color:#b45309\">('+esc(sev)+')</em>');if(desc)parts.push(esc(desc));if(parts.length)return parts.join(' ');const vals=Object.values(item).filter(x=>typeof x==='string'||typeof x==='number').map(x=>esc(x));return vals.join(' — ')||esc(JSON.stringify(item));}return esc(item);}\nfunction listHtml(arr,vazio){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'<p style=\"color:#888;font-size:13px;\">'+esc(vazio)+'</p>';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\nfunction listOrEmpty(arr){const items=asArray(arr).map(itemToText).filter(t=>t&&t.trim());if(!items.length)return'';return'<ul style=\"margin:0;padding-left:18px;line-height:1.7\">'+items.map(t=>'<li>'+t+'</li>').join('')+'</ul>';}\n\n// ─── PROPRIETÁRIO ATUAL ───────────────────────────────────────────────\n// A IA é a fonte primária: só ela lê a cadeia inteira e sabe distinguir o\n// titular do domínio do promitente comprador, do cessionário e do credor.\n// O parser entra como fallback quando a IA não devolve o bloco (ou trunca).\nfunction fmtDoc(v){const d=String(v||'').replace(/\\D/g,'');if(d.length===14)return d.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})/,'$1.$2.$3/$4-$5');if(d.length===11)return d.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/,'$1.$2.$3-$4');const s=String(v||'').trim();return s||null;}\nfunction tipoDoc(o){const t=String(o.documento_tipo||'').toUpperCase();if(t==='CPF'||t==='CNPJ')return t;const d=String(o.documento_numero||o.documento||o.cpf_cnpj||'').replace(/\\D/g,'');if(d.length===14)return'CNPJ';if(d.length===11)return'CPF';return null;}\nfunction normProp(p,i){\n  // A IA às vezes devolve string solta (\"FULANO — CPF 123...\") em vez de objeto.\n  if(typeof p==='string'){\n    const dm=p.match(/[\\d][\\d.\\/-]{10,19}/);\n    const nome=p.replace(/[\\d][\\d.\\/-]{10,19}/,'').replace(/\\s*[—–,-]\\s*(CPF|CNPJ)[:\\s]*$/i,'').replace(/\\s*[—–-]\\s*$/,'').trim();\n    return{ordem:i+1,nome,documento_tipo:dm?(dm[0].replace(/\\D/g,'').length===14?'CNPJ':'CPF'):null,documento_numero:dm?fmtDoc(dm[0]):null,estado_civil:null,regime_bens:null,endereco_domicilio:null,ato_aquisitivo:null,data_aquisicao:null,percentual:null,observacao:null,natureza:null,fonte:'ia'};\n  }\n  const o=p||{};\n  return{ordem:i+1,nome:String(o.nome||o.proprietario||o.titular||'').trim(),documento_tipo:tipoDoc(o),documento_numero:fmtDoc(o.documento_numero||o.documento||o.cpf_cnpj),estado_civil:o.estado_civil??null,regime_bens:o.regime_bens??null,endereco_domicilio:o.endereco_domicilio??o.endereco??null,ato_aquisitivo:o.ato_aquisitivo??o.ato??null,data_aquisicao:o.data_aquisicao??null,percentual:o.percentual??null,observacao:o.observacao??null,natureza:o.natureza??null,fonte:'ia'};\n}\nconst propsIa=[analise.proprietarios_atuais,legacy.proprietarios_atuais,(analise.estado_atual||{}).proprietarios_atuais].find(a=>Array.isArray(a)&&a.length)||[];\nlet proprietarios=(croquiDados.proprietarios||[]).map((p,i)=>({...p,ordem:i+1,fonte:p.fonte||'parser'}));\nlet proprietarios_origem=proprietarios.length?'parser':'nenhum';\nif(propsIa.length){\n  const norm=propsIa.map(normProp).filter(p=>p.nome&&p.nome.length>2);\n  if(norm.length){proprietarios=norm;proprietarios_origem='ia';}\n}\nconst promissariosRaw=[analise.promissarios_cessionarios,legacy.promissarios_cessionarios].find(a=>Array.isArray(a)&&a.length)||[];\nconst promissarios=promissariosRaw.map(normProp).filter(p=>p.nome&&p.nome.length>2);\nfunction propCard(p){\n  const meta=[\n    p.documento_tipo&&p.documento_numero?'📄 '+esc(p.documento_tipo)+': '+esc(p.documento_numero):null,\n    p.natureza?'⚖️ '+esc(p.natureza):null,\n    p.estado_civil?'💍 '+esc(p.estado_civil)+(p.regime_bens?' — '+esc(p.regime_bens):''):null,\n    p.ato_aquisitivo?'📌 Aquisição: '+esc(p.ato_aquisitivo)+(p.data_aquisicao?' — '+esc(p.data_aquisicao):''):null,\n    p.percentual?'📊 '+esc(p.percentual):null,\n    p.endereco_domicilio?'📍 '+esc(p.endereco_domicilio):null,\n  ].filter(Boolean).map(s=>'<span>'+s+'</span>').join('');\n  return'<div class=\"prop-card\"><h4>'+p.ordem+'. '+esc(p.nome)+'</h4><div class=\"prop-meta\">'+meta+'</div></div>';\n}\nconst proprietarios_html=proprietarios.length\n  ? proprietarios.map(propCard).join('')\n  : '<p style=\"color:#888;font-size:13px;\">Não foi possível identificar proprietários automaticamente. Consulte o documento original.</p>';\nconst promissarios_html=promissarios.length?promissarios.map(propCard).join(''):'';\n\nconst risco=String(legacy.classificacao_risco||legacy.nivel_risco||'indeterminado').toLowerCase().trim();\nconst RISCO_COR={'baixo':'#16a34a','baixíssimo':'#16a34a','medio':'#d97706','médio':'#d97706','moderado':'#d97706','alto':'#dc2626','crítico':'#991b1b','critico':'#991b1b','critica':'#991b1b','crítica':'#991b1b','altíssimo':'#991b1b','altissimo':'#991b1b','indeterminado':'#6b7280'};\nconst cor=RISCO_COR[risco]||'#6b7280';\nconst badge_risco_html='<span style=\"display:inline-block;background:'+cor+';color:#fff;font-weight:600;font-size:13px;padding:4px 14px;border-radius:14px;text-transform:capitalize\">'+esc(legacy.classificacao_risco||legacy.nivel_risco||'Indeterminado')+'</span>';\nconst parecer=legacy.parecer_geral||legacy.parecer||analise.parecer_geral||(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo))||'';\nconst parecer_juridico_html=parecer?'<p style=\"line-height:1.7;margin:0\">'+esc(parecer)+'</p>':'<p style=\"color:#888;font-size:13px;\">Parecer não disponível.</p>';\nconst riscos_html=listHtml(legacy.riscos||analise.riscos||analise.alertas,'Nenhum risco identificado.');\nconst inconsistencias_html=listHtml(legacy.inconsistencias||analise.inconsistencias,'Nenhuma inconsistência identificada.');\nconst problemas_html=listHtml(legacy.possiveis_problemas||legacy.problemas||analise.possiveis_problemas,'Nenhum problema identificado.');\nconst onus_juridico_html=listHtml(legacy.onus||analise.onus||(analise.onus_restricoes&&analise.onus_restricoes.onus_ativos),'Nenhum ônus identificado na análise jurídica.');\nconst gravames_juridico_html=listHtml(legacy.gravames||analise.gravames,'Nenhum gravame identificado.');\nconst cadeia_dominial_html=listHtml(legacy.cadeia_dominial||(analise.cadeia_dominial&&analise.cadeia_dominial.historico)||analise.cadeia_dominial,'Cadeia dominial não detalhada.');\nconst total_riscos=asArray(legacy.riscos||analise.riscos||analise.alertas).length;\n// linha_tempo montada por CÓDIGO a partir dos atos do parser (não mais pela IA)\nconst linha_tempo=(croquiDados.atos||[]).map(a=>({sequencia:a.sequencia,data:a.data,tipo:a.tipo_ato,classe:a.classe||null,partes:a.partes||null,valor:a.valor||null,status:a.status,cancelado_por:a.cancelado_por||null}));\nreturn[{json:{...croquiDados,analise_juridica:analise,linha_tempo,\n  proprietarios,proprietarios_html,\n  promissarios_cessionarios:promissarios,promissarios_html,\n  resumo_juridico:{classificacao_risco:legacy.classificacao_risco||legacy.nivel_risco||'indeterminado',parecer_geral:parecer,total_riscos,total_onus_ativos:(croquiDados.onus_ativos||[]).length,proprietarios_origem,degraded,stop_reason:stopReason},\n  badge_risco_html,cadeia_dominial_html,riscos_html,inconsistencias_html,problemas_html,onus_juridico_html,gravames_juridico_html,parecer_juridico_html,\n  analise_fundamentacao_html:listOrEmpty(analise.fundamentacao||analise.fundamentacao_legal),\n  analise_classes_juridicas_html:listOrEmpty(analise.classes_juridicas),\n  analise_regras_html:listOrEmpty(analise.regras||analise.regras_aplicadas),\n  analise_resumo_executivo:(typeof analise.resumo_executivo==='string'?analise.resumo_executivo:(analise.resumo_executivo&&(analise.resumo_executivo.conclusao||analise.resumo_executivo.texto_resumo)))||parecer}}];\n"
-        },
-        "id": "node-resumo",
-        "name": "Resumo Jurídico",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2640,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "const d = $input.first().json;\nconst result = {\n  numero_matricula: d.numero_matricula ?? null,\n  cartorio: d.cartorio ?? null,\n  endereco: d.endereco ?? null,\n  endereco_curto: d.endereco_curto ?? null,\n  sql_iptu: d.sql_iptu ?? null,\n  data_abertura: d.data_abertura ?? null,\n  livro_folha: d.livro_folha ?? null,\n  matricula_anterior: d.matricula_anterior ?? null,\n  area_total_m2: d.area_total_m2 ?? null,\n  area_construida_m2: d.area_construida_m2 ?? null,\n  testada: d.testada ?? null,\n  confrontantes: d.confrontantes ?? null,\n  proprietarios: d.proprietarios ?? [],\n  proprietarios_html: d.proprietarios_html ?? '',\n  promissarios_cessionarios: d.promissarios_cessionarios ?? [],\n  promissarios_html: d.promissarios_html ?? '',\n  atos: d.atos ?? [],\n  onus_ativos: d.onus_ativos ?? [],\n  areas_destacadas: d.areas_destacadas ?? [],\n  ultimo_ato_tipo: d.ultimo_ato_tipo ?? null,\n  lat: d.lat ?? null,\n  lng: d.lng ?? null,\n  croqui_svg: d.croqui_svg ?? '',\n  croqui_data_uri: d.croqui_data_uri ?? '',\n  croqui_precisao: d.croqui_precisao ?? 'N/D',\n  analise_juridica: d.analise_juridica ?? {},\n  resumo_juridico: d.resumo_juridico ?? {},\n  badge_risco_html: d.badge_risco_html ?? '',\n  parecer_juridico_html: d.parecer_juridico_html ?? '',\n  riscos_html: d.riscos_html ?? '',\n  inconsistencias_html: d.inconsistencias_html ?? '',\n  problemas_html: d.problemas_html ?? '',\n  onus_juridico_html: d.onus_juridico_html ?? '',\n  gravames_juridico_html: d.gravames_juridico_html ?? '',\n  cadeia_dominial_html: d.cadeia_dominial_html ?? '',\n  analise_fundamentacao_html: d.analise_fundamentacao_html ?? '',\n  analise_classes_juridicas_html: d.analise_classes_juridicas_html ?? '',\n  analise_regras_html: d.analise_regras_html ?? '',\n  analise_resumo_executivo: d.analise_resumo_executivo ?? '',\n};\n// Uso real do modelo (Análise Jurídica = Anthropic claude-sonnet-4-6) para telemetria de margem.\nconst _an = $('Análise Jurídica').first().json || {};\nconst _u = _an.usage || {};\nconst _inTok = (Number(_u.input_tokens) || 0) + (Number(_u.cache_read_input_tokens) || 0) + (Number(_u.cache_creation_input_tokens) || 0);\nconst _outTok = Number(_u.output_tokens) || 0;\n// Preços claude-sonnet-4-6: US$3/1M input, US$15/1M output\nconst _costUsd = Number(((_inTok * 3 + _outTok * 15) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: 'lidimus-Juridico', model: 'claude-sonnet-4-6', promptTokens: _inTok, completionTokens: _outTok, totalTokens: _inTok + _outTok, costUsd: _costUsd }] };\ntry { const _em = $('Embeddings Consultas').first().json || {}; const _eu = _em.usage || {}; const _etot = Number(_eu.total_tokens) || Number(_eu.prompt_tokens) || 0; if (_etot) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-embed', promptTokens: Number(_eu.prompt_tokens) || 0, completionTokens: 0, totalTokens: _etot, costUsd: Number((_etot * 0.1 / 1e6).toFixed(6)) }); } catch (e) {}\nreturn [{ json: { jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', result, usage } }];"
-        },
-        "id": "node-montar-callback",
-        "name": "Montar Callback",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2864,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "X-Lidimus-Secret",
-                "value": "={{ $('Preparar Input').first().json.callbackSecret }}"
-              },
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify($json) }}",
-          "options": {}
-        },
-        "id": "node-callback-ok",
-        "name": "Callback Juridico",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          3088,
-          304
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "const item = $input.first().json;\nconst msg = (item.error && (item.error.message || item.error)) || item.message || 'Falha na análise jurídica';\nreturn [{ json: { errorMessage: String(typeof msg === 'object' ? JSON.stringify(msg) : msg).slice(0, 500) } }];"
-        },
-        "id": "node-montar-erro",
-        "name": "Montar Erro",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2640,
-          544
-        ]
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "X-Lidimus-Secret",
-                "value": "={{ $('Preparar Input').first().json.callbackSecret }}"
-              },
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', error: $json.errorMessage }) }}",
-          "options": {}
-        },
-        "id": "node-callback-erro",
-        "name": "Callback Erro",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          2864,
-          544
-        ]
-      },
-      {
-        "parameters": {
-          "jsCode": "const dados = $('Gerar Croqui SVG').first().json;\nconst atos = dados.atos || [];\nconst onus = dados.onus_ativos || [];\nconst MAPA = {\n  hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  transporte_onus_hipoteca: ['hipoteca constituição requisitos extinção e cancelamento do registro'],\n  penhora: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus_penhora: ['penhora transportada de matrícula anterior cancelamento', 'fraude à execução penhora averbada presunção contra terceiro adquirente'],\n  transporte_onus_arresto: ['penhora arresto constrição judicial averbação e efeitos perante terceiros'],\n  transporte_onus: ['ônus transportados abertura de matrícula continuidade registral'],\n  cancelamento_onus: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  cancelamento: ['cancelamento de ônus e de registros requisitos e formalidades'],\n  adjudicacao: ['carta de adjudicação título judicial efeitos sobre gravames anteriores'],\n  arrematacao: ['carta de arrematação hasta pública aquisição efeitos sobre penhoras'],\n  destacamento: ['desapropriação destacamento de área abertura de matrícula área remanescente'],\n  retificacao: ['retificação de registro erro procedimento'],\n  compra_e_venda: ['compra e venda registro qualificação do título'],\n  alienacao_fiduciaria: ['alienação fiduciária consolidação da propriedade mora'],\n  usufruto: ['usufruto uso e habitação constituição e extinção'],\n  doacao: ['doação cláusulas de inalienabilidade e reversão'],\n  heranca: ['inventário arrolamento partilha registro do formal'],\n  partilha: ['inventário arrolamento partilha registro do formal'],\n};\nconst consultas = [];\nfor (const a of atos) { for (const q of (MAPA[a.tipo_ato] || [])) { if (!consultas.includes(q)) consultas.push(q); } }\nif (onus.length > 0) { const q = 'fraude à execução penhora inscrita presunção absoluta perante terceiros'; if (!consultas.includes(q)) consultas.push(q); }\nif (consultas.length === 0) consultas.push('princípios do registro de imóveis qualificação continuidade');\nreturn [{ json: { consultas: consultas.slice(0, 6) } }];"
-        },
-        "id": "node-rag-consultas",
-        "name": "Montar Consultas RAG",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2336,
-          80
-        ]
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "https://api.mistral.ai/v1/embeddings",
-          "authentication": "genericCredentialType",
-          "genericAuthType": "httpHeaderAuth",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ model: 'mistral-embed', input: $json.consultas || [] }) }}",
-          "options": {}
-        },
-        "id": "node-rag-embed",
-        "name": "Embeddings Consultas",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          2560,
-          80
-        ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "akjvmNcDj4EKOHuW",
-            "name": "Mistral API - RAG (header)"
-          }
-        },
-        "onError": "continueRegularOutput"
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "https://680f5c70-bccb-447b-946e-a6e57726e8ec.eu-west-1-0.aws.cloud.qdrant.io/collections/manual_registro_imoveis/points/search/batch",
-          "authentication": "genericCredentialType",
-          "genericAuthType": "httpHeaderAuth",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ searches: (($json.data) || []).map(d => ({ vector: d.embedding, limit: 4, score_threshold: 0.7, with_payload: true })) }) }}",
-          "options": {}
-        },
-        "id": "node-rag-qdrant",
-        "name": "Buscar Qdrant",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          2752,
-          80
-        ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "H2aOm9MzhITgMhld",
-            "name": "Qdrant API - lidimus (RAG)"
-          }
-        },
-        "onError": "continueRegularOutput"
-      },
-      {
-        "parameters": {
-          "jsCode": "let hits = [];\ntry {\n  const resp = $input.first().json || {};\n  for (const grupo of (resp.result || [])) { for (const h of (grupo || [])) { if (h && h.payload) hits.push(h); } }\n} catch (e) {}\nconst porId = new Map();\nfor (const h of hits) { const k = String(h.id); if (!porId.has(k) || porId.get(k).score < h.score) porId.set(k, h); }\nconst top = [...porId.values()].sort((a, b) => b.score - a.score).slice(0, 8);\nlet fundamentos_rag = '';\nif (top.length) {\n  let total = 0; const partes = [];\n  top.forEach((h, i) => {\n    const p = h.payload; const texto = String(p.texto || '');\n    if (total + texto.length > 12000) return;\n    total += texto.length;\n    const refs = (p.artigos_citados || []).slice(0, 8).join('; ');\n    partes.push('[' + (i + 1) + '] ' + p.capitulo + ' — ' + p.titulo_capitulo + ' > ' + p.titulo_secao + ' (score ' + h.score.toFixed(2) + ')\\n' + texto + (refs ? '\\nReferências citadas: ' + refs : ''));\n  });\n  if (partes.length) {\n    fundamentos_rag = '=== FUNDAMENTOS RECUPERADOS (Manual Prático do Registro de Imóveis) ===\\n'\n      + partes.join('\\n---\\n')\n      + '\\n=== FIM DOS FUNDAMENTOS ===\\n'\n      + 'INSTRUÇÃO: fundamente cada apontamento prioritariamente nos FUNDAMENTOS RECUPERADOS acima, citando capítulo/seção; não invente artigos que não constem dos fundamentos nem da skill. Se o bloco estiver vazio, proceda normalmente.\\n\\n';\n  }\n}\nreturn [{ json: { fundamentos_rag } }];"
-        },
-        "id": "node-rag-consolidar",
-        "name": "Consolidar Fundamentos",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2976,
-          80
-        ]
-      }
-    ],
-    "connections": {
-      "Webhook": {
-        "main": [
-          [
-            {
-              "node": "Preparar Input",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Preparar Input": {
-        "main": [
-          [
-            {
-              "node": "Responder Webhook",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Responder Webhook": {
-        "main": [
-          [
-            {
-              "node": "Extração de Campos",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Mistral Chat Model": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "Extração de Campos",
-              "type": "ai_languageModel",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extração de Campos": {
-        "main": [
-          [
-            {
-              "node": "Converter Palavras Numéricas",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Converter Palavras Numéricas": {
-        "main": [
-          [
-            {
-              "node": "Processar Atos e Coords",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Processar Atos e Coords": {
-        "main": [
-          [
-            {
-              "node": "Extração de Proprietários",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extração de Proprietários": {
-        "main": [
-          [
-            {
-              "node": "Geocodificar Endereço",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Geocodificar Endereço": {
-        "main": [
-          [
-            {
-              "node": "Extrair Segmentos Perímetro",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extrair Segmentos Perímetro": {
-        "main": [
-          [
-            {
-              "node": "Gerar Croqui SVG",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Gerar Croqui SVG": {
-        "main": [
-          [
-            {
-              "node": "Carregar Skill Analise Juridica",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Carregar Skill Analise Juridica": {
-        "main": [
-          [
-            {
-              "node": "Montar Consultas RAG",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Análise Jurídica": {
-        "main": [
-          [
-            {
-              "node": "Resumo Jurídico",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Montar Erro",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Resumo Jurídico": {
-        "main": [
-          [
-            {
-              "node": "Montar Callback",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Montar Callback": {
-        "main": [
-          [
-            {
-              "node": "Callback Juridico",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Montar Erro": {
-        "main": [
-          [
-            {
-              "node": "Callback Erro",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Montar Consultas RAG": {
-        "main": [
-          [
-            {
-              "node": "Embeddings Consultas",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Embeddings Consultas": {
-        "main": [
-          [
-            {
-              "node": "Buscar Qdrant",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Buscar Qdrant": {
-        "main": [
-          [
-            {
-              "node": "Consolidar Fundamentos",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Consolidar Fundamentos": {
-        "main": [
-          [
-            {
-              "node": "Análise Jurídica",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      }
-    },
-    "authors": "JOSE jose.tarallo@gmail.com",
-    "name": null,
-    "description": null,
-    "autosaved": false,
-    "workflowPublishHistory": [
-      {
-        "createdAt": "2026-07-16T17:04:29.519Z",
-        "id": 526,
-        "workflowId": "XakDkY7aCjCYkyqt",
-        "versionId": "fa05bea6-bd24-4ee4-9a64-cf9ee4561635",
-        "event": "activated",
-        "userId": "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
-      },
-      {
-        "createdAt": "2026-07-16T17:04:29.492Z",
-        "id": 525,
-        "workflowId": "XakDkY7aCjCYkyqt",
-        "versionId": "fa05bea6-bd24-4ee4-9a64-cf9ee4561635",
-        "event": "deactivated",
-        "userId": "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
-      }
-    ]
-  }
+  "tags": []
 }
