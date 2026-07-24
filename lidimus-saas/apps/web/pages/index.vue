@@ -262,8 +262,7 @@ const faq = [
 // ── Comportamento: barra de progresso, reveal e parallax ────────────────────
 const raiz = ref<HTMLElement | null>(null)
 let onScroll: (() => void) | null = null
-let io: IntersectionObserver | null = null
-let fallback: ReturnType<typeof setTimeout> | null = null
+let observadores: IntersectionObserver[] = []
 
 onMounted(() => {
   const root = raiz.value
@@ -290,7 +289,9 @@ onMounted(() => {
   onScroll()
 
   const els = Array.from(root.querySelectorAll<HTMLElement>('[data-reveal]'))
-  if (semMovimento) {
+  // Sem IntersectionObserver (navegador muito antigo) não há como detectar
+  // rolagem: revela tudo de uma vez em vez de deixar o conteúdo escondido.
+  if (semMovimento || typeof IntersectionObserver === 'undefined') {
     els.forEach((el) => {
       el.style.opacity = '1'
       el.style.transform = 'none'
@@ -303,36 +304,46 @@ onMounted(() => {
     el.style.transition =
       'opacity .8s cubic-bezier(.16,.8,.24,1), transform .8s cubic-bezier(.16,.8,.24,1)'
   })
-  io = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          const el = e.target as HTMLElement
-          const d = parseInt(el.getAttribute('data-reveal-delay') || '0', 10)
-          setTimeout(() => {
-            el.style.opacity = '1'
-            el.style.transform = 'none'
-          }, d)
-          io?.unobserve(el)
-        }
-      })
-    },
-    { threshold: 0.1, rootMargin: '0px 0px -6% 0px' },
-  )
-  els.forEach((el) => io?.observe(el))
-  // Rede de segurança: revela tudo caso o observer não dispare.
-  fallback = setTimeout(() => {
-    els.forEach((el) => {
-      el.style.opacity = '1'
-      el.style.transform = 'none'
-    })
-  }, 3500)
+
+  // Um IntersectionObserver por seção (agrupado pelo id de cada <section>),
+  // para que a animação de entrada de cada bloco — hero, citacao,
+  // ferramentas, matriculas, imprensa1, memorial, imprensa2, detector, etc. —
+  // dispare de forma independente apenas quando aquela seção é rolada até a
+  // viewport, sem revelação forçada por tempo.
+  const grupos = new Map<string, HTMLElement[]>()
+  els.forEach((el) => {
+    const secao = el.closest<HTMLElement>('section[id]')
+    const chave = secao?.id || 'outros'
+    if (!grupos.has(chave)) grupos.set(chave, [])
+    grupos.get(chave)!.push(el)
+  })
+
+  observadores = Array.from(grupos.values()).map((grupoEls) => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            const el = e.target as HTMLElement
+            const d = parseInt(el.getAttribute('data-reveal-delay') || '0', 10)
+            setTimeout(() => {
+              el.style.opacity = '1'
+              el.style.transform = 'none'
+            }, d)
+            obs.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' },
+    )
+    grupoEls.forEach((el) => obs.observe(el))
+    return obs
+  })
 })
 
 onBeforeUnmount(() => {
   if (onScroll) window.removeEventListener('scroll', onScroll)
-  if (io) io.disconnect()
-  if (fallback) clearTimeout(fallback)
+  observadores.forEach((obs) => obs.disconnect())
+  observadores = []
 })
 </script>
 
@@ -357,13 +368,26 @@ onBeforeUnmount(() => {
     <header class="lp-barra">
       <div class="lp-barra-inner">
         <NuxtLink to="/" class="lp-marca">
-          <img src="/logo.svg" alt="Lidimus" class="lp-marca-logo" />
+          <svg viewBox="0 0 461.6 158.1" fill="var(--color-text)" class="lp-marca-logo" role="img" aria-label="Lidimus">
+            <path d="M75,24.2l59.5,58.1-58.1,59.5-59.5-58.1,58.1-59.5ZM75,37.5l-44.8,46.2,46.2,44.8,44.8-46.2-46.2-44.8Z" />
+            <polygon fill="var(--color-accent)" points="79.5 55.8 78.9 81.9 106.4 81.9 79.5 55.8" />
+            <polygon points="78.9 89.4 70.6 89.4 70.6 81.9 71.2 55.7 44.3 83.5 76.1 114.4 100.3 89.4 78.9 89.4" />
+            <path d="M145.9,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.3,0,3.8-.5,4.7-1.5.8-1,1.2-2.9,1.2-5.7v-53.2c0-2.4-.2-4.2-.6-5.3-.4-1.1-1.2-1.6-2.4-1.6s-2.4.4-4.3,1.2c-.2,0-.4-.1-.6-.5s-.2-.7-.1-.7l14.7-6.9c.1,0,.3-.1.4-.1.3,0,.6.1.9.4.3.3.5.5.5.7v65.9c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.7,1.5s.3.2.3.6-.1.6-.3.6c-1.3,0-2.9,0-4.6-.1-1.8,0-3.6-.1-5.6-.1s-3.8,0-5.6.1c-1.8,0-3.3.1-4.6.1Z" />
+            <path d="M174.2,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.4,0,3.9-.5,4.7-1.5.8-1,1.2-2.9,1.2-5.7v-18.9c0-2.4-.2-4.1-.7-5.1-.5-1.1-1.3-1.6-2.5-1.6s-1.2.1-1.9.3c-.7.2-1.5.5-2.3.9-.3,0-.5-.1-.7-.5-.2-.4-.2-.7,0-.7l15-7c.1,0,.2-.1.3-.1.3,0,.6.2.9.5.3.3.5.6.5.8,0,.8,0,2.2-.1,4.2,0,2-.1,4.8-.1,8.3v19c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.7,1.5s.3.2.3.6-.1.6-.3.6c-1.4,0-2.9,0-4.7-.1-1.7,0-3.6-.1-5.5-.1s-3.7,0-5.5.1c-1.8,0-3.3.1-4.6.1ZM183.8,62.2c-1.8,0-3.2-.5-4.2-1.5-1-1-1.5-2.4-1.5-4.2s.5-3,1.5-4c1-1,2.4-1.5,4.2-1.5s3.1.5,4,1.5c.9,1,1.4,2.3,1.4,4,0,3.7-1.8,5.6-5.4,5.6Z" />
+            <path d="M217.1,115.7c-2.9,0-5.6-.8-8.1-2.4-2.5-1.6-4.5-3.9-6-6.9-1.5-3-2.2-6.6-2.2-10.8s.8-7.6,2.3-10.5c1.5-2.9,3.5-5.2,5.9-7,2.4-1.8,5-3.1,7.8-4,2.8-.8,5.4-1.2,7.9-1.2s4.8.3,7,1c2.1.7,4.1,1.6,5.8,2.7l-2,7.9c-1.5-3-3.3-5.3-5.3-6.8s-4.5-2.3-7.5-2.3-6.8,1.3-9.1,4c-2.3,2.7-3.4,7-3.4,13s.5,7.3,1.6,10.1c1,2.8,2.5,5,4.4,6.4,1.9,1.5,4,2.2,6.2,2.2s5.4-.8,7.6-2.4c2.2-1.6,4.3-3.5,6.3-5.7l.9.8c-1.5,1.7-3.2,3.4-5.1,5.3-2,1.8-4.2,3.4-6.7,4.7-2.5,1.3-5.2,1.9-8.3,1.9ZM241.7,40.1v62.4c0,2.4.2,4.1.7,5.1.5,1,1.3,1.5,2.5,1.5s1.2-.1,2-.3c.8-.2,1.7-.5,2.7-.9.2-.1.4,0,.6.4.2.4.2.6,0,.8l-13.3,6.5c-.2,0-.4.1-.6.1-.8,0-1.5-.8-2.1-2.5-.6-1.7-.9-4.1-.9-7.3v-53.1c0-2.4-.2-4.1-.6-5.2-.4-1.1-1.2-1.7-2.5-1.7s-1.2.1-1.9.4c-.7.2-1.5.5-2.3.9-.3.1-.5,0-.7-.4-.2-.4-.2-.7,0-.7l14.6-7c.1,0,.3-.1.4-.1.3,0,.6.1.9.4.3.3.5.5.5.7Z" />
+            <path d="M255,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.4,0,3.9-.5,4.7-1.5.8-1,1.2-2.9,1.2-5.7v-18.9c0-2.4-.2-4.1-.7-5.1-.5-1.1-1.3-1.6-2.5-1.6s-1.2.1-1.9.3c-.7.2-1.5.5-2.3.9-.3,0-.5-.1-.7-.5-.2-.4-.2-.7,0-.7l15-7c.1,0,.2-.1.3-.1.3,0,.6.2.9.5s.5.6.5.8c0,.8,0,2.2-.1,4.2,0,2-.1,4.8-.1,8.3v19c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.7,1.5s.3.2.3.6-.1.6-.3.6c-1.4,0-2.9,0-4.7-.1-1.7,0-3.6-.1-5.5-.1s-3.7,0-5.5.1c-1.8,0-3.3.1-4.6.1ZM264.6,62.2c-1.8,0-3.2-.5-4.2-1.5-1-1-1.5-2.4-1.5-4.2s.5-3,1.5-4c1-1,2.4-1.5,4.2-1.5s3.1.5,4,1.5c.9,1,1.4,2.3,1.4,4,0,3.7-1.8,5.6-5.4,5.6Z" />
+            <path d="M282.4,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.4,0,3.9-.5,4.7-1.5.8-1,1.1-2.9,1.1-5.7v-19.9c0-2.2-.2-3.8-.7-4.9-.5-1-1.4-1.6-2.6-1.6s-1.4.1-2.3.4c-.9.3-1.9.7-2.9,1.1-.3,0-.5,0-.7-.5-.2-.4-.2-.6,0-.7l13.6-6.7c.3-.1.6-.2.7-.2.7,0,1.4.8,2.1,2.4.7,1.6,1.1,3.9,1.1,7v23.4c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.7,1.5s.3.2.3.6-.1.6-.3.6c-1.3,0-2.8,0-4.6-.1-1.7,0-3.6-.1-5.5-.1s-3.7,0-5.5.1c-1.8,0-3.3.1-4.6.1ZM309.1,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.4,0,3.9-.5,4.7-1.5.8-1,1.2-2.9,1.2-5.7v-15.5c0-7.6-2.7-11.4-8.2-11.4s-4.4.6-6.6,1.9c-2.2,1.2-4,2.9-5.5,5.1l-.5-1.2c2.6-3.7,5.3-6.6,8.3-8.6,2.9-2,6.1-3,9.4-3s6.5,1,8.5,3c2,2,3,5,3,8.9v20.9c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.8,1.5s.3.2.3.6-.1.6-.3.6c-1.4,0-2.9,0-4.7-.1-1.7,0-3.6-.1-5.5-.1s-3.7,0-5.5.1c-1.8,0-3.3.1-4.6.1ZM336.3,114.4c-.2,0-.3-.2-.3-.6s.1-.6.3-.6c2.3,0,3.8-.5,4.7-1.5.8-1,1.2-2.9,1.2-5.7v-15.5c0-7.6-2.7-11.4-8.2-11.4s-4.5.6-6.7,1.9c-2.2,1.2-4,2.9-5.4,5.1l-.5-1.2c2.6-3.7,5.3-6.6,8.3-8.6,2.9-2,6.1-3,9.4-3s6.4,1,8.4,3.1c2,2.1,3,5.3,3,9.7v20.1c0,2.8.4,4.8,1.2,5.7.8,1,2.4,1.5,4.7,1.5s.4.2.4.6-.1.6-.4.6c-1.3,0-2.8,0-4.6-.1-1.7,0-3.6-.1-5.5-.1s-3.8,0-5.5.1c-1.7,0-3.3.1-4.6.1Z" />
+            <path d="M378.1,115.5c-3.7,0-6.6-1.2-8.7-3.5-2.1-2.4-3.2-5.5-3.2-9.5v-15.5c0-2.4-.3-4.2-.8-5.4-.5-1.1-1.3-1.7-2.4-1.7s-1.8.3-2.9.8c-.3,0-.5-.1-.7-.5-.2-.4-.2-.7,0-.7l13.1-6.1c.2,0,.4-.1.5-.1.3,0,.6.1.9.4.3.3.5.5.5.7v23.6c0,3.9.7,6.8,2.1,8.7,1.4,1.9,3.6,2.9,6.5,2.9s4.5-.6,6.7-1.9c2.3-1.3,4.1-3,5.6-5l.6,1.2c-2.6,3.6-5.4,6.4-8.4,8.5-3,2.1-6.2,3.1-9.6,3.1ZM401.8,74.4v28.2c0,2.4.2,4,.7,5,.5,1,1.3,1.5,2.5,1.5s1.2-.1,2-.4c.8-.2,1.7-.5,2.7-.9.3-.1.5,0,.7.4.2.4.2.6-.1.8l-13.6,6.6c-.1,0-.3.1-.4.1-.6,0-1.2-.8-1.9-2.5-.6-1.7-.9-4-.9-7.1v-19.1c0-2.4-.2-4.2-.7-5.4-.5-1.1-1.3-1.7-2.5-1.7s-1.8.3-2.9.8c-.3,0-.5-.1-.6-.5-.1-.4-.1-.7.1-.7l13.1-6.1c.1,0,.3-.1.4-.1.3,0,.7.1,1,.4.3.3.5.5.5.7Z" />
+            <path d="M422.2,79.6c0,1.6.4,3,1.2,4.2.8,1.2,1.9,2.2,3.2,3.2,1.3.9,2.7,1.8,4.3,2.7,1.7,1,3.4,2,5,3,1.6,1,3,2.3,4.1,3.8,1.1,1.5,1.7,3.4,1.7,5.8s-.6,4.4-1.7,6.4c-1.1,2-2.8,3.7-5.1,5-2.3,1.3-5.1,1.9-8.5,1.9s-3.4-.2-5.1-.6c-1.7-.4-3.5-1.2-5.4-2.3-.1-.1-.3-.3-.4-.5-.1-.2-.2-.5-.2-.7l-.2-9.6c0-.2.2-.3.6-.4.4,0,.6,0,.7.3.8,2.2,1.8,4.2,3.2,6,1.4,1.8,2.9,3.2,4.6,4.2,1.7,1,3.4,1.5,5.3,1.5s3.1-.5,4.1-1.4c1-.9,1.5-2.4,1.4-4.3,0-1.9-.5-3.6-1.4-4.8-.9-1.3-2-2.4-3.4-3.3-1.4-.9-2.8-1.7-4.2-2.5-1.7-.9-3.3-1.8-4.8-2.8-1.6-.9-2.9-2.1-3.9-3.6-1-1.5-1.6-3.4-1.6-5.9s.7-5.1,2.1-6.8c1.4-1.7,3.3-2.9,5.6-3.7,2.3-.8,4.6-1.2,7.1-1.2s2.8.1,4.1.3,2.7.6,4.2,1.2c.6.2.9.6.9,1.1,0,1.3,0,2.7-.1,4.1,0,1.4-.1,2.9-.1,4.7s-.2.2-.6.2-.6,0-.6-.2c0-1.4-.6-2.8-1.7-4.3-1.1-1.5-2.5-2.7-4.2-3.7-1.7-1-3.5-1.5-5.4-1.5s-2.4.3-3.3.9c-1,.6-1.5,1.8-1.5,3.6Z" />
+            <polygon points="439.6 127.2 439.6 123 117.5 123 113.3 127.2 439.6 127.2" />
+            <polygon points="103 137.8 99.1 141.8 439.6 141.8 439.6 137.8 103 137.8" />
+          </svg>
         </NuxtLink>
         <nav class="lp-nav" aria-label="Principal">
           <a href="#ferramentas" class="cond lp-nav-link">Ferramentas</a>
           <a href="#planos" class="cond lp-nav-link">Planos</a>
           <a href="#faq" class="cond lp-nav-link">Dúvidas</a>
-          <a href="#seguranca" class="cond lp-nav-link">Segurança</a>
+          <a href="#detector" class="cond lp-nav-link">Segurança</a>
           <NuxtLink to="/auth/login" class="cond lp-nav-link lp-nav-link--sep">Entrar</NuxtLink>
           <NuxtLink to="/auth/register" class="cond lp-btn lp-btn--primary">Criar conta</NuxtLink>
         </nav>
@@ -372,7 +396,7 @@ onBeforeUnmount(() => {
 
     <main id="conteudo">
       <!-- ══════════ HERO ══════════ -->
-      <section class="lp-hero">
+      <section id="hero" class="lp-hero">
         <div class="lp-hero-inner">
           <div class="lp-hero-texto">
             <span data-reveal class="cond lp-tarja">Três ferramentas · um padrão de rigor</span>
@@ -426,10 +450,10 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ══════════ CITAÇÃO ══════════ -->
-      <section class="lp-citacao">
+      <section id="citacao" class="lp-citacao">
         <p data-reveal>
           "Documentos decidem patrimônios, obras e direitos. O Lidimus existe para que nenhuma
-          linha — registrada ou escondida — passe despercebida."
+          linha passe despercebida."
         </p>
       </section>
 
@@ -456,7 +480,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Ferramenta 1: Matrículas ── -->
-      <section class="lp-ferramenta">
+      <section id="matriculas" class="lp-ferramenta">
         <div class="lp-ferramenta-inner">
           <div data-reveal class="lp-ferramenta-texto lp-ferramenta-texto--divisa">
             <p class="cond lp-ferramenta-nome"><span class="lp-ferramenta-num">01</span> Leitor de Matrículas</p>
@@ -491,7 +515,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Na imprensa 1: FRAUDE ── -->
-      <section class="lp-imprensa lp-imprensa--branca">
+      <section id="imprensa1" class="lp-imprensa lp-imprensa--branca">
         <div class="lp-imprensa-inner">
           <div class="lp-imprensa-cab">
             <span class="cond lp-imprensa-titulo">Na imprensa</span>
@@ -521,7 +545,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Ferramenta 2: Memorial ── -->
-      <section class="lp-ferramenta lp-ferramenta--bancada">
+      <section id="memorial" class="lp-ferramenta lp-ferramenta--bancada">
         <div class="lp-ferramenta-inner">
           <div data-reveal class="lp-ferramenta-visual lp-ferramenta-visual--divisa">
             <div class="lp-mapa" aria-hidden="true">
@@ -559,7 +583,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Na imprensa 2: GEORREF ── -->
-      <section class="lp-imprensa lp-imprensa--branca">
+      <section id="imprensa2" class="lp-imprensa lp-imprensa--branca">
         <div class="lp-imprensa-inner">
           <div class="lp-imprensa-cab">
             <span class="cond lp-imprensa-titulo">Na imprensa</span>
@@ -589,7 +613,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ══════════ Ferramenta 3: DETECTOR — poster escuro ══════════ -->
-      <section id="seguranca" class="lp-detector">
+      <section id="detector" class="lp-detector">
         <div class="lp-detector-inner">
           <div class="lp-ferramenta-inner lp-ferramenta-inner--detector">
             <div data-reveal class="lp-ferramenta-texto">
@@ -861,7 +885,7 @@ onBeforeUnmount(() => {
             <p class="cond lp-rodape-col-titulo">Ferramentas</p>
             <a href="#ferramentas" class="lp-rodape-link">Leitor de Matrículas</a>
             <a href="#ferramentas" class="lp-rodape-link">Memorial Descritivo</a>
-            <a href="#seguranca" class="lp-rodape-link">Detector de conteúdo oculto</a>
+            <a href="#detector" class="lp-rodape-link">Detector de conteúdo oculto</a>
           </div>
           <div>
             <p class="cond lp-rodape-col-titulo">Empresa</p>
@@ -1033,7 +1057,7 @@ onBeforeUnmount(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 32px;
-  height: 68px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1045,7 +1069,7 @@ onBeforeUnmount(() => {
 }
 .lp-marca-logo {
   display: block;
-  height: 40px;
+  height: 60px;
   width: auto;
 }
 .lp-nav {
@@ -1175,6 +1199,7 @@ onBeforeUnmount(() => {
   height: 20px;
   width: auto;
   display: block;
+  filter: brightness(0);
 }
 .lp-doc-cell {
   display: flex;
