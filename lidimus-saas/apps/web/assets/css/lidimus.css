@@ -73,6 +73,45 @@
   --ld-z-tooltip: 60;
 }
 
+/* ============================================================
+   Sistema Modernista — "O Cartaz Oficial" (marca vigente)
+   Base global de tokens. Fonte normativa: DESIGN.md e
+   .impeccable/design.json. A landing (escopo .lp) e as telas
+   já migradas consomem estes tokens.
+   Os tokens --ld-* acima são a identidade anterior ("A Prancha
+   Viva", verde), mantida até a migração incremental do app
+   concluir — não usar em tela nova.
+   ============================================================ */
+:root {
+  /* Cores — vermelho quase-mono sobre branco */
+  --color-bg: #f3f2f2;        /* ground — fundo do corpo */
+  --color-surface: #eae9e9;   /* 2ª camada neutra */
+  --color-text: #201e1d;      /* ink — texto e réguas */
+  --color-accent: #ec3013;    /* acento — ação primária e risco jurídico */
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+
+  /* Rampa do acento (100–900). 200 omitido de propósito. */
+  --color-accent-100: #fff2ef;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  /* Tipografia — Archivo do display ao corpo, Narrow nos rótulos */
+  --font-heading: 'Archivo', system-ui, sans-serif;
+  --font-body: 'Archivo', system-ui, sans-serif;
+  --font-cond: 'Archivo Narrow', 'Archivo', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* Utilitários do sistema Modernista */
+.cond { font-family: var(--font-cond); }
+.mono { font-family: var(--font-mono); }
+.grayscale { filter: grayscale(1) contrast(1.08); }
+
 ::selection {
   background: var(--ld-verde);
   color: var(--ld-papel);

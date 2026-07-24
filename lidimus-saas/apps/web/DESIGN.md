@@ -1,246 +1,247 @@
 ---
 name: Lidimus
-description: Inteligência documental jurídica e técnica — o documento oficial da era digital
+description: Inteligência documental jurídica e técnica — o cartaz oficial da era digital
 colors:
-  verde-registro: "#0C5C3C"
-  verde-profundo: "#00482A"
-  verde-selo: "#E4F3EA"
-  tinta: "#171C19"
-  tinta-suave: "#4E5852"
-  papel: "#F8FBF9"
-  bancada: "#F1F4F2"
-  filete: "#D3D9D6"
-  carimbo: "#C92F33"
-  carimbo-tinta: "#A51E24"
-  carimbo-selo: "#FFEDEB"
-  ocre-aviso: "#8A5F18"
-  ocre-selo: "#FAF1DF"
-  verde-traco: "#8FC3A8"
-  verde-suave-escuro: "#BFD9CC"
-  verde-claro-escuro: "#D3E8DC"
-  cinza-rodape: "#B5BCB8"
+  ground: "#F3F2F2"
+  surface: "#EAE9E9"
+  ink: "#201E1D"
+  folha: "#FFFFFF"
+  accent: "#EC3013"
+  accent-100: "#FFF2EF"
+  accent-300: "#FFC4B8"
+  accent-400: "#FF9783"
+  accent-600: "#DD2B0F"
+  accent-700: "#AE1800"
+  accent-800: "#7C1405"
 typography:
   display:
-    fontFamily: "Besley, Georgia, serif"
-    fontSize: "clamp(2.25rem, 5vw, 4rem)"
-    fontWeight: 600
-    lineHeight: 1.08
-    letterSpacing: "-0.01em"
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontSize: "clamp(2.6rem, 5.4vw, 4.6rem)"
+    fontWeight: 800
+    lineHeight: 0.98
+    letterSpacing: "-0.025em"
   headline:
-    fontFamily: "Besley, Georgia, serif"
-    fontSize: "1.75rem"
-    fontWeight: 600
-    lineHeight: 1.2
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontSize: "clamp(1.5rem, 2.6vw, 2.1rem)"
+    fontWeight: 800
+    lineHeight: 1.08
+    letterSpacing: "-0.015em"
   title:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
-    fontSize: "1.125rem"
-    fontWeight: 600
-    lineHeight: 1.35
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontSize: "1.4rem"
+    fontWeight: 800
+    lineHeight: 1.1
   body:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontFamily: "Archivo, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
-    lineHeight: 1.6
-  label:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
-    fontSize: "0.8125rem"
-    fontWeight: 500
-    lineHeight: 1.4
+    lineHeight: 1.55
+  condensed:
+    fontFamily: "Archivo Narrow, Archivo, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "0.06em"
   doc-id:
-    fontFamily: "Fragment Mono, ui-monospace, monospace"
-    fontSize: "0.8125rem"
+    fontFamily: "ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.4
 rounded:
-  xs: "2px"
-  sm: "4px"
-  md: "8px"
+  xs: "0px"
+  sm: "0px"
+  md: "0px"
 spacing:
   xs: "4px"
   sm: "8px"
   md: "16px"
   lg: "24px"
-  xl: "40px"
+  xl: "32px"
   2xl: "64px"
 components:
   button-primary:
-    backgroundColor: "{colors.verde-registro}"
-    textColor: "{colors.papel}"
-    rounded: "{rounded.sm}"
-    padding: "12px 24px"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.ground}"
+    rounded: "{rounded.md}"
+    padding: "9px 16px"
   button-primary-hover:
-    backgroundColor: "{colors.verde-profundo}"
-    textColor: "{colors.papel}"
+    backgroundColor: "{colors.accent-600}"
+    textColor: "{colors.ground}"
   button-secondary:
     backgroundColor: "transparent"
-    textColor: "{colors.tinta}"
-    rounded: "{rounded.sm}"
-    padding: "11px 24px"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "9px 16px"
   input:
-    backgroundColor: "#FFFFFF"
-    textColor: "{colors.tinta}"
-    rounded: "{rounded.sm}"
-    padding: "12px 14px"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "6px 10px"
   badge-risco:
-    backgroundColor: "{colors.carimbo-selo}"
-    textColor: "{colors.carimbo-tinta}"
+    backgroundColor: "{colors.accent-100}"
+    textColor: "{colors.accent-800}"
     rounded: "{rounded.xs}"
     padding: "4px 10px"
-  badge-aviso:
-    backgroundColor: "{colors.ocre-selo}"
-    textColor: "{colors.ocre-aviso}"
-    rounded: "{rounded.xs}"
-    padding: "4px 10px"
-  badge-ok:
-    backgroundColor: "{colors.verde-selo}"
-    textColor: "{colors.verde-profundo}"
+  selo-risco:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.ground}"
     rounded: "{rounded.xs}"
     padding: "4px 10px"
 ---
+
+<!-- Nota de transição: este documento descreve o sistema Modernista ("O Cartaz
+     Oficial"), adotado primeiro na landing (pages/index.vue, tokens --color-* no
+     escopo .lp). O restante do app (dashboard, matrículas, kml, injection, conta,
+     admin) ainda usa a identidade anterior "A Prancha Viva" (verde, tokens --ld-*
+     em assets/css/lidimus.css) e será migrado incrementalmente para esta direção.
+     Enquanto a migração não conclui, divergências apontadas pelo impeccable nessas
+     telas são esperadas — medem a distância até o alvo aqui documentado. -->
 
 # Design System: Lidimus
 
 ## 1. Overview
 
-**Creative North Star: "A Prancha Viva"**
+**Creative North Star: "O Cartaz Oficial"**
 
-O Lidimus é o documento oficial da era digital. A identidade vem do objeto físico do ofício — a certidão, o selo, o carimbo, a prancha de engenharia com seu bloco de identificação — reinterpretado de forma contemporânea, nunca nostálgica. Cada tela de relatório é tratada como uma prancha: papel claro, filetes finos e precisos, um bloco-carimbo com número, data e responsável. A confiança nasce da linguagem gráfica que advogados, engenheiros e cartórios já reconhecem como oficial.
+O Lidimus é o documento oficial da era digital — e o sistema veste esse papel como um **cartaz modernista**: plano, arquitetural, composto inteiramente em Archivo, um vermelho quase-mono sobre branco, uma grade modular visível, raio zero e réguas fortes de 2px. Nada flutua e nada é decorado — o alinhamento e a força dos filetes fazem toda a organização. Os rótulos ficam rentes à esquerda (inclusive dentro dos botões) e a fotografia imprime em preto e branco puro.
 
-A personalidade é **sóbria, premium e discreta**: a autoridade silenciosa de uma banca de elite, não o barulho de uma startup. O sistema rejeita explicitamente (do PRODUCT.md): a **ferramenta técnica intimidadora** (terminal, densidade hostil, jargão de máquina) e o **legaltech corporativo frio** (azul-marinho institucional, stock photos, tom impessoal). Rejeita também a própria identidade-rascunho anterior: o fundo creme-pergaminho, as fontes IBM Plex e a gramática de eyebrows numerados são proibidos.
+A autoridade nasce da estrutura, não do ornamento. A herança do ofício — a certidão, o carimbo, a legenda de prancha técnica, o número de matrícula conferido dígito a dígito — permanece, mas expressa na gramática do cartaz oficial: manchete em caixa-alta, tema em condensada, o número do documento em mono, o selo de risco em vermelho. A personalidade é **assertiva, precisa e sem ruído**: a página inteira lê como uma folha impressa de tipografia forte, onde o vermelho, raro, funciona como alarme.
+
+O sistema rejeita explicitamente (do PRODUCT.md): a **ferramenta técnica intimidadora** (terminal, densidade hostil, jargão de máquina) e o **legaltech corporativo frio** (azul-marinho institucional, stock photos, tom impessoal). Rejeita também toda suavização: cantos arredondados, sombras difusas em repouso, filetes reduzidos a fios, rótulos centralizados e fotos coloridas.
 
 **Key Characteristics:**
-- Tema claro, papel neutro tingido ao verde da marca (nunca ao creme)
-- Verde-registro como cor de marca: Committed na landing (30–60% da superfície), Restrained no app (≤10%)
-- Vermelho-carimbo com significado semântico exclusivo: risco jurídico
-- Filetes de 1px e blocos de identificação como gramática estrutural
-- Cantos discretos (2–8px): retangular como um documento, nunca pill
-- Denso o suficiente para trabalho, legível o suficiente para imprimir
+- Fundo claro neutro (ground #F3F2F2), tinta quase-preta (ink #201E1D), um único acento vermelho (#EC3013)
+- Grade modular visível: células de largura igual, réguas de 2px entre seções, estrutura à mostra
+- Raio 0px em tudo — retangular como uma folha impressa, nunca pill
+- Tudo alinhado à esquerda: manchetes, texto e os rótulos dentro de botões largos
+- Vermelho usado com parcimônia — ação primária, pequena ênfase e risco jurídico; corre como campo apenas nos "cartazes" (citação, CTA final)
+- Fotografia sempre em P&B (`.grayscale`); tipografia Archivo do display ao rótulo
 
-## 2. Colors: A Paleta do Registro
+## 2. Colors: Vermelho quase-mono sobre branco
 
-Verde de papel de segurança e livro-razão, tinta quase-preta, e o vermelho da almofada de carimbo — cada cor vem de um objeto real do ofício.
+Um chão claro com tinta quase-preta e **um único acento**. Este é um esquema mono: não há segunda cor de marca. Cada papel carrega uma rampa tonal 100–900 gerada em OKLCH numa mesma escala perceptual de luminosidade, para que o mesmo passo de qualquer rampa tenha o mesmo peso visual. Prefira passos da rampa a `color-mix()` ad-hoc.
 
-### Primary
-- **Verde-registro** (#0C5C3C · canônico `oklch(0.42 0.09 160)`): a cor da marca. Ações primárias, seleção ativa, links, o losango-vértice. Na landing pode carregar seções inteiras; no app aparece em ≤10% de qualquer tela. Contraste 7.72:1 sobre papel — vale para texto.
-- **Verde-profundo** (#00482A · `oklch(0.35 0.09 160)`): estado hover/active do verde-registro.
-- **Verde-selo** (#E4F3EA · `oklch(0.95 0.02 160)`): fundo de linha selecionada, badge de sucesso, destaques calmos.
+Tokens canônicos: `--color-*` no `styles.css` do design system. Nunca escreva um hex que o token já carrega.
 
-### Secondary
-- **Vermelho-carimbo** (#C92F33 · `oklch(0.55 0.19 25)`): exclusivamente risco jurídico — ônus, penhoras, indisponibilidades, erros de sistema. 5.12:1 sobre papel.
-- **Carimbo-tinta** (#A51E24 · `oklch(0.47 0.17 25)`): texto sobre fundo carimbo-selo (6.60:1).
-- **Carimbo-selo** (#FFEDEB · `oklch(0.96 0.02 25)`): fundo de callout/badge de risco.
+### Ground / Neutros
+- **Ground** (#F3F2F2 · ≈ `oklch(0.955 0.001 60)`): fundo do corpo. Off-white neutro.
+- **Surface** (#EAE9E9 · ≈ `oklch(0.93 0.001 60)`): segunda camada — preenchimentos tonais, barras-fantasma, cabeçalhos.
+- **Folha** (#FFFFFF): o branco puro da folha de documento sobre o ground (pranchas, cards de conteúdo, células de plano).
+- **Ink** (#201E1D · ≈ `oklch(0.26 0.004 40)`): todo o texto principal e as réguas de 2px. Contraste altíssimo sobre ground.
+- **Filete** (`color-mix(in srgb, var(--color-ink) 40%, transparent)`): divisores de 1px internos. As divisões estruturais entre seções são de 2px em ink cheio.
+- Rampa **neutral-100 … neutral-900** para texto sobre preenchimentos, estados e chrome.
 
-### Tertiary
-- **Ocre-aviso** (#8A5F18 · `oklch(0.52 0.1 75)`): avisos intermediários — cláusulas que merecem atenção sem serem impeditivas. 5.02:1 sobre ocre-selo. Herdeiro dessaturado do âmbar antigo.
-- **Ocre-selo** (#FAF1DF · `oklch(0.96 0.025 85)`): fundo de badge/callout de aviso.
+### Acento (papel único)
+- **Accent** (#EC3013 · ≈ `oklch(0.60 0.23 32)`): o vermelho da marca. Ação primária, ênfase pequena, o losango-vértice e — sobretudo — **risco jurídico**. Corre como campo cheio apenas nos cartazes (citação, banner de CTA). Par acento↔ground afinado para ≥3:1: serve ícones, texto grande e chrome, **não** texto corrido.
+- **Accent-100** (#FFF2EF): fundo de callout/badge de risco.
+- **Accent-300** (#FFC4B8) / **Accent-400** (#FF9783): passos claros para grafismo e texto de acento sobre superfícies escuras (mapa do memorial, poster escuro).
+- **Accent-600** (#DD2B0F): hover da ação primária sobre ground.
+- **Accent-700** (#AE1800): texto tamanho-parágrafo em acento sobre ground (o passo que atinge contraste de leitura).
+- **Accent-800** (#7C1405): texto sobre fundo accent-100 (callout de risco).
+- Rampa completa **accent-100 … accent-900** (`#FFF2EF #FFE0D9 #FFC4B8 #FF9783 #FF563C #DD2B0F #AE1800 #7C1405 #4D170E`).
 
-### Neutral
-- **Tinta** (#171C19 · `oklch(0.22 0.01 160)`): todo o texto principal. 16.57:1 sobre papel.
-- **Tinta-suave** (#4E5852 · `oklch(0.45 0.015 160)`): texto secundário, metadados, placeholders. 7.09:1 — nunca mais claro que isso.
-- **Papel** (#F8FBF9 · `oklch(0.985 0.003 160)`): fundo do corpo. Off-white tingido ao verde da marca, não ao creme.
-- **Bancada** (#F1F4F2 · `oklch(0.965 0.005 160)`): segunda camada neutra — sidebars, cabeçalhos de tabela, painéis.
-- **Filete** (#D3D9D6 · `oklch(0.88 0.008 160)`): bordas de 1px, réguas de tabela, molduras de prancha.
-
-### Sobre superfícies escuras (verde-profundo e tinta)
-Rampa inversa para texto e grafismo sobre fundos escuros — landing (seções verde-profundo, rodapé), croqui/mapa do memorial:
-- **Verde-traço** (#8FC3A8): traços de polígono, marcadores de vértice e rótulos mono do croqui/mapa sobre verde-profundo.
-- **Verde-suave-escuro** (#BFD9CC): texto de apoio sobre verde-profundo.
-- **Verde-claro-escuro** (#D3E8DC): texto destacado sobre verde-profundo (parágrafo do CTA final).
-- **Cinza-rodapé** (#B5BCB8): texto e links secundários sobre tinta (rodapé da landing).
+*(O sistema importado mantém variáveis `--color-accent-2-*` como um stand-in derivado por máquina, só para ambos os conjuntos resolverem. Trate como o mesmo papel do acento — o esquema é mono.)*
 
 ### Named Rules
-**A Regra do Carimbo.** O vermelho aparece somente onde existe risco jurídico real ou falha. Nunca decorativo, nunca em ícones neutros, nunca em contadores. Sua raridade É o alarme: se uma tela tem três vermelhos, dois estão errados.
+**A Regra do Acento.** O vermelho aparece na ação primária, em ênfase pequena e onde há **risco jurídico real ou falha** — ônus, penhoras, indisponibilidades, erros de sistema. Numa página quase toda ink-sobre-ground, o vermelho lê naturalmente como alarme; sua raridade É o alerta. Nunca decorativo, nunca em ícones neutros, nunca em contadores. Se uma tela tem três vermelhos que não são ação nem risco, dois estão errados.
 
-**A Regra do Papel Limpo.** O fundo do corpo é sempre papel (#F8FBF9). A faixa creme/pergaminho (OKLCH L 0.84–0.97 com matiz 40–100) é proibida em qualquer superfície — foi o vício da identidade anterior.
+**A Regra do Preto e Branco.** Toda fotografia de conteúdo passa pelo wrapper `.grayscale` e imprime em P&B puro. Imagem colorida ou tingida é proibida — o cartaz não coloriza.
 
 ## 3. Typography
 
-**Display Font:** Besley (com Georgia, serif)
-**Body Font:** Hanken Grotesk (com system-ui, sans-serif)
-**Label/Mono Font:** Fragment Mono (com ui-monospace, monospace) — uso restrito
+**Fonte única:** Archivo (com system-ui, sans-serif) — do display ao corpo.
+**Condensada:** Archivo Narrow — rótulos, navegação, kickers e labels de botão.
+**Mono:** ui-monospace / SF Mono — restrita a identificadores documentais.
 
-**Character:** Besley é um revival de Clarendon — a letra da imprensa oficial, do carimbo e do livro de registro — e dá gravidade documental aos títulos. Hanken Grotesk é a grotesca humanista discreta que carrega a UI sem chamar atenção. O par contrasta em eixo (slab-serif × grotesca), nunca compete.
+**Character:** Archivo é uma grotesca de baixo contraste, geométrica e industrial — a letra do cartaz e do impresso oficial. Um só desenho carrega tudo: o peso 800 em caixa-alta dá a manchete; o 400 carrega o corpo. Archivo Narrow (condensada) marca o registro "editorial" — tema, eyebrow, rótulo — em caixa-alta com tracking. O contraste é de largura e peso dentro da mesma família, nunca de duas fontes brigando.
 
 ### Hierarchy
-- **Display** (600, clamp(2.25rem, 5vw, 4rem), 1.08): heros da landing apenas. Nunca dentro do app.
-- **Headline** (600, 1.75rem, 1.2): título de página e de relatório ("Matrícula nº 48.221"). Besley.
-- **Title** (600, 1.125rem, 1.35): cabeçalhos de seção e de painel. Hanken Grotesk.
-- **Body** (400, 1rem, 1.6): texto corrido, máximo 72ch. Hanken Grotesk.
-- **Label** (500, 0.8125rem, 1.4): rótulos de formulário, cabeçalhos de tabela, botões pequenos. Caixa normal — uppercase apenas no bloco-carimbo.
-- **Doc-id** (400, 0.8125rem, tabular): Fragment Mono para identificadores documentais — nº de matrícula, protocolo, coordenadas UTM, hash.
+- **Display** (800, clamp(2.6rem, 5.4vw, 4.6rem), 0.98, -0.025em, **UPPERCASE**): heros e cartazes da landing. Nunca dentro do app.
+- **Headline** (800, clamp(1.5rem, 2.6vw, 2.1rem), 1.08): título de ferramenta, de relatório e manchete de clipe.
+- **Title** (800, 1.4rem, uppercase): nome de plano, título de card de documento ("Matrícula nº 48.221").
+- **Body** (400, 1rem, 1.55): texto corrido, máximo ~66ch.
+- **Condensed** (Archivo Narrow, 600–700, uppercase, tracking 0.06–0.14em): eyebrows, navegação, rótulos de botão, temas de seção. A classe utilitária é `.cond`.
+- **Doc-id** (mono, 0.75rem, tabular): nº de matrícula, protocolo, coordenadas UTM, nome de arquivo, hash.
 
 ### Named Rules
-**A Regra do Numerador.** Fragment Mono aparece apenas em identificadores que um profissional conferiria dígito a dígito (matrícula, protocolo, coordenada, hash). Mono em rótulos, eyebrows ou navegação é proibido — é o figurino de "ferramenta técnica" que o PRODUCT.md veta.
+**A Regra do Numerador.** Mono aparece apenas em identificadores que um profissional conferiria dígito a dígito (matrícula, protocolo, coordenada, arquivo, hash). Mono decorativo em corpo ou navegação é proibido — é o figurino de "ferramenta técnica" que o PRODUCT.md veta.
 
-**A Regra da Escala Fixa.** No app, tamanhos em rem fixos (ratio ~1.2); clamp() fluido existe só na landing. Um h1 que encolhe dentro de um painel é bug, não responsividade.
+**A Regra do Alinhamento à Esquerda.** Manchetes, texto e os rótulos dentro de botões ficam rentes à esquerda. Um botão mais largo que seu rótulo começa o texto (e o ícone à direita) na borda de padding esquerda, nunca centralizado. Hero centralizado é bug.
 
-## 4. Elevation
+**A Regra da Escala Fixa.** No app, tamanhos em rem fixos (ratio ~1.2); `clamp()` fluido existe só na landing/cartazes. Um h1 que encolhe dentro de um painel é bug, não responsividade.
 
-Plano por padrão, como papel sobre a mesa. A profundidade vem de filetes de 1px e da camada tonal bancada-sobre-papel, não de sombras. Sombra existe apenas quando um elemento realmente flutua acima do documento: dropdown, modal, toast.
+## 4. Elevation: Plano, estrutura sobre sombra
+
+A profundidade vem da **estrutura**, não da sombra. Grade modular: conteúdo em células de largura igual, ritmo horizontal e vertical forte, estrutura visível. Réguas de 2px em ink separam as seções maiores; filetes de 1px dividem células internas. As bordas organizam — não as suavize em fios nem as troque por espaço em branco.
 
 ### Shadow Vocabulary
-- **Flutuante** (`box-shadow: 0 4px 16px -4px rgba(23, 28, 25, 0.16)`): dropdowns, popovers, date-pickers.
-- **Sobreposto** (`box-shadow: 0 24px 48px -16px rgba(23, 28, 25, 0.28)`): modais e painéis laterais, sempre com backdrop `rgba(23, 28, 25, 0.5)`.
+Plano por padrão. Há dois usos de sombra, e só dois:
+- **Cartaz** (`box-shadow: 12px 12px 0 var(--color-ink)` — sólida, deslocada, sem blur): a assinatura de elevação do sistema. Reservada à prancha/documento em destaque (o card do hero). É desenho, não profundidade física.
+- **Flutuante** (`--shadow-sm/md/lg`, tingidas ao ink): apenas para o que de fato flutua acima da folha — dropdown, popover, modal, toast.
 
 ### Named Rules
-**A Regra do Papel Sobre a Mesa.** Superfícies em repouso são planas com filete de 1px. Se um card estático tem sombra, a sombra está errada.
+**A Regra da Régua.** Superfícies em repouso são planas, emolduradas por régua de 2px (seções) ou filete de 1px (células). Se um card estático tem sombra difusa, a sombra está errada — a única sombra em repouso permitida é a do Cartaz (sólida, sem blur), no documento em destaque.
+
+**A Regra do Raio Zero.** Nenhum canto é arredondado. `--radius-md` é 0px de propósito. Botão pill, card com borda macia e input com raio são proibidos.
 
 ## 5. Components
 
-A gramática compartilhada: cantos retos-discretos (2–8px), filetes de 1px, estados completos (default, hover, focus, active, disabled, loading, error). Botão pill é proibido — documento não tem cantos redondos.
+A gramática compartilhada: raio 0, réguas de 2px e filetes de 1px, rótulos à esquerda, estados temáticos completos (default, hover, focus-visible, active, disabled). Ícones: **Lucide** (https://lucide.dev). Estados vêm da rampa do acento — não os re-estilize por página.
 
 ### Buttons
-- **Shape:** cantos discretos (4px), altura 44px, padding 12px 24px, Hanken Grotesk 600 0.9375rem.
-- **Primary:** verde-registro (#0C5C3C) com texto papel; hover verde-profundo (#00482A); focus-visible com anel `outline: 2px solid #0C5C3C; outline-offset: 2px`.
-- **Secondary:** transparente com borda 1px tinta (#171C19); hover preenche tinta com texto papel.
-- **Destructive:** carimbo (#C92F33) apenas para ações que destroem dados; hover carimbo-tinta.
-- **Disabled:** bancada (#F1F4F2) com texto tinta-suave a 60%; cursor not-allowed.
-- **Loading:** spinner de 16px no lugar do label, largura travada para não saltar.
+- **Shape:** raio 0, padding 9px 16px (lg: 12px 22px), Archivo Narrow 700 caixa-alta, **rótulo rente à esquerda** em botões de bloco.
+- **Primary:** accent (#EC3013) com texto ground; hover accent-600; active accent-700.
+- **Secondary:** transparente com filete 1px; hover preenche com `color-mix(ink 7%)`.
+- **Ghost:** só texto em acento; hover tinta accent-100.
+- **Inverso:** sobre campo de acento (cartazes), fundo ground com texto acento.
+- **Focus-visible:** `outline: 2px solid var(--color-accent); outline-offset: 2px` — nunca o anel azul padrão.
+- **Disabled:** opacidade 45%, cursor not-allowed.
 
-### Chips / Badges de status
-- **Style:** selo retangular (2px), padding 4px 10px, Label 500, sem borda.
-- **Estados de análise:** processando = bancada + tinta-suave; concluído = verde-selo + verde-profundo; risco/erro = carimbo-selo + carimbo-tinta; aviso = ocre-selo + ocre-aviso.
+### Selos / Tags de status
+- **Selo:** retângulo (raio 0), padding 4px 10px, condensada 700 caixa-alta.
+- **Risco alto / falha:** selo em accent cheio com texto ground; callout em accent-100 + texto accent-800 + borda accent.
+- **Neutro / meta:** tag-neutral (neutral-100 + neutral-800) ou tag-outline (filete de acento).
 
 ### Cards / Containers
-- **Corner Style:** 8px em painéis, 4px em elementos internos.
-- **Background:** papel para conteúdo, bancada para áreas de apoio (nunca card dentro de card).
-- **Shadow Strategy:** nenhuma em repouso (Regra do Papel Sobre a Mesa).
-- **Border:** filete 1px (#D3D9D6) sempre presente — a moldura é a identidade.
-- **Internal Padding:** 24px (lg); 16px (md) em densidade de tabela.
+- **Corner:** 0px sempre.
+- **Background:** folha (#FFFFFF) para conteúdo, surface para áreas de apoio (nunca card dentro de card).
+- **Border:** filete 1px nas células internas; régua de 2px ink nas molduras estruturais — a moldura é a identidade.
+- **Shadow:** nenhuma em repouso, salvo o Cartaz (12px 12px 0 ink) no documento em destaque.
+- **Padding interno:** 24px (lg); 16px (md) em densidade de tabela.
 
 ### Inputs / Fields
-- **Style:** fundo branco (#FFFFFF), borda 1px filete, 4px de raio, padding 12px 14px, texto tinta.
-- **Placeholder:** tinta-suave (#4E5852) — 7:1, nunca cinza-claro.
-- **Focus:** borda verde-registro + anel `box-shadow: 0 0 0 3px #E4F3EA`.
-- **Error:** borda carimbo (#C92F33) + mensagem em carimbo-tinta abaixo, nunca só cor.
-- **Disabled:** fundo bancada, texto tinta-suave.
+- **Style:** fundo surface, filete 1px, raio 0, padding 6px 10px, texto ink, caret em acento.
+- **Placeholder:** neutro dessaturado — nunca cinza-claro sem contraste.
+- **Focus:** borda accent + `focus-visible` de 2px acento.
+- **Error:** borda accent + mensagem em accent-700 abaixo, nunca só cor.
 
-### Navigation
-- **App:** barra superior em papel com filete inferior; links em tinta-suave, ativo em tinta com sublinhado de 2px verde-registro; foco visível sempre. Mobile: colapsa em menu de painel lateral (sobreposto).
-- **Landing:** mesma barra, logo com losango-vértice à esquerda, CTA primary à direita.
+### Navigation / Masthead
+- **Masthead:** tira superior em ink com texto ground — o "cabeçalho de jornal" (registro + edição), condensada caixa-alta.
+- **Barra:** logo à esquerda, navegação em condensada caixa-alta, régua inferior de 2px ink, CTA primary à direita. Links em ink; hover em acento.
 
-### Bloco-Carimbo (componente-assinatura)
-O rodapé/cabeçalho de identificação de todo relatório, herdado da legenda de prancha técnica: moldura de filete 1px dividida em células — losango-vértice, "LIDIMUS", tipo de análise, nº do documento em Fragment Mono, data e hora, status. Labels em uppercase 0.6875rem tracking 0.08em (o único uppercase permitido no sistema). É a assinatura visual do produto: aparece no relatório na tela, no PDF impresso e, em miniatura, nos cards do dashboard.
+### Bloco-documento (componente-assinatura)
+A prancha/documento em destaque, herdeira da legenda de prancha técnica e do cabeçalho de certidão: moldura de régua 2px com sombra de Cartaz, topo dividido em células por filete — marca, "Documento", nº em mono, selo de status — e corpo com título, cartório e o callout de risco (accent-100 + accent-800). É a assinatura visual do produto: aparece no relatório na tela, no PDF impresso e, em miniatura, nos cards do dashboard.
 
-**Implementação canônica:** `components/BlocoCarimbo.vue` (props `analise`/`documentoLabel`/`documento`/`emitido`, slot = selo). Os laudos NUNCA reimplementam o carimbo localmente. Os estados compartilhados de laudo vivem em `components/PranchaFalha.vue` (falha com retry + suporte) e `components/PranchaEsqueleto.vue` (skeleton em forma de prancha). O utilitário `.sr-only` é global (`assets/css/lidimus.css`) — não redefinir por página.
+**Implementação canônica:** `components/BlocoCarimbo.vue` (props `analise`/`documentoLabel`/`documento`/`emitido`, slot = selo). Os laudos NUNCA reimplementam o bloco localmente. Estados compartilhados vivem em `components/PranchaFalha.vue` (falha com retry) e `components/PranchaEsqueleto.vue` (skeleton). O utilitário `.sr-only` é global — não redefinir por página.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** usar tinta (#171C19) para texto corrido e tinta-suave (#4E5852) como piso absoluto de contraste (7:1).
-- **Do** reservar vermelho-carimbo exclusivamente a risco jurídico e falha (A Regra do Carimbo).
-- **Do** emoldurar relatórios com filetes 1px e o bloco-carimbo — a prancha é a identidade.
-- **Do** manter o app Restrained (verde ≤10%) e a landing Committed (verde 30–60%).
-- **Do** dar a todo interativo os 7 estados: default, hover, focus, active, disabled, loading, error.
-- **Do** usar skeleton em carregamento e estados vazios que ensinam o fluxo ("Envie uma certidão para gerar seu primeiro parecer").
-- **Do** motion 150–250ms, ease-out, só para mudança de estado; alternativa via `prefers-reduced-motion`.
+- **Do** deixar a grade aparecer: células de largura igual, réguas de 2px entre seções, estrutura visível.
+- **Do** manter tudo rente à esquerda — manchetes, texto e rótulos dentro de botões largos.
+- **Do** usar o acento com parcimônia (ação primária, ênfase pequena, risco); deixá-lo correr como campo só nos cartazes (citação, CTA final).
+- **Do** reservar o vermelho a ação, ênfase e risco jurídico/falha (A Regra do Acento).
+- **Do** imprimir fotografia em P&B com `.grayscale`.
+- **Do** compor tudo em Archivo (display→corpo) e Archivo Narrow (rótulos/nav/kickers); mono só em identificadores documentais.
+- **Do** dar a todo interativo estados temáticos: hover e active da rampa do acento, focus-visible de 2px acento.
+- **Do** usar ícones Lucide; motion 150–250ms ease-out só para mudança de estado, com alternativa via `prefers-reduced-motion`.
 
 ### Don't:
-- **Don't** usar fundo creme/pergaminho em nenhuma superfície — a identidade anterior não é cânone (A Regra do Papel Limpo).
-- **Don't** usar IBM Plex (Sans/Mono/Serif), Spectral ou Inter — fontes da identidade-rascunho e defaults de IA.
-- **Don't** usar eyebrows mono uppercase acima de seções nem numeração 01/02/03 como scaffolding — a gramática antiga está morta.
-- **Don't** parecer "ferramenta técnica intimidadora": mono decorativo, tema terminal, jargão de máquina (OCR, worker, fila) exposto na UI.
-- **Don't** parecer "legaltech corporativo frio": azul-marinho institucional, stock photos, tom de grande consultoria.
-- **Don't** usar botão pill, border-left colorido como accent, gradient text, glassmorphism ou card dentro de card.
-- **Don't** usar sombra em superfície estática — profundidade é filete e camada tonal.
-- **Don't** deixar o verde invadir a semântica: sucesso usa verde-selo/verde-profundo, mas gráficos e dados pedem a rampa neutra primeiro.
+- **Don't** arredondar nenhum canto — raio é 0 de propósito (A Regra do Raio Zero).
+- **Don't** centralizar rótulos de botão nem o texto do hero (A Regra do Alinhamento à Esquerda).
+- **Don't** suavizar as réguas em fios nem trocá-las por espaço em branco.
+- **Don't** tingir ou colorizar imagem (A Regra do Preto e Branco).
+- **Don't** usar sombra difusa em superfície estática — a única sombra em repouso é o Cartaz (sólida, sem blur).
+- **Don't** deixar o vermelho virar decoração: fora de ação, ênfase e risco, ele é ruído.
+- **Don't** parecer "ferramenta técnica intimidadora" (mono decorativo, tema terminal, jargão de máquina) nem "legaltech corporativo frio" (azul-marinho, stock photos, tom de grande consultoria).
+- **Don't** introduzir uma segunda cor de marca — o esquema é mono; o acento-2 é apenas um stand-in que resolve para o mesmo papel.

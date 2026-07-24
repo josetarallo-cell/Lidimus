@@ -56,13 +56,19 @@ async function sair() {
 </template>
 
 <style scoped>
+/* Piloto de migração para o sistema Modernista ("O Cartaz Oficial").
+   Cor, tipografia, raio e peso de régua vêm de --color-* / --font-*
+   (assets/css/lidimus.css, normativo em DESIGN.md). Espaçamento, z-index
+   e motion continuam em --ld-space-* / --ld-z-* / --ld-dur-estado — são
+   infraestrutura neutra, não identidade de marca, e seguem compartilhados
+   entre "A Prancha Viva" (telas ainda não migradas) e o Modernista. */
 .app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--ld-papel);
-  color: var(--ld-tinta);
-  font-family: var(--ld-font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
 }
 
 .skip-link {
@@ -70,12 +76,12 @@ async function sair() {
   left: -9999px;
   top: 0;
   z-index: var(--ld-z-toast);
-  background: var(--ld-verde);
-  color: var(--ld-papel);
+  background: var(--color-accent);
+  color: var(--color-bg);
   padding: 10px 16px;
-  border-radius: 0 0 var(--ld-r-sm) 0;
+  border-radius: 0;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }
 .skip-link:focus-visible {
@@ -86,8 +92,8 @@ async function sair() {
   position: sticky;
   top: 0;
   z-index: var(--ld-z-sticky);
-  background: var(--ld-papel);
-  border-bottom: 1px solid var(--ld-filete);
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-text);
 }
 
 .app-header-inner {
@@ -119,40 +125,45 @@ async function sair() {
 }
 
 .app-nav-link {
-  color: var(--ld-tinta-suave);
+  font-family: var(--font-cond);
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
   text-decoration: none;
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   padding: 18px 0 16px;
   border-bottom: 2px solid transparent;
   transition: color var(--ld-dur-estado) var(--ld-ease);
 }
 .app-nav-link:hover {
-  color: var(--ld-tinta);
+  color: var(--color-text);
 }
 .app-nav-link.router-link-active {
-  color: var(--ld-tinta);
-  border-bottom-color: var(--ld-verde);
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
 }
 
 /* "Sair" é ação, não navegação: botão com filete, apartado dos links. */
 .app-nav-sair {
-  border: 1px solid var(--ld-filete);
+  border: 1px solid var(--color-divider);
   background: none;
-  border-radius: var(--ld-r-sm);
+  border-radius: 0;
   padding: 6px 14px;
-  font-family: var(--ld-font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--ld-tinta-suave);
+  font-family: var(--font-cond);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
   cursor: pointer;
   transition:
     color var(--ld-dur-estado) var(--ld-ease),
     border-color var(--ld-dur-estado) var(--ld-ease);
 }
 .app-nav-sair:hover {
-  color: var(--ld-tinta);
-  border-color: var(--ld-tinta-suave);
+  color: var(--color-text);
+  border-color: var(--color-text);
 }
 .app-nav-sair:disabled {
   opacity: 0.6;
@@ -180,7 +191,7 @@ async function sair() {
   }
   .app-nav-link {
     padding: 10px 0 12px;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
   }
   .app-main {
     padding: var(--ld-space-lg) var(--ld-space-md) var(--ld-space-xl);
@@ -188,22 +199,22 @@ async function sair() {
 }
 
 .app-footer {
-  border-top: 1px solid var(--ld-filete);
-  background: var(--ld-bancada);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-surface);
 }
 .app-footer p {
   max-width: 72rem;
   margin: 0 auto;
   padding: var(--ld-space-md) var(--ld-space-lg);
   font-size: 0.8125rem;
-  color: var(--ld-tinta-suave);
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
 }
 .app-footer-link {
-  color: var(--ld-verde);
-  font-weight: 500;
+  color: var(--color-accent);
+  font-weight: 700;
 }
 .app-footer-link:hover {
-  color: var(--ld-verde-profundo);
+  color: var(--color-accent-600);
 }
 
 @media print {
@@ -213,7 +224,7 @@ async function sair() {
     display: none;
   }
   .app-shell {
-    background: var(--ld-folha);
+    background: #fff;
   }
   .app-main {
     max-width: 100%;
