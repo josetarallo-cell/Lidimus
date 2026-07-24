@@ -14,6 +14,34 @@ async function sair() {
     saindo.value = false
   }
 }
+
+// ── Dropdown "Ferramentas" ──────────────────────────────────────────────────
+const route = useRoute()
+const FERRAMENTAS_ROTAS = ['/matriculas', '/croqui', '/kml', '/injection']
+const ferramentasAtivo = computed(() => FERRAMENTAS_ROTAS.some((r) => route.path.startsWith(r)))
+
+const ferramentasAberto = ref(false)
+const ferramentasRef = ref<HTMLElement | null>(null)
+
+function aoClicarFora(e: MouseEvent) {
+  if (ferramentasRef.value && !ferramentasRef.value.contains(e.target as Node)) {
+    ferramentasAberto.value = false
+  }
+}
+function aoPressionarEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') ferramentasAberto.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', aoClicarFora)
+  document.addEventListener('keydown', aoPressionarEsc)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', aoClicarFora)
+  document.removeEventListener('keydown', aoPressionarEsc)
+})
+watch(() => route.path, () => {
+  ferramentasAberto.value = false
+})
 </script>
 
 <template>
@@ -27,10 +55,42 @@ async function sair() {
         </NuxtLink>
         <nav class="app-nav" aria-label="Principal">
           <NuxtLink to="/dashboard" class="app-nav-link">Painel</NuxtLink>
-          <NuxtLink to="/matriculas" class="app-nav-link">Matrículas</NuxtLink>
-          <NuxtLink to="/croqui" class="app-nav-link">Croqui</NuxtLink>
-          <NuxtLink to="/kml" class="app-nav-link">Memoriais</NuxtLink>
-          <NuxtLink to="/injection" class="app-nav-link">Detector</NuxtLink>
+          <div ref="ferramentasRef" class="app-nav-dropdown">
+            <button
+              type="button"
+              class="app-nav-link app-nav-link--dropdown"
+              :class="{ 'router-link-active': ferramentasAtivo }"
+              aria-haspopup="true"
+              :aria-expanded="ferramentasAberto"
+              @click="ferramentasAberto = !ferramentasAberto"
+            >
+              Ferramentas
+              <svg
+                class="app-nav-dropdown-caret"
+                :class="{ 'app-nav-dropdown-caret--aberto': ferramentasAberto }"
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+              >
+                <path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+            </button>
+            <div v-if="ferramentasAberto" class="app-nav-dropdown-painel" role="menu">
+              <NuxtLink to="/matriculas" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
+                Matrículas
+              </NuxtLink>
+              <NuxtLink to="/croqui" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
+                Croqui
+              </NuxtLink>
+              <NuxtLink to="/kml" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
+                Memoriais
+              </NuxtLink>
+              <NuxtLink to="/injection" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
+                Detector
+              </NuxtLink>
+            </div>
+          </div>
           <NuxtLink to="/conta" class="app-nav-link">Conta</NuxtLink>
           <NuxtLink v-if="me?.isPlatformAdmin" to="/admin/clientes" class="app-nav-link">Admin</NuxtLink>
           <button type="button" class="app-nav-sair" :disabled="saindo" @click="sair">
@@ -142,6 +202,60 @@ async function sair() {
 .app-nav-link.router-link-active {
   color: var(--color-text);
   border-bottom-color: var(--color-accent);
+}
+
+/* Dropdown "Ferramentas" — agrupa Matrículas / Croqui / Memoriais / Detector. */
+.app-nav-dropdown {
+  position: relative;
+}
+.app-nav-link--dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin: 0;
+  cursor: pointer;
+}
+.app-nav-dropdown-caret {
+  transition: transform var(--ld-dur-estado) var(--ld-ease);
+}
+.app-nav-dropdown-caret--aberto {
+  transform: rotate(180deg);
+}
+.app-nav-dropdown-painel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: var(--ld-z-dropdown);
+  min-width: 176px;
+  margin-top: 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+}
+.app-nav-dropdown-item {
+  display: block;
+  padding: 10px 16px;
+  font-family: var(--font-cond);
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    color var(--ld-dur-estado) var(--ld-ease),
+    background var(--ld-dur-estado) var(--ld-ease);
+}
+.app-nav-dropdown-item:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.app-nav-dropdown-item.router-link-active {
+  color: var(--color-text);
 }
 
 /* "Sair" é ação, não navegação: botão com filete, apartado dos links. */
