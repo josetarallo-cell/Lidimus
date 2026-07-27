@@ -4,8 +4,28 @@ useHead({ title: 'Painel — Lidimus' })
 const PAGE_SIZE = 20
 const pagina = ref(1)
 
+// Abas por origem — cada aba é um tipo de job, com sua própria paginação
+const abas = [
+  { tipo: 'matricula', label: 'Matrículas', novoTo: '/matriculas', vazioTexto: 'Envie uma certidão de matrícula para gerar seu primeiro parecer.' },
+  { tipo: 'croqui', label: 'Croqui', novoTo: '/croqui', vazioTexto: 'Envie um arquivo para gerar seu primeiro croqui do terreno.' },
+  { tipo: 'kml', label: 'Memorial', novoTo: '/kml', vazioTexto: 'Envie um KML para gerar seu primeiro memorial descritivo.' },
+  { tipo: 'injection', label: 'Detector', novoTo: '/injection', vazioTexto: 'Envie um PDF para verificar conteúdo oculto.' },
+] as const
+
+const abaAtiva = ref<(typeof abas)[number]['tipo']>('matricula')
+const abaInfo = computed(() => abas.find((a) => a.tipo === abaAtiva.value)!)
+
+function selecionarAba(tipo: (typeof abas)[number]['tipo']) {
+  abaAtiva.value = tipo
+  pagina.value = 1
+}
+
 const { data: jobData, refresh } = await useFetch('/api/jobs', {
-  query: computed(() => ({ limit: PAGE_SIZE, offset: (pagina.value - 1) * PAGE_SIZE })),
+  query: computed(() => ({
+    type: abaAtiva.value,
+    limit: PAGE_SIZE,
+    offset: (pagina.value - 1) * PAGE_SIZE,
+  })),
 })
 const { data: creditos } = await useFetch('/api/account/credits')
 
@@ -16,13 +36,6 @@ const totalPaginas = computed(() => Math.max(1, Math.ceil((jobData.value?.total 
 watch(totalPaginas, (t) => {
   if (pagina.value > t) pagina.value = t
 })
-
-const typeLabel: Record<string, string> = {
-  matricula: 'Matrícula',
-  kml: 'Memorial KML',
-  injection: 'Verificação de PDF',
-  croqui: 'Croqui do terreno',
-}
 
 // Etapas em linguagem de ofício — nunca jargão de máquina na UI
 const stageLabel: Record<string, string> = {
@@ -132,27 +145,36 @@ onMounted(() => {
         <NuxtLink to="/conta/creditos" class="painel-saldo" title="Ver histórico de créditos">
           <span class="painel-saldo-valor">{{ creditos?.balance ?? 0 }}</span> créditos
         </NuxtLink>
-        <NuxtLink to="/matriculas" class="ld-btn ld-btn--secondary ld-btn--sm">Nova matrícula</NuxtLink>
-        <NuxtLink to="/croqui" class="ld-btn ld-btn--secondary ld-btn--sm">Novo croqui</NuxtLink>
-        <NuxtLink to="/kml" class="ld-btn ld-btn--secondary ld-btn--sm">Novo memorial</NuxtLink>
-        <NuxtLink to="/injection" class="ld-btn ld-btn--secondary ld-btn--sm">Verificar PDF</NuxtLink>
       </div>
     </header>
 
     <section class="ld-painel">
-      <h2 class="tabela-titulo">Análises recentes</h2>
+      <div class="abas-cabecalho">
+        <h2 class="tabela-titulo">Análises recentes</h2>
+        <nav class="abas" role="tablist" aria-label="Filtrar por origem">
+          <button
+            v-for="aba in abas"
+            :key="aba.tipo"
+            type="button"
+            role="tab"
+            class="aba"
+            :class="{ 'aba--ativa': abaAtiva === aba.tipo }"
+            :aria-selected="abaAtiva === aba.tipo"
+            @click="selecionarAba(aba.tipo)"
+          >
+            {{ aba.label }}
+          </button>
+        </nav>
+      </div>
 
       <div v-if="!jobList.length" class="vazio">
         <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true">
           <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
           <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
         </svg>
-        <p class="vazio-titulo">Nenhuma análise ainda</p>
+        <p class="vazio-titulo">Nenhuma análise em {{ abaInfo.label }} ainda</p>
         <p class="vazio-texto">
-          Envie uma <NuxtLink to="/matriculas">certidão de matrícula</NuxtLink> para gerar seu
-          primeiro parecer — ou comece por um
-          <NuxtLink to="/kml">memorial descritivo</NuxtLink> ou pela
-          <NuxtLink to="/injection">verificação de um PDF</NuxtLink>.
+          {{ abaInfo.vazioTexto }} <NuxtLink :to="abaInfo.novoTo">Começar agora</NuxtLink>.
         </p>
       </div>
 
@@ -160,7 +182,6 @@ onMounted(() => {
         <table class="tabela">
           <thead>
             <tr>
-              <th scope="col">Tipo</th>
               <th scope="col">Arquivo</th>
               <th scope="col">Nº do documento</th>
               <th scope="col">Status</th>
@@ -171,7 +192,6 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="job in (jobList as Job[])" :key="job.id" class="linha" @click="abrir(job)">
-              <td class="celula-tipo">{{ typeLabel[job.type] ?? job.type }}</td>
               <td class="celula-arquivo">
                 <span class="arquivo-nome" :title="arquivoNome(job)">{{ arquivoNome(job) }}</span>
               </td>
@@ -267,13 +287,48 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.tabela-titulo {
-  margin: 0;
+.abas-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+  flex-wrap: wrap;
   padding: var(--ld-space-md) var(--ld-space-lg);
   border-bottom: 1px solid var(--ld-filete);
+}
+.tabela-titulo {
+  margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.35;
+}
+.abas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.aba {
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-folha);
+  color: var(--ld-tinta-suave);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition:
+    background var(--ld-dur-estado) var(--ld-ease),
+    color var(--ld-dur-estado) var(--ld-ease),
+    border-color var(--ld-dur-estado) var(--ld-ease);
+}
+.aba:hover {
+  border-color: var(--ld-verde);
+}
+.aba--ativa {
+  background: var(--ld-verde);
+  border-color: var(--ld-verde);
+  color: var(--ld-folha);
 }
 
 .vazio {
@@ -339,10 +394,6 @@ onMounted(() => {
 }
 .tabela tbody tr:hover {
   background: var(--ld-papel);
-}
-.celula-tipo {
-  font-weight: 500;
-  white-space: nowrap;
 }
 .celula-arquivo {
   max-width: 22ch;
@@ -417,7 +468,6 @@ onMounted(() => {
     padding: 0;
     border: none;
   }
-  .celula-tipo,
   .celula-arquivo,
   .celula-numero,
   .celula-status,
