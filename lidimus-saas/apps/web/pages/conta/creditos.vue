@@ -64,9 +64,26 @@ function deltaFmt(delta: number): string {
           Saldo baixo — uma análise de memorial consome 50 créditos.
         </p>
       </div>
-      <!-- Aponta para planos: a compra avulsa de créditos ainda não existe,
-           então o botão não promete o que a página de destino não vende -->
       <NuxtLink to="/conta/assinatura" class="ld-btn ld-btn--primary">Ver planos e créditos</NuxtLink>
+    </section>
+
+    <section class="ld-painel avulso">
+      <div class="avulso-info">
+        <p class="avulso-rotulo">Créditos avulsos</p>
+        <p class="avulso-titulo">Precisa de créditos agora?</p>
+        <p class="avulso-texto">
+          Compre um pacote avulso por R$ 89 via Pix, sem precisar mudar de plano. Depois de
+          confirmado o pagamento, os créditos são adicionados à sua conta.
+        </p>
+      </div>
+      <a
+        href="https://www.asaas.com/c/0wglmp28h3nehpto"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="ld-btn ld-btn--secondary"
+      >
+        Comprar via Pix — R$ 89
+      </a>
     </section>
 
     <section class="ld-painel historico">
@@ -144,6 +161,35 @@ function deltaFmt(delta: number): string {
   margin: var(--ld-space-xs) 0 0;
   font-size: 0.875rem;
   color: var(--ld-ocre);
+}
+
+.avulso {
+  padding: var(--ld-space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--ld-space-lg);
+}
+.avulso-rotulo {
+  margin: 0 0 2px;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+.avulso-titulo {
+  margin: 0 0 4px;
+  font-family: var(--ld-font-serif);
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+.avulso-texto {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+  line-height: 1.5;
 }
 
 .historico {
