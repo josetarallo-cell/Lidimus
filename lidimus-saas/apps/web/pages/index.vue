@@ -50,9 +50,10 @@ useHead({
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             offers: [
-              { '@type': 'Offer', name: 'Amador', price: '29.00', priceCurrency: 'BRL' },
-              { '@type': 'Offer', name: 'Profissional', price: '149.00', priceCurrency: 'BRL' },
-              { '@type': 'Offer', name: 'Empresarial', price: '599.00', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Croqui', price: '29.90', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Essencial', price: '197.00', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Profissional', price: '497.00', priceCurrency: 'BRL' },
+              { '@type': 'Offer', name: 'Escritório', price: '1297.00', priceCurrency: 'BRL' },
             ],
           },
         ],
@@ -66,23 +67,25 @@ const billing = ref<'mensal' | 'anual'>('mensal')
 const isAnual = computed(() => billing.value === 'anual')
 
 function fmt(n: number) {
-  return 'R$ ' + n.toLocaleString('pt-BR')
+  const opts = Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  return 'R$ ' + n.toLocaleString('pt-BR', opts)
 }
 
 const annualNote = computed(() =>
   isAnual.value ? 'Equivale a 2 meses grátis · cobrança anual' : 'Cobrança mensal · cancele quando quiser',
 )
 
-const empresarialMailto =
-  'mailto:jose.tarallo@gmail.com?subject=Lidimus%20Empresarial%20%E2%80%94%20contato%20comercial' +
-  '&body=Ol%C3%A1%2C%20tenho%20interesse%20no%20plano%20Empresarial%20do%20Lidimus.%0AEscrit%C3%B3rio%2Fempresa%3A%20%0AVolume%20estimado%20de%20documentos%2Fm%C3%AAs%3A%20'
+const enterpriseMailto =
+  'mailto:jose.tarallo@gmail.com?subject=Lidimus%20Enterprise%20%E2%80%94%20contato%20comercial' +
+  '&body=Ol%C3%A1%2C%20tenho%20interesse%20no%20plano%20Enterprise%20do%20Lidimus.%0AEscrit%C3%B3rio%2Fempresa%3A%20%0AVolume%20estimado%20de%20documentos%2Fm%C3%AAs%3A%20'
 
 interface PlanoBase {
   nome: string
   desc: string
   mo: number
   yr: number
-  creditos: string
+  sobContrato?: boolean
+  specs: string[]
   cta: string
   to?: string
   mailto?: string
@@ -94,14 +97,28 @@ interface PlanoBase {
 
 const planosBase: PlanoBase[] = [
   {
-    nome: 'Amador',
-    desc: 'Para profissionais autônomos começando.',
-    mo: 29,
-    yr: 290,
-    creditos: '500 créditos / mês',
-    cta: 'Assinar Amador',
+    nome: 'Croqui',
+    desc: 'Croqui e memorial descritivo, para começar.',
+    mo: 29.9,
+    yr: 299,
+    specs: ['Matrícula avulsa a partir de R$ 89', '20 croquis / mês', '1 usuário'],
+    cta: 'Assinar Croqui',
     to: '/auth/register',
-    resumo: 'Para profissionais autônomos: as três ferramentas, um usuário.',
+    resumo:
+      'Croqui, memorial descritivo e exportação em DOCX. Análise de matrícula é cobrada à parte — veja como funciona logo abaixo.',
+    destaque: false,
+    selo: '',
+    primary: false,
+  },
+  {
+    nome: 'Essencial',
+    desc: 'Para quem já roda análise jurídica todo mês.',
+    mo: 197,
+    yr: 1970,
+    specs: ['5 matrículas / mês', '40 croquis / mês', '1 usuário', 'Matrícula extra: R$ 39'],
+    cta: 'Assinar Essencial',
+    to: '/auth/register',
+    resumo: 'Análise jurídica completa, cadeia dominial e relatório em PDF.',
     destaque: false,
     selo: '',
     primary: false,
@@ -109,25 +126,39 @@ const planosBase: PlanoBase[] = [
   {
     nome: 'Profissional',
     desc: 'Para o profissional que vive de documentos.',
-    mo: 149,
-    yr: 1490,
-    creditos: '5.000 créditos / mês',
+    mo: 497,
+    yr: 4970,
+    specs: ['15 matrículas / mês', 'Croquis ilimitados', 'Até 3 usuários', 'Matrícula extra: R$ 29'],
     cta: 'Assinar Profissional',
     to: '/auth/register',
-    resumo: 'Para quem vive de documentos: prioridade na fila e histórico ilimitado.',
+    resumo: 'Marca própria no relatório, Detector de conteúdo oculto e histórico completo.',
     destaque: true,
     selo: 'Mais popular',
     primary: true,
   },
   {
-    nome: 'Empresarial',
+    nome: 'Escritório',
     desc: 'Para escritórios, construtoras e cartórios.',
-    mo: 599,
-    yr: 5990,
-    creditos: '50.000 créditos / mês',
+    mo: 1297,
+    yr: 12970,
+    specs: ['50 matrículas / mês', 'Croquis ilimitados', 'Até 10 usuários', 'Matrícula extra: R$ 19'],
+    cta: 'Assinar Escritório',
+    to: '/auth/register',
+    resumo: 'Acesso à API, white-label, SLA e suporte prioritário.',
+    destaque: false,
+    selo: '',
+    primary: false,
+  },
+  {
+    nome: 'Enterprise',
+    desc: 'Para operações de volume, sob contrato.',
+    mo: 0,
+    yr: 0,
+    sobContrato: true,
+    specs: ['Volume de matrículas sob demanda', 'Croquis ilimitados', 'Usuários personalizados'],
     cta: 'Falar com vendas',
-    mailto: empresarialMailto,
-    resumo: 'Para equipes: até 5 usuários, painel compartilhado e acesso à API.',
+    mailto: enterpriseMailto,
+    resumo: 'SSO, integrações dedicadas, contrato anual e suporte jurídico dedicado.',
     destaque: false,
     selo: '',
     primary: false,
@@ -136,6 +167,9 @@ const planosBase: PlanoBase[] = [
 
 const planos = computed(() =>
   planosBase.map((p) => {
+    if (p.sobContrato) {
+      return { ...p, precoDisplay: 'Sob contrato', periodo: '', precoCheio: '', economiaTxt: '' }
+    }
     const cheio = p.mo * 12
     const eco = cheio - p.yr
     const pct = Math.round((eco / cheio) * 100)
@@ -480,7 +514,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Ferramenta 1: Matrículas ── -->
-      <section id="matriculas" class="lp-ferramenta">
+      <section id="matriculas" class="lp-ferramenta lp-ferramenta--creme">
         <div class="lp-ferramenta-inner">
           <div data-reveal class="lp-ferramenta-texto lp-ferramenta-texto--divisa">
             <p class="cond lp-ferramenta-nome"><span class="lp-ferramenta-num">01</span> Leitor de Matrículas</p>
@@ -500,14 +534,40 @@ onBeforeUnmount(() => {
             <div class="lp-captura">
               <div class="lp-captura-topo">
                 <span class="mono lp-captura-arq">relatorio_matricula.pdf</span>
-                <span class="cond lp-captura-tag">Captura</span>
+                <span class="cond lp-captura-tag">Captura ilustrativa</span>
               </div>
-              <div class="lp-captura-corpo" aria-hidden="true">
-                <svg width="26" height="26" viewBox="0 0 28 28">
-                  <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
-                  <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
-                </svg>
-                <span>Relatório de matrícula</span>
+              <div class="lp-relatorio-corpo" aria-hidden="true">
+                <div class="lp-relatorio-cab">
+                  <p class="lp-relatorio-titulo">Matrícula nº 12.884</p>
+                  <span class="cond lp-selo lp-selo--ok">Risco baixo</span>
+                </div>
+
+                <div class="lp-relatorio-secao">
+                  <p class="cond lp-relatorio-secao-nome">Cadeia dominial</p>
+                  <span class="lp-barra-fake" style="width: 92%" />
+                  <span class="lp-barra-fake" style="width: 64%" />
+                </div>
+
+                <div class="lp-relatorio-secao">
+                  <p class="cond lp-relatorio-secao-nome">Situação jurídica</p>
+                  <span class="lp-barra-fake" style="width: 78%" />
+                </div>
+
+                <div class="lp-relatorio-parecer">
+                  <p class="cond lp-relatorio-secao-nome">Parecer jurídico</p>
+                  <p class="lp-relatorio-parecer-texto">
+                    Cadeia dominial regular, sem ônus ativos. Nenhum apontamento impede a lavratura
+                    da escritura.
+                  </p>
+                </div>
+
+                <div class="lp-relatorio-historico">
+                  <p class="cond lp-relatorio-secao-nome">Histórico de atos</p>
+                  <ul class="mono lp-relatorio-atos">
+                    <li><span>R.1</span>Registro · compra e venda · 04/2011</li>
+                    <li><span>AV.2</span>Averbação · construção · 09/2014</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -515,7 +575,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Na imprensa 1: FRAUDE ── -->
-      <section id="imprensa1" class="lp-imprensa lp-imprensa--branca">
+      <section id="imprensa1" class="lp-imprensa lp-imprensa--creme">
         <div class="lp-imprensa-inner">
           <div class="lp-imprensa-cab">
             <span class="cond lp-imprensa-titulo">Na imprensa</span>
@@ -583,7 +643,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- ── Na imprensa 2: GEORREF ── -->
-      <section id="imprensa2" class="lp-imprensa lp-imprensa--branca">
+      <section id="imprensa2" class="lp-imprensa lp-imprensa--bancada">
         <div class="lp-imprensa-inner">
           <div class="lp-imprensa-cab">
             <span class="cond lp-imprensa-titulo">Na imprensa</span>
@@ -708,10 +768,10 @@ onBeforeUnmount(() => {
         <div class="lp-planos-inner">
           <div class="lp-planos-cab">
             <div class="lp-planos-cab-texto">
-              <h2 data-reveal class="lp-planos-titulo">Você paga pelo uso.</h2>
+              <h2 data-reveal class="lp-planos-titulo">Você paga pelo volume.</h2>
               <p data-reveal data-reveal-delay="60" class="lp-planos-sub">
-                Cada análise consome créditos conforme o tamanho e a complexidade do documento.
-                Sem desperdício, sem surpresa.
+                Cada plano traz uma franquia de matrículas e croquis por mês. Precisou de mais,
+                compra avulso ou muda de plano — sem letras miúdas.
               </p>
             </div>
             <div data-reveal data-reveal-delay="120" class="lp-alternador-wrap">
@@ -750,11 +810,13 @@ onBeforeUnmount(() => {
               <h3 class="lp-plano-nome">{{ p.nome }}</h3>
               <p class="lp-plano-desc">{{ p.desc }}</p>
               <div class="lp-plano-preco-bloco">
-                <p v-if="isAnual" class="lp-plano-de">De <span>{{ p.precoCheio }}</span></p>
+                <p v-if="isAnual && !p.sobContrato" class="lp-plano-de">De <span>{{ p.precoCheio }}</span></p>
                 <p class="lp-plano-preco"><span>{{ p.precoDisplay }}</span>{{ p.periodo }}</p>
-                <span v-if="isAnual" class="cond lp-plano-economia">{{ p.economiaTxt }}</span>
+                <span v-if="isAnual && !p.sobContrato" class="cond lp-plano-economia">{{ p.economiaTxt }}</span>
               </div>
-              <p class="lp-plano-creditos">{{ p.creditos }}</p>
+              <ul class="lp-plano-specs">
+                <li v-for="s in p.specs" :key="s">{{ s }}</li>
+              </ul>
               <NuxtLink
                 v-if="p.to"
                 :to="p.to"
@@ -775,6 +837,19 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
+          <!-- Cobrança avulsa no Croqui -->
+          <div data-reveal class="lp-avulso">
+            <p class="cond lp-avulso-titulo">Como funciona a cobrança avulsa no plano Croqui</p>
+            <p class="lp-avulso-texto">
+              O Croqui não inclui análise de matrícula — ela é comprada à parte, só quando você
+              precisar. Assinante paga <strong>R$ 89</strong> por análise (25% a menos que o preço
+              público de R$ 119), cobrados apenas quando a análise é concluída: falha de OCR ou
+              matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não
+              gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42%
+              de desconto, e o saldo fica sempre visível no topo do app.
+            </p>
+          </div>
+
           <!-- Comparativo -->
           <div data-reveal class="lp-comparativo">
             <p class="cond lp-comparativo-titulo">Compare os planos</p>
@@ -783,76 +858,81 @@ onBeforeUnmount(() => {
                 <thead>
                   <tr>
                     <th scope="col"><span class="lp-sr">Recurso</span></th>
-                    <th scope="col">Amador</th>
+                    <th scope="col">Croqui</th>
+                    <th scope="col">Essencial</th>
                     <th scope="col" class="lp-tabela-destaque">Profissional</th>
-                    <th scope="col">Empresarial</th>
+                    <th scope="col">Escritório</th>
+                    <th scope="col">Enterprise</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <th scope="row">Créditos por mês</th>
-                    <td>500</td>
-                    <td>5.000</td>
-                    <td>50.000</td>
+                    <th scope="row">Matrículas / mês</th>
+                    <td>Avulso · R$ 89</td>
+                    <td>5</td>
+                    <td>15</td>
+                    <td>50</td>
+                    <td>Volume</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Croquis / mês</th>
+                    <td>20</td>
+                    <td>40</td>
+                    <td>Ilimitado</td>
+                    <td>Ilimitado</td>
+                    <td>Ilimitado</td>
                   </tr>
                   <tr>
                     <th scope="row">Usuários</th>
                     <td>1</td>
                     <td>1</td>
-                    <td>Até 5</td>
+                    <td>Até 3</td>
+                    <td>Até 10</td>
+                    <td>Custom</td>
                   </tr>
                   <tr>
-                    <th scope="row">As três ferramentas</th>
+                    <th scope="row">Análise jurídica e cadeia dominial</th>
+                    <td class="lp-nao">—</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Marca própria, Detector e histórico</th>
+                    <td class="lp-nao">—</td>
+                    <td class="lp-nao">—</td>
                     <td class="lp-sim">◆</td>
                     <td class="lp-sim">◆</td>
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
-                    <th scope="row">Histórico de análises</th>
-                    <td>30 dias</td>
-                    <td>Ilimitado</td>
-                    <td>Ilimitado</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Processamento prioritário</th>
+                    <th scope="row">API, white-label e SLA</th>
+                    <td class="lp-nao">—</td>
+                    <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
                     <td class="lp-sim">◆</td>
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
-                    <th scope="row">Painel e documentos da equipe</th>
+                    <th scope="row">SSO e jurídico dedicado</th>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
-                    <td class="lp-sim">◆</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Acesso à API</th>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
                     <th scope="row">Suporte</th>
+                    <td>Base de conhecimento</td>
                     <td>E-mail</td>
-                    <td>E-mail</td>
+                    <td>E-mail prioritário</td>
+                    <td>Prioritário + SLA</td>
                     <td>Dedicado</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <!-- Custo médio -->
-          <div data-reveal class="lp-custo">
-            <p class="cond lp-custo-titulo">Quanto custa cada análise</p>
-            <div class="lp-custo-itens">
-              <p><span>83</span> + 8 créditos/página · matrícula</p>
-              <p><span>50</span> créditos · memorial</p>
-              <p><span>0,5</span> crédito/página · PDF verificado</p>
-            </div>
-            <p class="lp-custo-nota">
-              Você paga pelo tamanho real do documento. Créditos extras avulsos a qualquer momento.
-            </p>
           </div>
         </div>
       </section>
@@ -1345,6 +1425,9 @@ onBeforeUnmount(() => {
 .lp-ferramenta--bancada {
   background: var(--color-surface);
 }
+.lp-ferramenta--creme {
+  background: #ffedd5;
+}
 .lp-ferramenta-inner {
   max-width: 1200px;
   margin: 0 auto;
@@ -1490,24 +1573,81 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   color: var(--color-accent);
 }
-.lp-captura-corpo {
+/* Relatório — mockup ilustrativo (dados fictícios) */
+.lp-relatorio-corpo {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: color-mix(in srgb, var(--color-text) 45%, transparent);
-  font-size: 0.85rem;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--color-bg),
-    var(--color-bg) 11px,
-    var(--color-surface) 11px,
-    var(--color-surface) 22px
-  );
+  gap: 10px;
+  background: #fff;
 }
-.lp-captura-corpo svg {
+.lp-relatorio-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lp-relatorio-titulo {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+.lp-selo--ok {
+  background: transparent;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-text);
+}
+.lp-relatorio-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.lp-relatorio-secao-nome {
+  margin: 0 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.lp-relatorio-parecer {
+  border: 1px solid var(--color-text);
+  background: var(--color-bg);
+  padding: 10px 12px;
+}
+.lp-relatorio-parecer-texto {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+.lp-relatorio-historico {
+  border-top: 1px solid var(--color-divider);
+  padding-top: 9px;
+}
+.lp-relatorio-atos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lp-relatorio-atos li {
+  display: flex;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.lp-relatorio-atos li span {
+  flex: none;
+  min-width: 30px;
+  font-weight: 700;
   color: var(--color-accent);
 }
 
@@ -1653,8 +1793,12 @@ onBeforeUnmount(() => {
 }
 
 /* ── Na imprensa ── */
-.lp-imprensa--branca {
-  background: #fff;
+.lp-imprensa--creme {
+  background: #ffedd5;
+  border-bottom: 2px solid var(--color-text);
+}
+.lp-imprensa--bancada {
+  background: var(--color-surface);
   border-bottom: 2px solid var(--color-text);
 }
 .lp-imprensa-inner {
@@ -1714,7 +1858,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   padding: 0 28px;
-  background: #fff;
 }
 .lp-clipe:not(.lp-clipe--lead) {
   border-left: 1px solid var(--color-divider);
@@ -1925,14 +2068,14 @@ onBeforeUnmount(() => {
 }
 .lp-planos-grade {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(5, 1fr);
   gap: 0;
   border: 2px solid var(--color-text);
 }
 .lp-plano {
   position: relative;
   background: #fff;
-  padding: 36px 30px;
+  padding: 28px 20px;
   display: flex;
   flex-direction: column;
 }
@@ -1953,17 +2096,17 @@ onBeforeUnmount(() => {
   margin: 0 0 6px;
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   text-transform: uppercase;
   letter-spacing: -0.01em;
 }
 .lp-plano-desc {
-  margin: 0 0 22px;
-  font-size: 0.88rem;
+  margin: 0 0 18px;
+  font-size: 0.82rem;
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 .lp-plano-preco-bloco {
-  min-height: 96px;
+  min-height: 84px;
 }
 .lp-plano-de {
   margin: 0 0 2px;
@@ -1984,7 +2127,7 @@ onBeforeUnmount(() => {
 .lp-plano-preco span {
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 2.6rem;
+  font-size: 2rem;
   color: var(--color-text);
   letter-spacing: -0.02em;
 }
@@ -1999,10 +2142,18 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   padding: 4px 10px;
 }
-.lp-plano-creditos {
+.lp-plano-specs {
   margin: 14px 0 22px;
-  font-size: 0.88rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lp-plano-specs li {
+  font-size: 0.82rem;
   font-weight: 700;
+  line-height: 1.35;
   color: var(--color-accent);
 }
 .lp-plano-cta {
@@ -2015,6 +2166,32 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 62%, transparent);
+}
+
+/* Cobrança avulsa (Croqui) */
+.lp-avulso {
+  margin-top: 24px;
+  border: 2px solid var(--color-text);
+  padding: 24px 28px;
+  background: var(--color-bg);
+}
+.lp-avulso-titulo {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.lp-avulso-texto {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+}
+.lp-avulso-texto strong {
+  color: var(--color-text);
 }
 
 /* Comparativo */
@@ -2038,7 +2215,7 @@ onBeforeUnmount(() => {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
-  min-width: 600px;
+  min-width: 760px;
 }
 .lp-tabela th {
   text-align: left;
@@ -2076,50 +2253,6 @@ onBeforeUnmount(() => {
 }
 .lp-nao {
   color: color-mix(in srgb, var(--color-text) 40%, transparent);
-}
-
-/* Custo médio */
-.lp-custo {
-  margin-top: 24px;
-  background: var(--color-text);
-  color: var(--color-bg);
-  padding: 28px 32px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 24px 48px;
-  justify-content: space-between;
-}
-.lp-custo-titulo {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-accent-400);
-}
-.lp-custo-itens {
-  display: flex;
-  gap: 40px;
-  flex-wrap: wrap;
-}
-.lp-custo-itens p {
-  margin: 0;
-  font-size: 0.88rem;
-  color: color-mix(in srgb, var(--color-bg) 78%, transparent);
-}
-.lp-custo-itens span {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 1.5rem;
-  color: var(--color-bg);
-  margin-right: 4px;
-}
-.lp-custo-nota {
-  margin: 0;
-  max-width: 16rem;
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--color-bg) 60%, transparent);
 }
 
 /* ── CTA final ── */
