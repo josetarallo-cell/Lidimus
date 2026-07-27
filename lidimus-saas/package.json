@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter web dev",
+    "dev:local": "node scripts/dev-local.mjs",
     "build": "pnpm --filter web build",
     "worker": "pnpm --filter workers start",
     "db:generate": "pnpm --filter db generate",

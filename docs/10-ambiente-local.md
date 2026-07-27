@@ -24,6 +24,8 @@ Edite `.env` e preencha pelo menos:
 
 `DATABASE_URL` e `REDIS_URL` já vêm certos para rodar tudo dentro do Docker (hostnames `postgres` e `redis`).
 
+Se `PUBLIC_BASE_URL` for um domínio público (é o caso aqui: o `cloudflared` publica o container em `https://lidimus.gvlar.com`), mantenha também `BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000`. O Better Auth deriva as origens confiáveis do `PUBLIC_BASE_URL`, e sem essa linha login e cadastro em `http://localhost:3000` respondem 403 `Invalid origin` antes mesmo de checar a senha.
+
 ## 2. Subir os containers
 
 ```powershell
@@ -92,15 +94,30 @@ docker compose up -d --build web worker
 
 ## Modo de desenvolvimento com hot-reload (iterar em front-end)
 
-Rebuildar a cada mudança de CSS/Vue é lento. Para iterar rápido, mantenha `postgres`/`redis` no Docker e rode o Nuxt fora, em modo dev:
+Rebuildar a cada mudança de CSS/Vue é lento. Para iterar rápido:
 
 ```powershell
 cd lidimus-saas
-docker compose stop web      # libera a porta 3000
-pnpm dev                     # dev server com hot reload, usa .env
+pnpm dev:local
 ```
 
-Ao terminar, volte ao container publicando a versão final:
+Sobe o Nuxt em modo dev **na porta 3001**, em paralelo com os containers — o `web` continua no ar servindo o domínio público pelo túnel. Salvou o arquivo, a página reflete; nada de rebuild.
+
+O que o `scripts/dev-local.mjs` ajusta em cima do `.env` (o resto — segredos, chave do GCS, `PUBLIC_BASE_URL` — continua vindo de lá, sem cópia paralela para sair de sincronia):
+
+| Variável | Por quê |
+|---|---|
+| `DATABASE_URL`, `REDIS_URL` | O `.env` usa os hostnames da rede do Docker (`postgres`, `redis`), que não resolvem no host — viram `127.0.0.1`, nas portas publicadas pelo compose |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Sem a origem `http://localhost:3001` na lista, login e cadastro respondem 403 `Invalid origin` |
+| `NUXT_PORT` | 3001, para não brigar com o container |
+
+Funciona porque o c12 (carregador de `.env` do Nuxt) não sobrescreve variável que já existe no `process.env`.
+
+**O dev server compartilha o banco, o Redis e o GCS com a produção.** Não é um sandbox: conta criada ali é conta no site público, e job enviado ali é processado pelo mesmo `worker`. O n8n consegue baixar o arquivo e devolver o callback porque `PUBLIC_BASE_URL` continua apontando para o domínio.
+
+Duas coisas que só funcionam na 3000/domínio, porque o `baseURL` do Better Auth é o domínio público: **login com Google** (o redirect volta para o domínio) e o Nitro em modo produção. Login por e-mail/senha funciona normalmente na 3001.
+
+Terminou de iterar? `Ctrl+C` no dev server e publique de fato:
 
 ```powershell
 docker compose up -d --build web
