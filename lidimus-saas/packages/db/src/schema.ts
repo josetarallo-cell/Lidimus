@@ -57,6 +57,8 @@ export const users = pgTable('users', {
   image: text('image'),
   // Acesso às telas /admin/* — distinto do org_role, que é por organização
   isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+  // Boas-vindas do primeiro acesso já vistas — a tela aparece uma única vez
+  welcomed: boolean('welcomed').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

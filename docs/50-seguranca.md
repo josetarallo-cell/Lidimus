@@ -53,6 +53,18 @@ Regras:
 - Middleware (`server/middleware/auth.ts`) injeta `event.context.user`/`session` em toda requisição — rotas protegidas checam isso (ver `server/lib/requireAuth.ts`).
 - Sessões ficam na tabela `sessions` — revogar acesso de um usuário específico é apagar/expirar a linha correspondente, ou trocar `BETTER_AUTH_SECRET` para revogar todas de uma vez (impacto: todo mundo é deslogado).
 
+## Verificação de e-mail e vínculo com o login Google
+
+Controlado por `REQUIRE_EMAIL_VERIFICATION` (`.env`, default `false`). Ligado, ele:
+
+- exige confirmação do e-mail antes do primeiro login por senha (`emailAndPassword.requireEmailVerification`);
+- envia o link no cadastro e reenvia a cada tentativa de login não verificada (`emailVerification.sendOnSignUp` / `sendOnSignIn`);
+- volta a exigir e-mail local verificado para vincular o login Google a uma conta de senha existente (`account.accountLinking.requireLocalEmailVerified`).
+
+**Pré-requisito para ligar:** `EMAIL_FROM` em domínio verificado no Resend. Com o remetente padrão `onboarding@resend.dev`, o Resend só entrega ao dono da conta — todo cadastro novo ficaria sem receber o link e sem conseguir entrar.
+
+Enquanto estiver desligado, existe uma brecha conhecida e aceita: quem se cadastrar por senha usando o e-mail de outra pessoa fica com a conta vinculada quando o dono real entrar pelo Google. As duas travas sobem juntas de propósito — ligar a verificação fecha a brecha no mesmo movimento.
+
 ## Como o download de arquivo é protegido
 
 Cada upload gera um `access_token` aleatório (`packages/db` tabela `job_files`) usado para montar a URL que o n8n usa para baixar o arquivo (`buildFileUrl` em `server/lib/jobFile.ts`). O arquivo é servido via signed URL do GCS e o token é conferido contra o `jobId` antes de gerar a URL assinada — depois do processamento, o arquivo é soft-deletado (`deleted_at`) e removido do GCS (`softDeleteJobFile`). Não exponha esse token em logs.
@@ -81,3 +93,5 @@ Se o callback começar a falhar com 401 depois de um deploy, o `N8N_CALLBACK_SEC
 - [ ] `BETTER_AUTH_URL` / `PUBLIC_BASE_URL` em `https://`
 - [ ] Backup do banco configurado e testado (restore, não só o dump) — ver [30-banco-de-dados.md](30-banco-de-dados.md)
 - [ ] `N8N_CALLBACK_SECRET` idêntico entre `.env.prod` e os workflows do n8n
+- [ ] Domínio verificado no Resend e `EMAIL_FROM` apontando para ele
+- [ ] `REQUIRE_EMAIL_VERIFICATION=true` (depende do item acima)

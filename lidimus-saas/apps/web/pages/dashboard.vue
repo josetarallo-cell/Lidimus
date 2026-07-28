@@ -29,6 +29,18 @@ const { data: jobData, refresh } = await useFetch('/api/jobs', {
 })
 const { data: creditos } = await useFetch('/api/account/credits')
 
+// Boas-vindas do primeiro acesso — o painel é onde todo mundo cai depois de
+// confirmar o e-mail, então é aqui que a tela aparece (uma vez só).
+const { data: me } = await useFetch('/api/me')
+const mostrarBoasVindas = ref(me.value?.welcomed === false)
+
+async function encerrarBoasVindas() {
+  mostrarBoasVindas.value = false
+  // Se a marcação falhar, a tela volta no próximo acesso — incômodo pequeno,
+  // e melhor do que travar o painel por causa de um aviso de cortesia.
+  await $fetch('/api/account/welcome', { method: 'POST' }).catch(() => {})
+}
+
 const jobList = computed(() => jobData.value?.items ?? [])
 const totalPaginas = computed(() => Math.max(1, Math.ceil((jobData.value?.total ?? 0) / PAGE_SIZE)))
 
@@ -139,6 +151,8 @@ onMounted(() => {
 
 <template>
   <div>
+    <BoasVindas v-if="mostrarBoasVindas" :nome="me?.name" @fechar="encerrarBoasVindas" />
+
     <header class="painel-cabecalho">
       <h1>Painel</h1>
       <div class="painel-acoes">

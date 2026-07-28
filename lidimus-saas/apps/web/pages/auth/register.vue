@@ -8,15 +8,25 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const aguardandoVerificacao = ref(false)
 
 const { data: providers } = await useFetch('/api/auth-providers')
+
+// Volta do callback do Google quando o Better Auth recusa o cadastro
+if (useRoute().query.erro === 'google') {
+  error.value = 'Não foi possível criar a conta com o Google. Tente novamente ou use e-mail e senha.'
+}
 
 async function entrarComGoogle() {
   error.value = ''
   try {
     const { url } = await $fetch<{ url: string }>('/api/auth/sign-in/social', {
       method: 'POST',
-      body: { provider: 'google', callbackURL: '/dashboard' },
+      body: {
+        provider: 'google',
+        callbackURL: '/dashboard',
+        errorCallbackURL: '/auth/register?erro=google',
+      },
     })
     window.location.href = url
   } catch {
@@ -28,10 +38,21 @@ async function register() {
   loading.value = true
   error.value = ''
   try {
-    await $fetch('/api/auth/sign-up/email', {
+    // Com verificação de e-mail ligada, o cadastro não abre sessão: a resposta
+    // vem com token null e o usuário precisa confirmar o e-mail antes de entrar.
+    const { token } = await $fetch<{ token: string | null }>('/api/auth/sign-up/email', {
       method: 'POST',
-      body: { name: name.value, email: email.value, password: password.value },
+      body: {
+        name: name.value,
+        email: email.value,
+        password: password.value,
+        callbackURL: '/dashboard',
+      },
     })
+    if (!token) {
+      aguardandoVerificacao.value = true
+      return
+    }
     await navigateTo('/dashboard')
   } catch (e: unknown) {
     error.value =
@@ -50,7 +71,19 @@ async function register() {
         <img src="/logo.svg" alt="Lidimus" class="auth-marca-logo" />
       </NuxtLink>
 
-      <section class="ld-painel auth-painel">
+      <section v-if="aguardandoVerificacao" class="ld-painel auth-painel">
+        <h1>Confirme seu e-mail</h1>
+        <p class="auth-nota">
+          Enviamos um link de confirmação para <strong>{{ email }}</strong>. Abra o link para
+          ativar sua conta e entrar — ele vale por 1 hora.
+        </p>
+        <p class="auth-nota">
+          Não chegou? Confira a caixa de spam ou
+          <NuxtLink to="/auth/login">tente entrar</NuxtLink> para receber um novo link.
+        </p>
+      </section>
+
+      <section v-else class="ld-painel auth-painel">
         <h1>Criar conta</h1>
         <p class="auth-nota">Comece com 100 créditos gratuitos — sem cartão de crédito.</p>
         <form class="auth-form" novalidate @submit.prevent="register">

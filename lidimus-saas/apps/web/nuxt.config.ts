@@ -35,6 +35,8 @@ export default defineNuxtConfig({
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     resendApiKey: process.env.RESEND_API_KEY || '',
     emailFrom: process.env.EMAIL_FROM || 'Lidimus <onboarding@resend.dev>',
+    // Só ligar depois que o Resend estiver enviando de domínio verificado
+    requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
     googleClientId: process.env.GOOGLE_CLIENT_ID || '',
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     // Câmbio US$→R$ para o painel de custos (custo de modelos é cobrado em USD)

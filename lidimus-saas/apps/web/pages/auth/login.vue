@@ -10,12 +10,23 @@ const loading = ref(false)
 
 const { data: providers } = await useFetch('/api/auth-providers')
 
+// Volta do callback do Google quando o Better Auth recusa o login
+if (useRoute().query.erro === 'google') {
+  error.value = 'Não foi possível entrar com o Google. Tente novamente ou use e-mail e senha.'
+}
+
 async function entrarComGoogle() {
   error.value = ''
   try {
     const { url } = await $fetch<{ url: string }>('/api/auth/sign-in/social', {
       method: 'POST',
-      body: { provider: 'google', callbackURL: '/dashboard' },
+      // Sem errorCallbackURL, uma falha no callback do Google devolve o usuário
+      // para a landing sem sessão e sem explicação nenhuma.
+      body: {
+        provider: 'google',
+        callbackURL: '/dashboard',
+        errorCallbackURL: '/auth/login?erro=google',
+      },
     })
     window.location.href = url
   } catch {
@@ -29,13 +40,17 @@ async function login() {
   try {
     await $fetch('/api/auth/sign-in/email', {
       method: 'POST',
-      body: { email: email.value, password: password.value },
+      body: { email: email.value, password: password.value, callbackURL: '/dashboard' },
     })
     await navigateTo('/dashboard')
   } catch (e: unknown) {
+    const dados = (e as { data?: { message?: string; code?: string } })?.data
+    // O Better Auth recusa a sessão enquanto o e-mail não for confirmado e
+    // reenvia o link nesta mesma tentativa (emailVerification.sendOnSignIn).
     error.value =
-      (e as { data?: { message?: string } })?.data?.message ??
-      'E-mail ou senha incorretos. Confira os dados e tente novamente.'
+      dados?.code === 'EMAIL_NOT_VERIFIED'
+        ? 'Confirme seu e-mail antes de entrar. Acabamos de reenviar o link — confira sua caixa de entrada e o spam.'
+        : (dados?.message ?? 'E-mail ou senha incorretos. Confira os dados e tente novamente.')
   } finally {
     loading.value = false
   }

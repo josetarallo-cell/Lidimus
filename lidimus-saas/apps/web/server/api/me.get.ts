@@ -7,5 +7,6 @@ export default defineEventHandler((event) => {
     name: user.name,
     email: user.email,
     isPlatformAdmin: user.isPlatformAdmin,
+    welcomed: user.welcomed,
   }
 })
