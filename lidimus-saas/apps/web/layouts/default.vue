@@ -116,10 +116,12 @@ watch(() => route.path, () => {
 
     <footer class="app-footer">
       <p>
-        Precisa de ajuda?
+        Precisa de ajuda? Veja
+        <NuxtLink to="/docs" class="app-footer-link">como cada ferramenta funciona</NuxtLink>
+        ou
         <a href="mailto:jose.tarallo@gmail.com?subject=Lidimus%20%E2%80%94%20suporte" class="app-footer-link">
-          Fale com o suporte
-        </a>
+          fale com o suporte
+        </a>.
       </p>
     </footer>
   </div>

@@ -1,0 +1,637 @@
+/* Estilos das páginas de documentação (/docs/*).
+ *
+ * Arquivo próprio, e não <style scoped> em cada página, porque são seis páginas
+ * com a mesma tipografia, tabelas e blocos de código — repetir isso seis vezes
+ * garantiria que divergissem na primeira manutenção.
+ *
+ * Tudo está aninhado sob `.doc`, então nada vaza para o app nem para a landing,
+ * apesar de o arquivo não ser scoped (styles scoped não alcançam conteúdo de
+ * slot, que é justamente como as páginas montam seu conteúdo aqui).
+ *
+ * Sistema Modernista (--color-*, --font-*): estas páginas são públicas, como a
+ * landing. O verde --ld-* segue nas telas internas até a migração alcançá-las;
+ * de --ld-* aqui só entram espaçamento e z-index, que são infraestrutura neutra.
+ */
+
+.doc {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+/* ── Cabeçalho ──────────────────────────────────────────────────────────── */
+.doc-topo {
+  position: sticky;
+  top: 0;
+  z-index: var(--ld-z-sticky);
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-text);
+}
+.doc-topo-inner {
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: 0 var(--ld-space-lg);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
+}
+.doc-logo {
+  display: block;
+  height: 38px;
+  width: auto;
+}
+.doc-topo-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-md);
+}
+.doc-selo {
+  font-family: var(--font-cond);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.doc-topo-link {
+  font-family: var(--font-cond);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.doc-topo-link:hover {
+  color: var(--color-text);
+}
+@media (max-width: 34rem) {
+  .doc-topo-inner {
+    padding: 0 var(--ld-space-md);
+  }
+  .doc-topo-link {
+    display: none;
+  }
+}
+
+/* ── Estrutura ──────────────────────────────────────────────────────────── */
+.doc-corpo {
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: var(--ld-space-xl) var(--ld-space-lg) var(--ld-space-2xl);
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: var(--ld-space-2xl);
+  align-items: start;
+}
+@media (max-width: 60rem) {
+  .doc-corpo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ld-space-lg);
+    padding: var(--ld-space-lg) var(--ld-space-md) var(--ld-space-xl);
+  }
+}
+
+.doc-indice {
+  position: sticky;
+  top: calc(60px + var(--ld-space-lg));
+}
+@media (max-width: 60rem) {
+  .doc-indice {
+    position: static;
+    border-bottom: 1px solid var(--color-divider);
+    padding-bottom: var(--ld-space-md);
+  }
+}
+.doc-indice-titulo {
+  margin: 0 0 var(--ld-space-sm);
+  font-family: var(--font-cond);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.doc-indice ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-indice a {
+  display: block;
+  padding: 4px 0 4px 10px;
+  margin-left: -12px;
+  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+}
+.doc-indice a:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+@media (max-width: 60rem) {
+  .doc-indice ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--ld-space-sm) var(--ld-space-md);
+  }
+  .doc-indice a {
+    border-left: none;
+    padding-left: 0;
+    margin-left: 0;
+  }
+}
+
+/* Navegação entre as ferramentas, acima do sumário da página. */
+.doc-irmas {
+  margin-bottom: var(--ld-space-lg);
+}
+.doc-irmas ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-irmas a {
+  display: block;
+  padding: 4px 0;
+  font-family: var(--font-cond);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  text-decoration: none;
+}
+.doc-irmas a:hover,
+.doc-irmas a.doc-irma--ativa {
+  color: var(--color-text);
+}
+.doc-irmas a.doc-irma--ativa {
+  border-bottom: 2px solid var(--color-accent);
+  display: inline-block;
+}
+@media (max-width: 60rem) {
+  .doc-irmas ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--ld-space-sm) var(--ld-space-md);
+  }
+}
+
+/* ── Tipografia ─────────────────────────────────────────────────────────── */
+.doc-conteudo {
+  min-width: 0;
+}
+.doc-conteudo h1 {
+  margin: 0 0 var(--ld-space-md);
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.doc-lide {
+  margin: 0 0 var(--ld-space-xl);
+  font-size: 1.125rem;
+  line-height: 1.6;
+  max-width: 62ch;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+.doc-conteudo section {
+  margin-bottom: var(--ld-space-2xl);
+  scroll-margin-top: calc(60px + var(--ld-space-md));
+}
+.doc-conteudo h2 {
+  margin: 0 0 var(--ld-space-md);
+  padding-top: var(--ld-space-md);
+  border-top: 2px solid var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.doc-conteudo h3 {
+  margin: var(--ld-space-xl) 0 var(--ld-space-sm);
+  font-family: var(--font-cond);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.doc-conteudo h4 {
+  margin: var(--ld-space-lg) 0 var(--ld-space-xs);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+.doc-conteudo p {
+  margin: 0 0 var(--ld-space-md);
+  line-height: 1.65;
+  max-width: 68ch;
+}
+.doc-conteudo a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.doc .lista {
+  margin: 0 0 var(--ld-space-md);
+  padding-left: 1.1rem;
+  max-width: 68ch;
+}
+.doc .lista li {
+  margin-bottom: var(--ld-space-xs);
+  line-height: 1.65;
+}
+.doc .dica {
+  font-size: 0.9375rem;
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+.doc code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+/* ── Métricas medidas ───────────────────────────────────────────────────── */
+/* Número grande + unidade + rodapé com a procedência. O rodapé não é enfeite:
+   é o que separa medição de alegação de marketing. */
+.doc-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--ld-space-md);
+  margin: 0 0 var(--ld-space-md);
+}
+.doc-metrica {
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-surface);
+  padding: var(--ld-space-md);
+}
+.doc-metrica-valor {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 1.875rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.doc-metrica-valor small {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.doc-metrica-rotulo {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-cond);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+.doc-metrica-nota {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.doc-procedencia {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  max-width: 68ch;
+}
+
+/* ── Recortes de imprensa ───────────────────────────────────────────────── */
+.doc-clipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--ld-space-md);
+  margin: 0 0 var(--ld-space-md);
+}
+.doc-clipe {
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  padding: var(--ld-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-clipe-cat {
+  font-family: var(--font-cond);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.doc-clipe-manchete {
+  margin: 0 !important;
+  font-family: var(--font-heading);
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.doc-clipe-chamada {
+  margin: 0 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+.doc-clipe-fonte {
+  margin: auto 0 0 !important;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem !important;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.doc-clipe-fonte a {
+  color: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+/* ── Blocos de código ───────────────────────────────────────────────────── */
+.doc .bloco {
+  position: relative;
+  margin: 0 0 var(--ld-space-lg);
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+}
+.doc .bloco pre {
+  margin: 0;
+  padding: var(--ld-space-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+.doc .bloco pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  white-space: pre;
+}
+.doc .copiar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  border: 1px solid var(--color-divider);
+  background: var(--color-bg);
+  padding: 3px 10px;
+  font-family: var(--font-cond);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+  cursor: pointer;
+}
+.doc .copiar:hover {
+  color: var(--color-text);
+  border-color: var(--color-text);
+}
+
+/* ── Rotas ──────────────────────────────────────────────────────────────── */
+.doc .rota-titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.doc .verbo {
+  font-family: var(--font-cond);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border: 1px solid var(--color-text);
+  text-transform: uppercase;
+}
+.doc .verbo--post {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.doc .resposta-rotulo {
+  font-family: var(--font-cond);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  margin-bottom: var(--ld-space-xs) !important;
+}
+
+/* ── Tabelas ────────────────────────────────────────────────────────────── */
+.doc .tabela {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--ld-space-lg);
+  font-size: 0.9375rem;
+  display: block;
+  overflow-x: auto;
+}
+.doc .tabela thead,
+.doc .tabela tbody,
+.doc .tabela tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+.doc .tabela th {
+  text-align: left;
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-text);
+  padding: 8px 12px;
+  font-family: var(--font-cond);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.doc .tabela td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-divider);
+  line-height: 1.55;
+  vertical-align: top;
+}
+.doc .tabela th:first-child,
+.doc .tabela td:first-child {
+  width: 30%;
+}
+.doc .tabela code {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* ── Selos de estado ────────────────────────────────────────────────────── */
+.doc .est {
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 600;
+}
+.doc .est--ok {
+  color: var(--color-accent-800);
+  border-color: var(--color-accent-300);
+  background: var(--color-accent-100);
+}
+.doc .est--espera {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.doc .est--erro {
+  color: var(--color-accent-700);
+  border-color: var(--color-accent-400);
+}
+
+/* ── Destaques ──────────────────────────────────────────────────────────── */
+/* Régua horizontal no topo, como os h2 — e não barra colorida na lateral, que é
+   vocabulário de outro sistema. O aviso se distingue pela cor da régua. */
+.doc .nota,
+.doc .aviso {
+  margin: 0 0 var(--ld-space-lg);
+  padding: var(--ld-space-md);
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-surface);
+  max-width: 68ch;
+}
+.doc .aviso {
+  border-top-color: var(--color-accent);
+}
+.doc .nota p,
+.doc .aviso p {
+  font-size: 0.9375rem;
+}
+.doc .nota p:last-child,
+.doc .aviso p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Passos numerados ───────────────────────────────────────────────────── */
+.doc-fluxo {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ld-space-md);
+  margin-bottom: var(--ld-space-lg);
+}
+@media (max-width: 72rem) {
+  .doc-fluxo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 34rem) {
+  .doc-fluxo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.doc-passo {
+  border: 1px solid var(--color-divider);
+  padding: var(--ld-space-md);
+  background: var(--color-surface);
+}
+.doc-passo-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-bottom: var(--ld-space-sm);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+.doc-passo p {
+  margin: 0 !important;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+/* ── Cartões de ferramenta (índice) ─────────────────────────────────────── */
+.doc-cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: var(--ld-space-md);
+}
+.doc-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-surface);
+  padding: var(--ld-space-lg);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--ld-dur-estado) var(--ld-ease);
+}
+.doc-cartao:hover {
+  border-color: var(--color-accent);
+  border-top-color: var(--color-accent);
+}
+.doc-cartao h2 {
+  margin: 0 !important;
+  padding-top: 0 !important;
+  border-top: none !important;
+  font-size: 1.25rem !important;
+}
+.doc-cartao p {
+  margin: 0 !important;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+}
+.doc-cartao-meta {
+  margin-top: auto;
+  padding-top: var(--ld-space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* ── Rodapé ─────────────────────────────────────────────────────────────── */
+.doc-fim {
+  border-top: 1px solid var(--color-divider);
+  padding-top: var(--ld-space-lg);
+}
+.doc-fim h2 {
+  border-top: none !important;
+  padding-top: 0 !important;
+  font-size: 1.25rem !important;
+}
+
+@media print {
+  .doc-topo,
+  .doc-indice,
+  .doc .copiar {
+    display: none;
+  }
+  .doc-corpo {
+    display: block;
+    padding: 0;
+  }
+}

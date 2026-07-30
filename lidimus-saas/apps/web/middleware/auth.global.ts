@@ -7,8 +7,11 @@
 // exigindo sessão, no servidor) — e a documentação da API, que costuma ser lida
 // por quem faz a integração e não necessariamente tem login.
 export default defineNuxtRouteMiddleware(async (to) => {
+  // `/docs` sem barra é o índice — sem o teste de igualdade ele cairia no login,
+  // que é exatamente a página que precisa abrir para quem ainda não tem conta.
   if (
     to.path === '/' ||
+    to.path === '/docs' ||
     to.path.startsWith('/auth/') ||
     to.path.startsWith('/convite/') ||
     to.path.startsWith('/docs/')
