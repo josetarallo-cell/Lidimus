@@ -1,18 +1,48 @@
 <script setup lang="ts">
 useHead({ title: 'Conta — Lidimus' })
 
-const { data: conta } = await useFetch('/api/account')
+const { data: me, refresh: recarregarMe } = await useFetch('/api/me')
 
-const roleLabel: Record<string, string> = {
-  owner: 'Proprietário',
-  member: 'Membro',
+// Rótulo do papel dentro da organização. O cargo livre ("escrevente") mora na
+// tela de Equipe, que é onde o dono o define; aqui basta o nível de acesso.
+const papelLabel: Record<string, string> = {
+  owner: 'Proprietário da conta',
+  member: 'Membro da equipe',
+  reader: 'Somente consulta',
 }
 
-function dataFmt(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR')
+// ── Nome ───────────────────────────────────────────────────
+const editandoNome = ref(false)
+const nomeNovo = ref('')
+const nomeErro = ref('')
+const salvandoNome = ref(false)
+
+function abrirEdicaoNome() {
+  nomeNovo.value = me.value?.name ?? ''
+  nomeErro.value = ''
+  editandoNome.value = true
 }
 
-// Troca de senha via endpoint nativo do better-auth
+async function salvarNome() {
+  nomeErro.value = ''
+  if (!nomeNovo.value.trim()) {
+    nomeErro.value = 'O nome não pode ficar em branco.'
+    return
+  }
+  salvandoNome.value = true
+  try {
+    await $fetch('/api/account/profile', { method: 'PATCH', body: { name: nomeNovo.value.trim() } })
+    editandoNome.value = false
+    await recarregarMe()
+  } catch (e: unknown) {
+    nomeErro.value =
+      (e as { data?: { message?: string } })?.data?.message ?? 'Não foi possível salvar o nome.'
+  } finally {
+    salvandoNome.value = false
+  }
+}
+
+// ── Senha ──────────────────────────────────────────────────
 const senhaAtual = ref('')
 const senhaNova = ref('')
 const trocando = ref(false)
@@ -57,17 +87,52 @@ async function trocarSenha() {
 
     <div class="conta-grade">
       <section class="ld-painel bloco">
-        <h2 class="bloco-titulo">Perfil</h2>
-        <dl class="perfil-lista">
+        <div class="perfil-topo">
+          <h2 class="bloco-titulo">Perfil</h2>
+          <button
+            v-if="!editandoNome"
+            type="button"
+            class="ld-btn ld-btn--secondary btn-linha"
+            @click="abrirEdicaoNome"
+          >
+            Editar nome
+          </button>
+        </div>
+
+        <form v-if="editandoNome" class="nome-form" @submit.prevent="salvarNome">
+          <label class="ld-campo campo">
+            <span class="ld-label">Seu nome</span>
+            <input v-model="nomeNovo" class="ld-input" type="text" maxlength="120" autocomplete="name" />
+          </label>
+          <p v-if="nomeErro" class="ld-erro" role="alert">{{ nomeErro }}</p>
+          <div class="nome-acoes">
+            <button type="submit" class="ld-btn ld-btn--primary" :disabled="salvandoNome">
+              {{ salvandoNome ? 'Salvando…' : 'Salvar' }}
+            </button>
+            <button type="button" class="ld-btn ld-btn--secondary" @click="editandoNome = false">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
+        <dl v-else class="perfil-lista">
           <div class="perfil-item">
             <dt>Nome</dt>
-            <dd>{{ conta?.user.name }}</dd>
+            <dd>{{ me?.name }}</dd>
           </div>
           <div class="perfil-item">
             <dt>E-mail</dt>
-            <dd>{{ conta?.user.email }}</dd>
+            <dd>{{ me?.email }}</dd>
           </div>
-          <div v-if="conta?.user.isPlatformAdmin" class="perfil-item">
+          <div class="perfil-item">
+            <dt>Empresa</dt>
+            <dd>{{ me?.orgName }}</dd>
+          </div>
+          <div class="perfil-item">
+            <dt>Seu acesso</dt>
+            <dd>{{ papelLabel[me?.role ?? ''] ?? me?.role }}</dd>
+          </div>
+          <div v-if="me?.isPlatformAdmin" class="perfil-item">
             <dt>Papel</dt>
             <dd><span class="ld-selo ld-selo--verde">Administrador da plataforma</span></dd>
           </div>
@@ -93,28 +158,6 @@ async function trocarSenha() {
         </form>
       </section>
     </div>
-
-    <section class="ld-painel bloco bloco--orgs">
-      <h2 class="bloco-titulo">Organizações</h2>
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <thead>
-            <tr>
-              <th scope="col">Nome</th>
-              <th scope="col">Papel</th>
-              <th scope="col">Desde</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="org in conta?.orgs" :key="org.id">
-              <td class="celula-nome">{{ org.name }}</td>
-              <td>{{ roleLabel[org.role] ?? org.role }}</td>
-              <td class="celula-data">{{ dataFmt(org.joinedAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -134,7 +177,7 @@ async function trocarSenha() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--ld-space-lg);
-  margin-bottom: var(--ld-space-lg);
+  align-items: start;
 }
 @media (max-width: 720px) {
   .conta-grade {
@@ -151,13 +194,17 @@ async function trocarSenha() {
   font-weight: 600;
   line-height: 1.35;
 }
-.bloco--orgs {
-  padding: 0;
+
+.perfil-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ld-space-md);
 }
-.bloco--orgs .bloco-titulo {
-  padding: var(--ld-space-md) var(--ld-space-lg);
-  border-bottom: 1px solid var(--ld-filete);
-  margin: 0;
+.btn-linha {
+  padding: 5px 12px;
+  font-size: 0.8125rem;
+  flex-shrink: 0;
 }
 
 .perfil-lista {
@@ -176,11 +223,16 @@ async function trocarSenha() {
   font-size: 0.9375rem;
 }
 
+.nome-form,
 .senha-form {
   display: flex;
   flex-direction: column;
   gap: var(--ld-space-md);
   align-items: flex-start;
+}
+.nome-acoes {
+  display: flex;
+  gap: var(--ld-space-sm);
 }
 /* Só a largura é local — visual vem das primitivas ld-campo/ld-label/ld-input */
 .campo {
@@ -196,40 +248,5 @@ async function trocarSenha() {
   margin: 0;
   font-size: 0.875rem;
   color: var(--ld-verde-profundo);
-}
-
-.tabela-rolagem {
-  overflow-x: auto;
-}
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9375rem;
-}
-.tabela th {
-  text-align: left;
-  background: var(--ld-bancada);
-  color: var(--ld-tinta-suave);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  padding: 10px var(--ld-space-lg);
-  border-bottom: 1px solid var(--ld-filete);
-  white-space: nowrap;
-}
-.tabela td {
-  padding: 12px var(--ld-space-lg);
-  border-bottom: 1px solid var(--ld-filete);
-  vertical-align: middle;
-}
-.tabela tbody tr:last-child td {
-  border-bottom: none;
-}
-.celula-nome {
-  font-weight: 500;
-}
-.celula-data {
-  color: var(--ld-tinta-suave);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 </style>

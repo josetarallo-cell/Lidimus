@@ -2,6 +2,16 @@
 useHead({ title: 'Créditos — Lidimus' })
 
 const { data: creditos } = await useFetch('/api/account/credits')
+const { data: acesso } = await useAcesso()
+const { data: me } = await useFetch('/api/me')
+
+// Saldo e extrato são de toda a equipe — quem gasta precisa saber quanto resta.
+// Já comprar crédito e mudar de plano mexem na cobrança, e isso é do dono.
+const donoDaConta = computed(() => me.value?.donoDaOrg === true)
+
+// Só quem depende do avulso precisa ver o contador — para quem tem matrícula na
+// franquia do plano, ele seria ruído.
+const mostrarAvulsos = computed(() => !acesso.value?.ferramentas?.includes('matricula'))
 
 // Abaixo do custo da análise mais cara (memorial KML, 50) o usuário pode ser
 // surpreendido por um 402 — avisar antes.
@@ -64,16 +74,26 @@ function deltaFmt(delta: number): string {
           Saldo baixo — uma análise de memorial consome 50 créditos.
         </p>
       </div>
-      <NuxtLink to="/conta/assinatura" class="ld-btn ld-btn--primary">Ver planos e créditos</NuxtLink>
+      <NuxtLink v-if="donoDaConta" to="/conta/assinatura" class="ld-btn ld-btn--primary">
+        Ver planos e créditos
+      </NuxtLink>
+      <p v-else class="saldo-nota">
+        Os créditos são da conta da empresa. Para comprar mais, fale com quem administra.
+      </p>
     </section>
 
-    <section class="ld-painel avulso">
+    <section v-if="donoDaConta" class="ld-painel avulso">
       <div class="avulso-info">
-        <p class="avulso-rotulo">Créditos avulsos</p>
-        <p class="avulso-titulo">Precisa de créditos agora?</p>
+        <p class="avulso-rotulo">Análise avulsa</p>
+        <p class="avulso-titulo">Precisa de uma análise de matrícula agora?</p>
         <p class="avulso-texto">
-          Compre um pacote avulso por R$ 89 via Pix, sem precisar mudar de plano. Depois de
-          confirmado o pagamento, os créditos são adicionados à sua conta.
+          Compre uma análise avulsa por R$ 89 via Pix, sem precisar mudar de plano. Depois de
+          confirmado o pagamento, os créditos entram na conta e a análise fica liberada.
+        </p>
+        <p v-if="mostrarAvulsos" class="avulso-saldo">
+          Disponíveis agora:
+          <strong>{{ acesso?.avulsosMatricula ?? 0 }}</strong>
+          {{ acesso?.avulsosMatricula === 1 ? 'análise' : 'análises' }}
         </p>
       </div>
       <a
@@ -162,6 +182,15 @@ function deltaFmt(delta: number): string {
   font-size: 0.875rem;
   color: var(--ld-ocre);
 }
+/* Ocupa o lugar do botão de compra para quem não administra a conta */
+.saldo-nota {
+  margin: 0;
+  max-width: 26ch;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ld-tinta-suave);
+  text-align: right;
+}
 
 .avulso {
   padding: var(--ld-space-lg);
@@ -190,6 +219,17 @@ function deltaFmt(delta: number): string {
   font-size: 0.9375rem;
   color: var(--ld-tinta-suave);
   line-height: 1.5;
+}
+.avulso-saldo {
+  margin: var(--ld-space-sm) 0 0;
+  font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+}
+.avulso-saldo strong {
+  font-family: var(--ld-font-serif);
+  font-size: 1rem;
+  color: var(--ld-tinta);
+  font-variant-numeric: tabular-nums;
 }
 
 .historico {

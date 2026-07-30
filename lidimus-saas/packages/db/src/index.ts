@@ -11,6 +11,8 @@ setDefaultResultOrder('ipv4first')
 
 export * from './schema.ts'
 export * from './credits.ts'
+export * from './planos.ts'
+export * from './apiKey.ts'
 export { schema }
 
 export function createDb(connectionString: string) {

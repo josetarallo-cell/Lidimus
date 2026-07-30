@@ -64,17 +64,38 @@ Detalhes importantes:
 Configuração padrão: 3 tentativas, backoff exponencial de 5 s, guarda 100 concluídos / 50 falhos.
 Monitoramento: página `/admin/queues` no app web.
 
+## API pública (v1)
+
+`server/api/v1/matriculas` — enviar e consultar análises de matrícula a partir de
+outro sistema. Autenticação por chave de integração (`Authorization: Bearer`),
+escopada por organização, liberada apenas em plano com `features.api` (Escritório
+e Enterprise). Detalhes de contrato, erros e limites em
+[70-api-publica.md](70-api-publica.md).
+
+Duas decisões estruturais valem registrar aqui:
+
+- **A identidade da API é paralela à da sessão.** `server/middleware/auth.ts`
+  continua servindo só o cookie; a v1 usa `server/lib/requireApiKey.ts`. Os dois
+  mundos são estanques — a v1 não aceita cookie (logo não tem CSRF) e as rotas de
+  sessão não aceitam chave (o raio de dano de uma chave vazada é só a v1).
+- **A criação da análise é uma função, não uma rota.** Painel e API chamam
+  `server/lib/criarAnaliseMatricula.ts`, onde vivem validação do arquivo,
+  entitlement, limite de uso, débito de crédito e enfileiramento. A transação que
+  cobra o cliente existe num lugar só; o que difere entre os dois caminhos é como
+  se descobre a organização e qual limite se aplica.
+
 ## Banco de dados (tabelas principais)
 
 - `users`, `sessions`, `accounts`, `verifications` — better-auth (login por e-mail/senha); `users.is_platform_admin` controla acesso às telas `/admin/*` (promoção manual — ver [30-banco-de-dados.md](30-banco-de-dados.md))
-- `organizations`, `org_members` — multi-tenant (todo job pertence a uma org)
+- `organizations`, `org_members`, `org_invitations` — multi-tenant (todo job pertence a uma org; a equipe entra por convite, com teto de usuários vindo de `plans.max_users`)
 - `jobs` — uma análise: `type` (matricula/kml/injection), `status` (pending/queued/processing/done/error), `stage`, `result` (JSONB), `error_message`
 - `job_files` — ponteiro para o arquivo no GCS + `access_token` de download
+- `api_keys` — chaves da API pública, por organização: só o SHA-256 do token, mais `prefix` visível, `expires_at` (1 ano), `revoked_at` e `last_used_at`
 - `plans`, `subscriptions`, `credit_transactions` — monetização (Fase 2): planos com preço/créditos por ciclo, assinatura Stripe por org, e ledger de créditos (saldo = SUM(delta); upload debita, erro estorna, webhook do Stripe credita a renovação)
 
 ## Créditos e assinaturas (Fase 2)
 
-- Custo por análise: matrícula 20, memorial KML 50, verificação de PDF 5 (`packages/db/src/credits.ts`). Cadastro concede 100 créditos.
+- Custo por análise: `base + perPage × páginas`, calibrado em `packages/db/src/credits.ts` — matrícula 83+8, croqui 12+3, verificação de PDF 3+0,5, memorial KML 50 fixo. Cadastro concede 150 créditos (`SIGNUP_GRANT_CREDITS`).
 - Upload sem saldo → 402, sem criar job. O débito (`consumption`) entra na mesma transação que cria o job; job que termina em `error` recebe `refund` automático e idempotente (índice único parcial), tanto pelo callback do n8n quanto pelo handler `failed` dos workers.
 - Stripe (checkout de assinatura, Customer Portal e webhook em `/api/webhooks/stripe`): preços enviados inline a partir da tabela `plans` — não é preciso cadastrar produtos no dashboard. `invoice.paid` credita `credits_per_cycle` (×12 no ciclo anual) com `provider_ref` único para reenvios não creditarem duas vezes.
 - Páginas: `/conta` (perfil/senha/orgs), `/conta/creditos` (saldo + histórico), `/conta/assinatura` (planos/portal/migração); admin: `/admin/clientes` (saldo, conceder créditos, suspender) e `/admin/faturamento` (MRR, distribuição).

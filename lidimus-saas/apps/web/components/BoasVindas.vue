@@ -7,10 +7,13 @@
 // normativa em assets/css/lidimus.css: tela nova não usa mais os --ld-* de cor
 // e tipografia. Espaçamento, z-index e curvas seguem os tokens estruturais,
 // que ainda não têm equivalente no sistema novo.
-const props = defineProps<{ nome?: string | null }>()
-const emit = defineEmits<{ (e: 'fechar'): void }>()
+const props = defineProps<{ nome?: string | null; pedirEmpresa?: boolean }>()
+const emit = defineEmits<{ (e: 'fechar', empresa: string): void }>()
 
 const dialogo = ref<HTMLDialogElement | null>(null)
+// Só quem chegou pelo Google (ou de uma conta anterior ao campo) vê esta
+// pergunta — no cadastro por e-mail a empresa já veio no formulário.
+const empresa = ref('')
 
 // Só o primeiro nome — "Boas-vindas, José Francisco Silveira Tarallo" soa
 // protocolar, e é justamente o oposto do que esta tela quer transmitir.
@@ -44,14 +47,16 @@ const ferramentas = [
 onMounted(() => dialogo.value?.showModal())
 
 // Qualquer forma de sair (botão, X ou Esc) conta como visto: a tela é um aviso
-// de cortesia, não uma etapa obrigatória.
+// de cortesia, não uma etapa obrigatória. A empresa segue junto quando foi
+// preenchida — sair sem responder é permitido, e o nome pode ser ajustado
+// depois em Conta → Equipe.
 function fechar() {
   dialogo.value?.close()
 }
 </script>
 
 <template>
-  <dialog ref="dialogo" class="bv" aria-labelledby="bv-titulo" @close="emit('fechar')">
+  <dialog ref="dialogo" class="bv" aria-labelledby="bv-titulo" @close="emit('fechar', empresa.trim())">
     <div class="bv-folha">
       <header class="bv-topo">
         <div class="bv-titulos">
@@ -73,7 +78,7 @@ function fechar() {
       </header>
 
       <p class="bv-abertura">
-        Sua conta está ativa e já tem <strong>100 créditos</strong> para as primeiras análises.
+        Sua conta está ativa e já tem <strong>150 créditos</strong> para as primeiras análises.
         Cada ferramenta pega um documento bruto e devolve um resultado pronto para uso
         profissional:
       </p>
@@ -84,6 +89,23 @@ function fechar() {
           <dd class="bv-item-texto">{{ f.texto }}</dd>
         </div>
       </dl>
+
+      <section v-if="pedirEmpresa" class="bv-empresa">
+        <label class="bv-empresa-campo">
+          <span class="cond bv-item-nome">Sua empresa</span>
+          <input
+            v-model="empresa"
+            type="text"
+            class="bv-empresa-input"
+            autocomplete="organization"
+            maxlength="120"
+            placeholder="Escritório, cartório ou razão social"
+          />
+        </label>
+        <p class="bv-item-texto">
+          É o nome que identifica sua conta e aparece para quem você convidar para a equipe.
+        </p>
+      </section>
 
       <footer class="bv-rodape">
         <p class="bv-nota">
@@ -230,6 +252,34 @@ function fechar() {
     grid-template-columns: 13rem 1fr;
     align-items: baseline;
   }
+}
+
+/* ── Empresa ────────────────────────────────────────────── */
+.bv-empresa {
+  display: grid;
+  gap: var(--ld-space-xs);
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-surface);
+}
+.bv-empresa-campo {
+  display: grid;
+  gap: 6px;
+  max-width: 26rem;
+}
+.bv-empresa-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-divider);
+  border-radius: 0;
+  background: #fff;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.bv-empresa-input:focus {
+  border-color: var(--color-text);
 }
 
 /* ── Rodapé ─────────────────────────────────────────────── */

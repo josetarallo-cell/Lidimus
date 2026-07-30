@@ -30,6 +30,9 @@ export default defineNuxtConfig({
     googleCloudSaKeyJson: process.env.GOOGLE_CLOUD_SA_KEY_JSON,
     gcsBucketName: process.env.GCS_BUCKET_NAME || 'lidimus-job-files',
     uploadRateLimitPerHour: Number(process.env.UPLOAD_RATE_LIMIT_PER_HOUR || 20),
+    // Teto próprio para a API pública: integração de lote legitimamente submete
+    // mais que gente clicando na tela, então o limite do painel a estrangularia.
+    apiRateLimitPerHour: Number(process.env.API_RATE_LIMIT_PER_HOUR || 120),
     maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 50),
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',

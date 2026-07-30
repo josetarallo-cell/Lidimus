@@ -4,16 +4,33 @@ definePageMeta({ layout: false })
 useHead({ title: 'Criar conta — Lidimus' })
 
 const name = ref('')
+const company = ref('')
 const email = ref('')
 const password = ref('')
 const error = ref('')
+// Qual campo destacar em vermelho. Sem isso, um erro de empresa acenderia os
+// campos de e-mail e senha, que estão certos.
+const erroCampo = ref<'empresa' | 'credenciais' | ''>('')
 const loading = ref(false)
 const aguardandoVerificacao = ref(false)
 
 const { data: providers } = await useFetch('/api/auth-providers')
 
+const route = useRoute()
+
+// Quem chega por um convite volta para a tela do convite depois de criar a
+// conta. Só caminhos internos — `redirect` absoluto viraria trampolim externo.
+const destino = computed(() => {
+  const r = route.query.redirect
+  return typeof r === 'string' && r.startsWith('/') && !r.startsWith('//') ? r : '/dashboard'
+})
+
+// Quem foi convidado já tem organização esperando: perguntar a empresa aqui
+// criaria uma segunda, e o convite é justamente para entrar na de outra pessoa.
+const veioDeConvite = computed(() => destino.value.startsWith('/convite/'))
+
 // Volta do callback do Google quando o Better Auth recusa o cadastro
-if (useRoute().query.erro === 'google') {
+if (route.query.erro === 'google') {
   error.value = 'Não foi possível criar a conta com o Google. Tente novamente ou use e-mail e senha.'
 }
 
@@ -24,8 +41,8 @@ async function entrarComGoogle() {
       method: 'POST',
       body: {
         provider: 'google',
-        callbackURL: '/dashboard',
-        errorCallbackURL: '/auth/register?erro=google',
+        callbackURL: destino.value,
+        errorCallbackURL: `/auth/register?erro=google&redirect=${encodeURIComponent(destino.value)}`,
       },
     })
     window.location.href = url
@@ -35,8 +52,16 @@ async function entrarComGoogle() {
 }
 
 async function register() {
-  loading.value = true
   error.value = ''
+  erroCampo.value = ''
+  // O formulário é novalidate (as mensagens nativas destoam do resto da tela) e
+  // o better-auth aceita `company` como campo opcional — a exigência é daqui.
+  if (!veioDeConvite.value && !company.value.trim()) {
+    error.value = 'Informe o nome da sua empresa, escritório ou cartório.'
+    erroCampo.value = 'empresa'
+    return
+  }
+  loading.value = true
   try {
     // Com verificação de e-mail ligada, o cadastro não abre sessão: a resposta
     // vem com token null e o usuário precisa confirmar o e-mail antes de entrar.
@@ -44,20 +69,22 @@ async function register() {
       method: 'POST',
       body: {
         name: name.value,
+        company: company.value.trim(),
         email: email.value,
         password: password.value,
-        callbackURL: '/dashboard',
+        callbackURL: destino.value,
       },
     })
     if (!token) {
       aguardandoVerificacao.value = true
       return
     }
-    await navigateTo('/dashboard')
+    await navigateTo(destino.value)
   } catch (e: unknown) {
     error.value =
       (e as { data?: { message?: string } })?.data?.message ??
       'Não foi possível criar a conta. Confira os dados e tente novamente.'
+    erroCampo.value = 'credenciais'
   } finally {
     loading.value = false
   }
@@ -85,7 +112,7 @@ async function register() {
 
       <section v-else class="ld-painel auth-painel">
         <h1>Criar conta</h1>
-        <p class="auth-nota">Comece com 100 créditos gratuitos — sem cartão de crédito.</p>
+        <p class="auth-nota">Comece com 150 créditos gratuitos — sem cartão de crédito.</p>
         <form class="auth-form" novalidate @submit.prevent="register">
           <label class="ld-campo">
             <span class="ld-label">Nome</span>
@@ -98,12 +125,25 @@ async function register() {
               required
             />
           </label>
+          <label v-if="!veioDeConvite" class="ld-campo">
+            <span class="ld-label">Empresa</span>
+            <input
+              v-model="company"
+              class="ld-input"
+              :class="{ 'ld-input--erro': erroCampo === 'empresa' }"
+              type="text"
+              autocomplete="organization"
+              placeholder="Nome do seu escritório ou cartório"
+              required
+            />
+            <span class="auth-dica">É como sua conta aparece para a equipe.</span>
+          </label>
           <label class="ld-campo">
             <span class="ld-label">E-mail</span>
             <input
               v-model="email"
               class="ld-input"
-              :class="{ 'ld-input--erro': error }"
+              :class="{ 'ld-input--erro': erroCampo === 'credenciais' }"
               type="email"
               autocomplete="email"
               placeholder="voce@escritorio.com.br"
@@ -115,7 +155,7 @@ async function register() {
             <input
               v-model="password"
               class="ld-input"
-              :class="{ 'ld-input--erro': error }"
+              :class="{ 'ld-input--erro': erroCampo === 'credenciais' }"
               type="password"
               autocomplete="new-password"
               minlength="8"
@@ -148,7 +188,7 @@ async function register() {
 
       <p class="auth-troca">
         Já tem conta?
-        <NuxtLink to="/auth/login">Entrar</NuxtLink>
+        <NuxtLink :to="{ path: '/auth/login', query: route.query }">Entrar</NuxtLink>
       </p>
     </main>
   </div>

@@ -15,11 +15,14 @@ export type JobType = 'matricula' | 'kml' | 'injection' | 'croqui'
 // constante por documento — então a precificação é base-pesada, não só por página.
 //
 // Sobre esse custo aplicamos margem composta de 1,69× (30% de lucro × 30% de
-// imposto) e convertemos em créditos pelo crédito mais barato (Empresarial,
-// R$0,012), garantindo margem positiva em todos os planos:
+// imposto) e convertemos em créditos pelo crédito mais barato da tabela vigente
+// à época (R$0,012), garantindo margem positiva em todos os planos:
 //   base    = 0,591 × 1,69 / 0,012 ≈ 83 créditos
 //   perPage = 0,057 × 1,69 / 0,012 ≈ 8 créditos/página
-// Verificado: 1, 8 e 60 páginas mantêm ~1,69× de receita/custo no Empresarial.
+// Os coeficientes seguem valendo: eles são custo, não preço. Na tabela de planos
+// de jul/2026 (migration 0012) o crédito mais barato passou a ser R$0,026 (plano
+// Croqui) e o mais caro R$0,092 (Profissional) — a folga sobre o custo subiu para
+// ~3,6× no pior plano, então a calibragem continua conservadora.
 //
 // injection (Detector de PDF): custo de tokens desprezível (~US$0,002/análise, não
 // escala com páginas — só inspeciona trechos suspeitos), então base 3 + 0,5/pág já
@@ -46,8 +49,10 @@ export function creditCostFor(type: JobType, opts?: { pages?: number }): number 
   return Math.ceil(p.base + p.perPage * pages)
 }
 
-// Créditos concedidos na criação da organização pessoal ("Comece com 100 créditos gratuitos")
-export const SIGNUP_GRANT_CREDITS = 100
+// Créditos concedidos na criação da organização ("Comece com 150 créditos
+// gratuitos"). Ao mexer neste número, acerte junto a landing, a tela de cadastro
+// e as boas-vindas — os três anunciam o valor em texto.
+export const SIGNUP_GRANT_CREDITS = 150
 
 export async function getOrgCreditBalance(db: Db, orgId: string): Promise<number> {
   const [row] = await db

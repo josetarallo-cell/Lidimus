@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { data: me } = await useFetch('/api/me')
+const { data: acesso } = await useAcesso()
 
 const saindo = ref(false)
 async function sair() {
@@ -50,9 +51,14 @@ watch(() => route.path, () => {
 
     <header class="app-header">
       <div class="app-header-inner">
-        <NuxtLink to="/dashboard" class="app-brand">
-          <img src="/logo.svg" alt="Lidimus" class="app-brand-logo" />
-        </NuxtLink>
+        <div class="app-brand-bloco">
+          <NuxtLink to="/dashboard" class="app-brand">
+            <img src="/logo.svg" alt="Lidimus" class="app-brand-logo" />
+          </NuxtLink>
+          <!-- Em equipe, saber em qual organização se está trabalhando é o que
+               explica o saldo de créditos e o histórico que aparecem na tela. -->
+          <NuxtLink v-if="me?.orgName" to="/conta/equipe" class="app-org">{{ me.orgName }}</NuxtLink>
+        </div>
         <nav class="app-nav" aria-label="Principal">
           <NuxtLink to="/dashboard" class="app-nav-link">Painel</NuxtLink>
           <div ref="ferramentasRef" class="app-nav-dropdown">
@@ -77,8 +83,12 @@ watch(() => route.path, () => {
               </svg>
             </button>
             <div v-if="ferramentasAberto" class="app-nav-dropdown-painel" role="menu">
+              <!-- O item continua visível quando o plano não libera: a própria
+                   página explica o porquê e oferece o caminho. Esconder a
+                   ferramenta esconderia também o motivo de assinar. -->
               <NuxtLink to="/matriculas" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
                 Matrículas
+                <span v-if="acesso && !acesso.podeMatricula" class="app-nav-dropdown-tag">Essencial</span>
               </NuxtLink>
               <NuxtLink to="/croqui" class="app-nav-dropdown-item" role="menuitem" @click="ferramentasAberto = false">
                 Croqui
@@ -167,9 +177,42 @@ watch(() => route.path, () => {
   gap: var(--ld-space-lg);
 }
 
+.app-brand-bloco {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-md);
+  min-width: 0;
+}
 .app-brand {
   display: inline-flex;
   align-items: center;
+}
+
+/* O nome da organização é referência, não navegação principal: fica menor que
+   os links do menu e cede espaço primeiro quando a barra aperta. */
+.app-org {
+  min-width: 0;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: var(--ld-space-md);
+  border-left: 1px solid var(--color-divider);
+  color: color-mix(in srgb, var(--color-text) 66%, transparent);
+  font-family: var(--font-cond);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.app-org:hover {
+  color: var(--color-text);
+}
+@media (max-width: 40rem) {
+  .app-org {
+    display: none;
+  }
 }
 /* O logo tem respiro interno no viewBox; a altura acima do texto compensa. */
 .app-brand-logo {
@@ -237,7 +280,10 @@ watch(() => route.path, () => {
   padding: 6px 0;
 }
 .app-nav-dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 16px;
   font-family: var(--font-cond);
   color: color-mix(in srgb, var(--color-text) 75%, transparent);
@@ -256,6 +302,15 @@ watch(() => route.path, () => {
 }
 .app-nav-dropdown-item.router-link-active {
   color: var(--color-text);
+}
+/* Selo do item que o plano atual não libera — informa sem bloquear o clique. */
+.app-nav-dropdown-tag {
+  margin-left: 8px;
+  border: 1px solid var(--color-divider);
+  padding: 1px 5px;
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* "Sair" é ação, não navegação: botão com filete, apartado dos links. */

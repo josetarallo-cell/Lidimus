@@ -4,9 +4,10 @@ import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirPermissaoDeCriar, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { getJobForUser } from '../../lib/getJobForUser'
 import { checkRateLimit } from '../../lib/rateLimit'
+import { exigirAcesso } from '../../lib/planAccess'
 import { countPdfPages } from '../../lib/pdfPages'
 import { assertPdfSignature } from '../../lib/fileSignature'
 import { jobs, creditTransactions, creditCostFor, lockOrgCreditBalance } from '@lidimus/db'
@@ -23,7 +24,10 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
 
   const contentType = getHeader(event, 'content-type') ?? ''
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const vinculo = await vinculoDoUsuario(db, user.id, user.name)
+  exigirPermissaoDeCriar(vinculo)
+  const orgId = vinculo.orgId
+  await exigirAcesso(db, orgId, 'croqui')
   const callbackUrl = `${config.publicBaseUrl}/api/webhooks/n8n-callback`
 
   // ─── Modo 2: reaproveitar matrícula já lida ─────────────────────────────────

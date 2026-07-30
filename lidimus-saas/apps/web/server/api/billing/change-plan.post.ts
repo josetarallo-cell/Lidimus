@@ -4,7 +4,8 @@ import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
 import { useQueues } from '../../lib/queue'
 import { requireAuth } from '../../lib/requireAuth'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirDono, vinculoDoUsuario } from '../../lib/orgAtiva'
+import { exigirPlanoComportaEquipe, exigirPlanoDeAutoatendimento } from '../../lib/orgSeats'
 import { sendPlanChangedEmail } from '../../lib/subscriptionEmails'
 import { plans, subscriptions, creditTransactions } from '@lidimus/db'
 
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   const { planId } = bodySchema.parse(await readBody(event))
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const orgId = exigirDono(await vinculoDoUsuario(db, user.id, user.name))
 
   const [sub] = await db
     .select()
@@ -66,6 +67,13 @@ export default defineEventHandler(async (event) => {
     if (!currentPlan || !newPlan) {
       throw createError({ statusCode: 404, statusMessage: 'Plano não encontrado.' })
     }
+
+    exigirPlanoDeAutoatendimento(newPlan)
+
+    // Antes de qualquer chamada ao Stripe: um downgrade que deixa a equipe
+    // maior que o teto do plano novo não tem desfecho bom — ou alguém perde
+    // acesso sem aviso, ou o limite vira letra morta.
+    await exigirPlanoComportaEquipe(db, orgId, newPlan)
 
     // Mantém o ciclo atual (mensal/anual) — a troca de ciclo fica fora do escopo
     const stripeSub = await stripe.subscriptions.retrieve(sub.providerSubscriptionId)

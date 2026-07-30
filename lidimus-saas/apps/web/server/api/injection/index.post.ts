@@ -3,8 +3,9 @@ import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { requireAuth } from '../../lib/requireAuth'
 import { storeJobFile } from '../../lib/jobFile'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirPermissaoDeCriar, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { checkRateLimit } from '../../lib/rateLimit'
+import { exigirAcesso } from '../../lib/planAccess'
 import { countPdfPages } from '../../lib/pdfPages'
 import { assertPdfSignature } from '../../lib/fileSignature'
 import { jobs, creditTransactions, creditCostFor, lockOrgCreditBalance } from '@lidimus/db'
@@ -30,7 +31,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 413, statusMessage: `Arquivo excede o limite de ${config.maxUploadSizeMb}MB.` })
   }
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const vinculo = await vinculoDoUsuario(db, user.id, user.name)
+  exigirPermissaoDeCriar(vinculo)
+  const orgId = vinculo.orgId
+  await exigirAcesso(db, orgId, 'injection')
 
   const { connection, injectionQueue } = useQueues()
   await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)

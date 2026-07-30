@@ -28,17 +28,33 @@ const { data: jobData, refresh } = await useFetch('/api/jobs', {
   })),
 })
 const { data: creditos } = await useFetch('/api/account/credits')
+const { data: acesso } = await useAcesso()
+
+// A aba de Matrículas continua listando o histórico de quem já rodou análises
+// antes; o que muda é o convite do estado vazio.
+const matriculaBloqueada = computed(
+  () => abaAtiva.value === 'matricula' && acesso.value?.podeMatricula === false,
+)
 
 // Boas-vindas do primeiro acesso — o painel é onde todo mundo cai depois de
 // confirmar o e-mail, então é aqui que a tela aparece (uma vez só).
 const { data: me } = await useFetch('/api/me')
+const { data: equipeInfo } = await useFetch('/api/account/team')
 const mostrarBoasVindas = ref(me.value?.welcomed === false)
 
-async function encerrarBoasVindas() {
+// Pergunta a empresa só a quem chegou sem ela (Google, ou conta anterior ao
+// campo) e é dono da própria organização — convidado recebe a organização
+// pronta e não deve renomeá-la.
+const pedirEmpresa = computed(() => !me.value?.company && me.value?.donoDaOrg === true)
+
+async function encerrarBoasVindas(empresa: string) {
   mostrarBoasVindas.value = false
   // Se a marcação falhar, a tela volta no próximo acesso — incômodo pequeno,
   // e melhor do que travar o painel por causa de um aviso de cortesia.
-  await $fetch('/api/account/welcome', { method: 'POST' }).catch(() => {})
+  await $fetch('/api/account/welcome', {
+    method: 'POST',
+    body: empresa ? { company: empresa } : {},
+  }).catch(() => {})
 }
 
 const jobList = computed(() => jobData.value?.items ?? [])
@@ -65,7 +81,12 @@ type Job = {
   inputMeta?: Record<string, any> | null
   result?: Record<string, any> | null
   createdAt: string
+  createdBy?: string | null
 }
+
+// Numa conta de um usuário só, "Criado por" seria a mesma resposta em todas as
+// linhas. A coluna aparece quando há equipe de fato.
+const mostrarAutor = computed(() => (equipeInfo.value?.membros.length ?? 1) > 1)
 
 // Nome do PDF original enviado — guardado em inputMeta.originalName por todos os
 // tipos de job (matrícula, memorial, croqui, verificação)
@@ -151,7 +172,12 @@ onMounted(() => {
 
 <template>
   <div>
-    <BoasVindas v-if="mostrarBoasVindas" :nome="me?.name" @fechar="encerrarBoasVindas" />
+    <BoasVindas
+      v-if="mostrarBoasVindas"
+      :nome="me?.name"
+      :pedir-empresa="pedirEmpresa"
+      @fechar="encerrarBoasVindas"
+    />
 
     <header class="painel-cabecalho">
       <h1>Painel</h1>
@@ -187,7 +213,12 @@ onMounted(() => {
           <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
         </svg>
         <p class="vazio-titulo">Nenhuma análise em {{ abaInfo.label }} ainda</p>
-        <p class="vazio-texto">
+        <p v-if="matriculaBloqueada" class="vazio-texto">
+          A análise de matrícula começa no plano Essencial.
+          <NuxtLink to="/conta/assinatura">Ver planos</NuxtLink> ou
+          <NuxtLink to="/conta/creditos">comprar uma análise avulsa</NuxtLink>.
+        </p>
+        <p v-else class="vazio-texto">
           {{ abaInfo.vazioTexto }} <NuxtLink :to="abaInfo.novoTo">Começar agora</NuxtLink>.
         </p>
       </div>
@@ -200,6 +231,7 @@ onMounted(() => {
               <th scope="col">Nº do documento</th>
               <th scope="col">Status</th>
               <th scope="col">Risco</th>
+              <th v-if="mostrarAutor" scope="col">Criado por</th>
               <th scope="col">Criado em</th>
               <th scope="col"><span class="sr-only">Ações</span></th>
             </tr>
@@ -222,6 +254,7 @@ onMounted(() => {
                 </span>
                 <span v-else class="celula-na">Não se aplica</span>
               </td>
+              <td v-if="mostrarAutor" class="celula-autor">{{ job.createdBy ?? '—' }}</td>
               <td class="celula-data">{{ dataFmt(job.createdAt) }}</td>
               <td class="celula-acao">
                 <NuxtLink :to="rota(job)" class="ld-btn ld-btn--ghost ld-btn--sm" @click.stop>Ver</NuxtLink>
@@ -431,6 +464,14 @@ onMounted(() => {
 .celula-data {
   color: var(--ld-tinta-suave);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Nome longo não pode empurrar status e ações para fora da tabela */
+.celula-autor {
+  color: var(--ld-tinta-suave);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .celula-acao {

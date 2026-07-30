@@ -2,7 +2,7 @@ import { eq, desc } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
 import { requireAuth } from '../../lib/requireAuth'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirDono, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { subscriptions, plans } from '@lidimus/db'
 
 // Assinatura mais recente da organização pessoal (ou null se nunca assinou)
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
   const db = useDb()
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const orgId = exigirDono(await vinculoDoUsuario(db, user.id, user.name))
 
   const [row] = await db
     .select({
@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
       monthlyPriceCents: plans.monthlyPriceCents,
       annualPriceCents: plans.annualPriceCents,
       creditsPerCycle: plans.creditsPerCycle,
+      maxUsers: plans.maxUsers,
+      features: plans.features,
     })
     .from(subscriptions)
     .innerJoin(plans, eq(plans.id, subscriptions.planId))

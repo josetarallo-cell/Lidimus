@@ -22,7 +22,7 @@ Lidimus é um SaaS de inteligência documental jurídica e técnica com três fe
 2. **Memorial Descritivo** — upload de KML do Google Earth → memorial técnico-jurídico pronto para o registro de imóveis (vértices, azimutes, distâncias, confrontações).
 3. **Detector de Prompt Injection** — varredura de PDFs em busca de instruções ocultas (texto branco, fontes minúsculas, metadados).
 
-Modelo de negócio: créditos por análise, planos Amador / Profissional / Empresarial. Sucesso = o profissional confia no relatório o suficiente para fundamentar uma decisão real (assinar um parecer, protocolar um memorial, aceitar um documento).
+Modelo de negócio: créditos por análise, planos Croqui / Essencial / Profissional / Escritório (+ Enterprise sob contrato), com análise avulsa para quem não assina — preços e franquias em docs/relatorio-precificacao.md. A conta é da organização, não da pessoa: Profissional comporta 3 usuários e Escritório 10, convidados por e-mail pelo proprietário em Conta → Equipe, compartilhando a mesma bolsa de créditos e o mesmo histórico de análises. Cada convidado entra como Membro (cria análises) ou Somente consulta, e o proprietário dá a cada um o cargo que quiser — escrevente, corretor, secretário. Planos, assinatura e compra de crédito ficam só com o proprietário. O Enterprise é negociado caso a caso: aparece na vitrine sem preço, com "Falar com o comercial" no lugar do botão de assinar, e é aplicado pelo painel admin. Sucesso = o profissional confia no relatório o suficiente para fundamentar uma decisão real (assinar um parecer, protocolar um memorial, aceitar um documento).
 
 ## Brand Personality
 

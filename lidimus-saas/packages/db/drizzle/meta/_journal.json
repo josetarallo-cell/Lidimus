@@ -85,6 +85,62 @@
       "when": 1785258742507,
       "tag": "0011_magical_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785900000000,
+      "tag": "0012_planos_landing_2026",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785903600000,
+      "tag": "0013_niveis_acesso_planos",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785990000000,
+      "tag": "0014_convites_equipe",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785993600000,
+      "tag": "0015_papeis_equipe",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785997200000,
+      "tag": "0016_plano_enterprise",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786000800000,
+      "tag": "0017_vitrine_planos_2026_08",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786004400000,
+      "tag": "0018_vitrine_suporte_docx",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786008000000,
+      "tag": "0019_api_publica",
+      "breakpoints": true
     }
   ]
 }

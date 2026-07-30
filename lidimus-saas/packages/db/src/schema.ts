@@ -14,7 +14,11 @@ import { relations, sql } from 'drizzle-orm'
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
-export const orgRoleEnum = pgEnum('org_role', ['owner', 'member'])
+// Papéis internos. O rótulo que a equipe enxerga é livre (org_members.title):
+// cada escritório chama seu pessoal de escrevente, secretário, corretor. Aqui
+// ficam só as duas permissões que o sistema precisa distinguir — quem cria
+// análises e quem apenas consulta — mais o dono.
+export const orgRoleEnum = pgEnum('org_role', ['owner', 'member', 'reader'])
 
 export const jobTypeEnum = pgEnum('job_type', ['matricula', 'kml', 'injection', 'croqui'])
 
@@ -59,6 +63,10 @@ export const users = pgTable('users', {
   isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   // Boas-vindas do primeiro acesso já vistas — a tela aparece uma única vez
   welcomed: boolean('welcomed').notNull().default(false),
+  // Empresa informada no cadastro. É a ponte até a organização existir: ela só
+  // nasce na primeira chamada de API que precisa dela, e é daqui que sai o
+  // organizations.name (ver resolverOrgAtiva).
+  company: text('company'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -127,16 +135,95 @@ export const orgMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     role: orgRoleEnum('role').notNull().default('member'),
+    // Cargo escolhido pelo dono, em texto livre ("escrevente", "corretor").
+    // É rótulo, não permissão — quem manda no acesso é sempre `role`.
+    title: text('title'),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
   },
   (t) => [
-    // No máximo uma org pessoal (owner) por usuário — dá ao getOrCreatePersonalOrg
-    // um alvo de ON CONFLICT para resolver a corrida do primeiro login sem
-    // duplicar org/bônus de créditos quando duas requisições chegam juntas.
+    // No máximo uma organização própria (owner) por usuário — dá ao
+    // resolverOrgAtiva um alvo de ON CONFLICT para resolver a corrida do
+    // primeiro login sem duplicar org/bônus de créditos quando duas requisições
+    // chegam juntas, e torna a "organização própria" uma busca sem ambiguidade
+    // mesmo quando o usuário também é membro da equipe de outra pessoa.
     uniqueIndex('org_members_one_owner_per_user_idx')
       .on(t.userId)
       .where(sql`${t.role} = 'owner'`),
   ],
+)
+
+export const orgInvitations = pgTable(
+  'org_invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: orgRoleEnum('role').notNull().default('member'),
+    // SHA-256 do token que vai no link. O token em claro só existe no e-mail —
+    // um vazamento desta tabela não permite entrar em organização nenhuma.
+    tokenHash: text('token_hash').notNull().unique(),
+    invitedBy: text('invited_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Um único convite em aberto por e-mail em cada organização: reconvidar
+    // alguém que já foi convidado atualiza o convite existente em vez de
+    // empilhar tokens válidos.
+    uniqueIndex('org_invitations_pending_email_idx')
+      .on(t.orgId, sql`lower(${t.email})`)
+      .where(sql`${t.acceptedAt} is null`),
+    index('org_invitations_org_idx').on(t.orgId),
+  ],
+)
+
+// ─── Chaves da API pública ────────────────────────────────────────────────────
+// Credencial de integração da organização (server/api/v1/*). É da empresa, não
+// da pessoa: o proprietário emite e compartilha com a equipe ou com o TI do
+// cliente, e todo consumo debita o saldo de créditos da organização.
+//
+// Só o proprietário emite (exigirDono), e só em plano cujo features.api é true.
+// O plano é revalidado a cada requisição — a chave não é um passe permanente.
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    // Proprietário que emitiu a chave. jobs.user_id é NOT NULL, então toda
+    // análise criada pela API é atribuída a ele — o extrato continua tendo um
+    // responsável mesmo quando a chave está compartilhada com a equipe inteira.
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    // Rótulo escolhido pelo cliente ("ERP do cartório"), para ele saber qual
+    // integração revogar sem ter de adivinhar pelo prefixo.
+    name: text('name').notNull(),
+    // Os primeiros caracteres do token. É o único pedaço que a tela mostra
+    // depois da emissão, e o identificador usado para revogar pelo terminal.
+    prefix: text('prefix').notNull(),
+    // SHA-256 do token inteiro. O token em claro existe uma única vez, na
+    // resposta da criação: um vazamento desta tabela não autentica ninguém.
+    keyHash: text('key_hash').notNull().unique(),
+    // Precisão de minuto basta (ver requireApiKey): serve para o dono saber se
+    // a integração está viva, não para auditar chamada por chamada.
+    lastUsedAt: timestamp('last_used_at'),
+    // NOT NULL de propósito: chave sem prazo é chave que nunca é rotacionada.
+    expiresAt: timestamp('expires_at').notNull(),
+    // Revogação preenche a data em vez de apagar a linha — o histórico de quem
+    // emitiu o que continua existindo depois de a chave morrer.
+    revokedAt: timestamp('revoked_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // O teto de chaves ativas por organização é regra de aplicação, não de banco:
+  // a contagem depende de revoked_at e expires_at, que mudam com o tempo.
+  (t) => [index('api_keys_org_idx').on(t.orgId)],
 )
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
@@ -192,7 +279,31 @@ export const plans = pgTable('plans', {
   annualPriceCents: integer('annual_price_cents').notNull(),
   creditsPerCycle: integer('credits_per_cycle').notNull(),
   maxUsers: integer('max_users').notNull().default(1),
-  features: jsonb('features').$type<Record<string, unknown>>(),
+  // Vitrine do plano, na mesma linguagem da página pública: `specs` é a lista de
+  // franquia (matrículas, croquis, usuários, valor do excedente) e `destaque`
+  // marca o plano recomendado. A conversão da franquia em `creditsPerCycle` está
+  // documentada na migration 0012.
+  //
+  // `ferramentas` é entitlement, não vitrine: é a lista de tipos de job que o
+  // plano libera (migration 0013). Quem resolve o acesso é
+  // apps/web/server/lib/planAccess.ts — nenhuma tela deve decidir sozinha.
+  features: jsonb('features').$type<{
+    resumo?: string
+    specs?: string[]
+    destaque?: boolean
+    ferramentas?: (typeof jobTypeEnum.enumValues)[number][]
+    // Plano negociado caso a caso (Enterprise): não tem preço de tabela e não
+    // pode ser assinado pelo autoatendimento. Preço, franquia e teto de usuários
+    // valem como referência do contrato-padrão; quem coloca um cliente nele é o
+    // admin da plataforma, não o checkout.
+    sobContrato?: boolean
+    // Libera a API pública (server/api/v1/*). É entitlement, não vitrine: a
+    // string "Acesso à API" que aparece em `specs` é copy da landing e não
+    // decide nada. Quem resolve é planoLiberaApi() em server/lib/planAccess.ts,
+    // consultado a cada requisição da API — assim rebaixar o plano corta o
+    // acesso na hora, sem depender de revogar chave (migration 0019).
+    api?: boolean
+  }>(),
 })
 
 export const subscriptions = pgTable('subscriptions', {
@@ -258,10 +369,22 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const organizationsRelations = relations(organizations, ({ many, one }) => ({
   members: many(orgMembers),
+  invitations: many(orgInvitations),
   jobs: many(jobs),
   owner: one(users, { fields: [organizations.ownerId], references: [users.id] }),
   subscriptions: many(subscriptions),
   creditTransactions: many(creditTransactions),
+  apiKeys: many(apiKeys),
+}))
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  org: one(organizations, { fields: [apiKeys.orgId], references: [organizations.id] }),
+  creator: one(users, { fields: [apiKeys.createdBy], references: [users.id] }),
+}))
+
+export const orgInvitationsRelations = relations(orgInvitations, ({ one }) => ({
+  org: one(organizations, { fields: [orgInvitations.orgId], references: [organizations.id] }),
+  inviter: one(users, { fields: [orgInvitations.invitedBy], references: [users.id] }),
 }))
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({

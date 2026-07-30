@@ -2,7 +2,7 @@ import { eq, desc, isNotNull, and } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
 import { requireAuth } from '../../lib/requireAuth'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirDono, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { subscriptions } from '@lidimus/db'
 
 // Abre o Customer Portal do Stripe — gestão de cartão, faturas e cancelamento
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
   const stripe = useStripe()
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const orgId = exigirDono(await vinculoDoUsuario(db, user.id, user.name))
 
   const [sub] = await db
     .select({ providerCustomerId: subscriptions.providerCustomerId })

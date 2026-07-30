@@ -104,6 +104,15 @@ export function useAuth() {
             defaultValue: false,
             input: false,
           },
+          // Empresa informada no cadastro — vira o nome da organização na
+          // primeira vez que ela é criada (ver server/lib/orgAtiva.ts). Único
+          // campo adicional que aceita entrada do cliente; quem entra pelo
+          // Google chega sem ele e responde na tela de boas-vindas.
+          company: {
+            type: 'string',
+            required: false,
+            input: true,
+          },
         },
       },
     })

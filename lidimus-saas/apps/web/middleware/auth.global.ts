@@ -2,9 +2,11 @@
 // Antes deste middleware as APIs já respondiam 401 (nenhum dado vazava), mas o
 // esqueleto das páginas renderizava para visitantes deslogados.
 //
-// Rotas públicas: landing e o fluxo de autenticação. Todo o resto exige sessão.
+// Rotas públicas: landing, o fluxo de autenticação e a tela de convite — que
+// precisa mostrar quem convidou antes de exigir conta (o aceite em si continua
+// exigindo sessão, no servidor).
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (to.path === '/' || to.path.startsWith('/auth/')) return
+  if (to.path === '/' || to.path.startsWith('/auth/') || to.path.startsWith('/convite/')) return
 
   // useRequestFetch encaminha os cookies da requisição durante o SSR — um
   // $fetch simples no servidor sairia sem cookie e derrubaria sessões válidas.

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
 import { organizations, users } from '@lidimus/db'
 import { sendEmail } from './email'
+import { emailLayout } from './emailLayout'
 
 // E-mails transacionais de assinatura. Todos são best-effort: falha de envio é
 // engolida (com log) para nunca quebrar o webhook do Stripe nem a troca de plano.
@@ -19,18 +20,9 @@ export async function getOrgOwnerContact(
   return row ?? null
 }
 
-function layout(titulo: string, corpo: string): string {
-  const base = useRuntimeConfig().publicBaseUrl
-  return `
-    <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto; color: #22302a;">
-      <p style="font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #2e6e4e; margin-bottom: 4px;">Lidimus</p>
-      <h1 style="font-size: 22px; margin: 0 0 16px;">${titulo}</h1>
-      ${corpo}
-      <p style="font-size: 13px; color: #55635b; border-top: 1px solid #dde2da; padding-top: 12px; margin-top: 24px;">
-        Dúvidas sobre sua assinatura? Acesse <a href="${base}/conta/assinatura" style="color: #2e6e4e;">Minha conta → Assinatura</a>.
-      </p>
-    </div>`
-}
+// Moldura compartilhada; o rodapé padrão dela já aponta para a assinatura, que
+// é o assunto de todos os e-mails deste arquivo.
+const layout = emailLayout
 
 async function trySend(to: string, subject: string, html: string): Promise<void> {
   try {

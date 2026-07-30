@@ -11,5 +11,6 @@ export function requireAuth(event: H3Event) {
     name: string
     isPlatformAdmin: boolean
     welcomed: boolean
+    company: string | null
   }
 }

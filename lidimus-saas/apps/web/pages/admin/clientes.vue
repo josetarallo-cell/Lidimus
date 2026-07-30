@@ -62,6 +62,52 @@ async function conceder() {
   }
 }
 
+// Plano de contrato: o Enterprise (e qualquer outro marcado como sobContrato)
+// não passa pelo checkout, então quem coloca o cliente nele é o admin daqui.
+const { data: planos } = await useFetch('/api/billing/plans')
+const planosDeContrato = computed(() => (planos.value ?? []).filter((p) => p.features?.sobContrato))
+
+const aplicandoOrg = ref('')
+const planoEscolhido = ref('')
+const cicloEscolhido = ref<'mensal' | 'anual'>('mensal')
+
+function abrirPlano(orgId: string) {
+  aplicandoOrg.value = orgId
+  planoEscolhido.value = planosDeContrato.value[0]?.id ?? ''
+  cicloEscolhido.value = 'mensal'
+  acaoErro.value = ''
+}
+
+async function aplicarPlano() {
+  if (!planoEscolhido.value) return
+  const plano = planosDeContrato.value.find((p) => p.id === planoEscolhido.value)
+  const meses = cicloEscolhido.value === 'anual' ? 12 : 1
+  if (
+    !confirm(
+      `Colocar este cliente no plano ${plano?.name} (${cicloEscolhido.value}) e lançar ` +
+        `${((plano?.creditsPerCycle ?? 0) * meses).toLocaleString('pt-BR')} créditos?\n\n` +
+        'Esta assinatura não passa pelo Stripe: os créditos do próximo ciclo terão de ser lançados à mão.',
+    )
+  )
+    return
+
+  salvando.value = true
+  acaoErro.value = ''
+  try {
+    await $fetch(`/api/admin/clients/${aplicandoOrg.value}/plan`, {
+      method: 'POST',
+      body: { planId: planoEscolhido.value, ciclo: cicloEscolhido.value },
+    })
+    aplicandoOrg.value = ''
+    await refresh()
+  } catch (e: unknown) {
+    acaoErro.value =
+      (e as { data?: { message?: string } })?.data?.message ?? 'Não foi possível aplicar o plano.'
+  } finally {
+    salvando.value = false
+  }
+}
+
 async function suspender(cliente: Cliente) {
   if (!confirm(`Suspender a assinatura de "${cliente.name}"? A cobrança no Stripe também será cancelada.`)) return
   acaoErro.value = ''
@@ -142,6 +188,25 @@ async function suspender(cliente: Cliente) {
                     Cancelar
                   </button>
                 </form>
+                <form
+                  v-else-if="aplicandoOrg === cliente.id"
+                  class="concessao"
+                  @submit.prevent="aplicarPlano"
+                >
+                  <select v-model="planoEscolhido" class="concessao-input" aria-label="Plano de contrato">
+                    <option v-for="p in planosDeContrato" :key="p.id" :value="p.id">{{ p.name }}</option>
+                  </select>
+                  <select v-model="cicloEscolhido" class="concessao-input" aria-label="Ciclo">
+                    <option value="mensal">Mensal</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                  <button type="submit" class="ld-btn ld-btn--primary ld-btn--sm" :disabled="salvando">
+                    OK
+                  </button>
+                  <button type="button" class="ld-btn ld-btn--ghost ld-btn--sm" @click="aplicandoOrg = ''">
+                    Cancelar
+                  </button>
+                </form>
                 <template v-else>
                   <button
                     type="button"
@@ -149,6 +214,15 @@ async function suspender(cliente: Cliente) {
                     @click="abrirConcessao(cliente.id)"
                   >
                     Conceder créditos
+                  </button>
+                  <!-- Só aparece se existir plano sob contrato cadastrado -->
+                  <button
+                    v-if="planosDeContrato.length"
+                    type="button"
+                    class="ld-btn ld-btn--ghost ld-btn--sm"
+                    @click="abrirPlano(cliente.id)"
+                  >
+                    Plano de contrato
                   </button>
                   <button
                     v-if="cliente.subscription_status === 'active' || cliente.subscription_status === 'trialing' || cliente.subscription_status === 'past_due'"

@@ -10,8 +10,17 @@ const loading = ref(false)
 
 const { data: providers } = await useFetch('/api/auth-providers')
 
+const route = useRoute()
+
+// Para onde ir depois de entrar. Só caminhos internos: um `redirect` absoluto
+// transformaria a tela de login num trampolim para fora do domínio.
+const destino = computed(() => {
+  const r = route.query.redirect
+  return typeof r === 'string' && r.startsWith('/') && !r.startsWith('//') ? r : '/dashboard'
+})
+
 // Volta do callback do Google quando o Better Auth recusa o login
-if (useRoute().query.erro === 'google') {
+if (route.query.erro === 'google') {
   error.value = 'Não foi possível entrar com o Google. Tente novamente ou use e-mail e senha.'
 }
 
@@ -24,8 +33,8 @@ async function entrarComGoogle() {
       // para a landing sem sessão e sem explicação nenhuma.
       body: {
         provider: 'google',
-        callbackURL: '/dashboard',
-        errorCallbackURL: '/auth/login?erro=google',
+        callbackURL: destino.value,
+        errorCallbackURL: `/auth/login?erro=google&redirect=${encodeURIComponent(destino.value)}`,
       },
     })
     window.location.href = url
@@ -40,9 +49,9 @@ async function login() {
   try {
     await $fetch('/api/auth/sign-in/email', {
       method: 'POST',
-      body: { email: email.value, password: password.value, callbackURL: '/dashboard' },
+      body: { email: email.value, password: password.value, callbackURL: destino.value },
     })
-    await navigateTo('/dashboard')
+    await navigateTo(destino.value)
   } catch (e: unknown) {
     const dados = (e as { data?: { message?: string; code?: string } })?.data
     // O Better Auth recusa a sessão enquanto o e-mail não for confirmado e
@@ -117,7 +126,7 @@ async function login() {
 
       <p class="auth-troca">
         Não tem conta?
-        <NuxtLink to="/auth/register">Criar conta</NuxtLink>
+        <NuxtLink :to="{ path: '/auth/register', query: route.query }">Criar conta</NuxtLink>
       </p>
     </main>
   </div>

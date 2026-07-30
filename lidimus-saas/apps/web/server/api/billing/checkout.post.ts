@@ -3,7 +3,8 @@ import { eq, desc } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { useStripe } from '../../lib/stripe'
 import { requireAuth } from '../../lib/requireAuth'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { exigirDono, vinculoDoUsuario } from '../../lib/orgAtiva'
+import { exigirPlanoComportaEquipe, exigirPlanoDeAutoatendimento } from '../../lib/orgSeats'
 import { plans, subscriptions } from '@lidimus/db'
 
 const bodySchema = z.object({
@@ -25,7 +26,13 @@ export default defineEventHandler(async (event) => {
   const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1)
   if (!plan) throw createError({ statusCode: 404, statusMessage: 'Plano não encontrado.' })
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const orgId = exigirDono(await vinculoDoUsuario(db, user.id, user.name))
+
+  exigirPlanoDeAutoatendimento(plan)
+
+  // Quem cancelou um plano grande e volta num menor cairia com a equipe acima
+  // do teto — a mesma trava do change-plan, antes de abrir o checkout.
+  await exigirPlanoComportaEquipe(db, orgId, plan)
 
   // Reutiliza o customer do Stripe se a org já assinou antes (evita duplicar clientes)
   const [existing] = await db

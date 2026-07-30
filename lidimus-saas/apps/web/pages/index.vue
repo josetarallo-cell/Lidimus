@@ -13,7 +13,7 @@ const url = useRequestURL()
 const SITE_TITLE = 'Lidimus — Inteligência documental jurídica e técnica'
 const SITE_DESC =
   'Pareceres de matrícula imobiliária, memoriais descritivos a partir de KML e detecção de ' +
-  'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. Comece com 100 créditos gratuitos.'
+  'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. Comece com 150 créditos gratuitos.'
 
 useHead({
   title: SITE_TITLE,
@@ -105,7 +105,7 @@ const planosBase: PlanoBase[] = [
     cta: 'Assinar Croqui',
     to: '/auth/register',
     resumo:
-      'Croqui, memorial descritivo e exportação em DOCX. Análise de matrícula é cobrada à parte — veja como funciona logo abaixo.',
+      'Croqui e memorial descritivo. Análise de matrícula é cobrada à parte — veja como funciona nas dúvidas frequentes.',
     destaque: false,
     selo: '',
     primary: false,
@@ -128,10 +128,10 @@ const planosBase: PlanoBase[] = [
     desc: 'Para o profissional que vive de documentos.',
     mo: 497,
     yr: 4970,
-    specs: ['15 matrículas / mês', 'Croquis ilimitados', 'Até 3 usuários', 'Matrícula extra: R$ 29'],
+    specs: ['15 matrículas / mês', '40 croquis / mês', 'Até 3 usuários', 'Matrícula extra: R$ 29'],
     cta: 'Assinar Profissional',
     to: '/auth/register',
-    resumo: 'Marca própria no relatório, Detector de conteúdo oculto e histórico completo.',
+    resumo: 'Relatório com a sua marca (white-label) e exportação em DOCX.',
     destaque: true,
     selo: 'Mais popular',
     primary: true,
@@ -141,10 +141,10 @@ const planosBase: PlanoBase[] = [
     desc: 'Para escritórios, construtoras e cartórios.',
     mo: 1297,
     yr: 12970,
-    specs: ['50 matrículas / mês', 'Croquis ilimitados', 'Até 10 usuários', 'Matrícula extra: R$ 19'],
+    specs: ['50 matrículas / mês', '60 croquis / mês', 'Até 10 usuários', 'Matrícula extra: R$ 19'],
     cta: 'Assinar Escritório',
     to: '/auth/register',
-    resumo: 'Acesso à API, white-label, SLA e suporte prioritário.',
+    resumo: 'Acesso à API e suporte prioritário.',
     destaque: false,
     selo: '',
     primary: false,
@@ -158,7 +158,7 @@ const planosBase: PlanoBase[] = [
     specs: ['Volume de matrículas sob demanda', 'Croquis ilimitados', 'Usuários personalizados'],
     cta: 'Falar com vendas',
     mailto: enterpriseMailto,
-    resumo: 'SSO, integrações dedicadas, contrato anual e suporte jurídico dedicado.',
+    resumo: 'Integrações dedicadas, contrato anual, SLA e suporte jurídico dedicado.',
     destaque: false,
     selo: '',
     primary: false,
@@ -271,6 +271,10 @@ const memorialEtapas = [
 ]
 
 const faq = [
+  {
+    q: 'Como funciona a cobrança avulsa da análise de matrícula?',
+    a: 'A análise de matrícula é comprada à parte, só quando você precisar. Assinante paga R$ 89 por análise (25% a menos que o preço público de R$ 119), cobrados apenas quando a análise é concluída: falha de OCR ou matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42% de desconto, e o saldo fica sempre visível no topo do app.',
+  },
   {
     q: 'Isso substitui o parecer de um profissional habilitado?',
     a: 'Não — e não deveria. O Lidimus organiza, traduz e destaca os pontos de atenção do documento para que o profissional decida mais rápido e com mais contexto. O parecer final e a responsabilidade técnica continuam sendo de quem assina.',
@@ -837,19 +841,6 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
-          <!-- Cobrança avulsa no Croqui -->
-          <div data-reveal class="lp-avulso">
-            <p class="cond lp-avulso-titulo">Como funciona a cobrança avulsa no plano Croqui</p>
-            <p class="lp-avulso-texto">
-              O Croqui não inclui análise de matrícula — ela é comprada à parte, só quando você
-              precisar. Assinante paga <strong>R$ 89</strong> por análise (25% a menos que o preço
-              público de R$ 119), cobrados apenas quando a análise é concluída: falha de OCR ou
-              matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não
-              gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42%
-              de desconto, e o saldo fica sempre visível no topo do app.
-            </p>
-          </div>
-
           <!-- Comparativo -->
           <div data-reveal class="lp-comparativo">
             <p class="cond lp-comparativo-titulo">Compare os planos</p>
@@ -878,8 +869,8 @@ onBeforeUnmount(() => {
                     <th scope="row">Croquis / mês</th>
                     <td>20</td>
                     <td>40</td>
-                    <td>Ilimitado</td>
-                    <td>Ilimitado</td>
+                    <td>40</td>
+                    <td>60</td>
                     <td>Ilimitado</td>
                   </tr>
                   <tr>
@@ -890,6 +881,17 @@ onBeforeUnmount(() => {
                     <td>Até 10</td>
                     <td>Custom</td>
                   </tr>
+                  <!-- Marcado em todos os planos porque é verdade no código: o
+                       detector está em FERRAMENTAS_SEM_PLANO (server/lib/planAccess.ts),
+                       ou seja, roda até sem assinatura nenhuma. -->
+                  <tr>
+                    <th scope="row">Detector de Prompts</th>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                    <td class="lp-sim">◆</td>
+                  </tr>
                   <tr>
                     <th scope="row">Análise jurídica e cadeia dominial</th>
                     <td class="lp-nao">—</td>
@@ -899,7 +901,7 @@ onBeforeUnmount(() => {
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
-                    <th scope="row">Marca própria, Detector e histórico</th>
+                    <th scope="row">White-label e DOCX</th>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
                     <td class="lp-sim">◆</td>
@@ -907,7 +909,7 @@ onBeforeUnmount(() => {
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
-                    <th scope="row">API, white-label e SLA</th>
+                    <th scope="row">API</th>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
@@ -915,7 +917,7 @@ onBeforeUnmount(() => {
                     <td class="lp-sim">◆</td>
                   </tr>
                   <tr>
-                    <th scope="row">SSO e jurídico dedicado</th>
+                    <th scope="row">Jurídico dedicado e SLA</th>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
                     <td class="lp-nao">—</td>
@@ -927,8 +929,8 @@ onBeforeUnmount(() => {
                     <td>Base de conhecimento</td>
                     <td>E-mail</td>
                     <td>E-mail prioritário</td>
+                    <td>Prioritário</td>
                     <td>Prioritário + SLA</td>
-                    <td>Dedicado</td>
                   </tr>
                 </tbody>
               </table>
@@ -940,7 +942,7 @@ onBeforeUnmount(() => {
       <!-- ══════════ CTA FINAL — poster vermelho ══════════ -->
       <section class="lp-cta">
         <div class="lp-cta-inner">
-          <h2 data-reveal class="lp-cta-titulo">Comece com 100 créditos gratuitos.</h2>
+          <h2 data-reveal class="lp-cta-titulo">Comece com 150 créditos gratuitos.</h2>
           <p data-reveal data-reveal-delay="60" class="lp-cta-sub">
             Sem cartão de crédito. Teste as três ferramentas com seus próprios documentos.
           </p>
@@ -2166,32 +2168,6 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 62%, transparent);
-}
-
-/* Cobrança avulsa (Croqui) */
-.lp-avulso {
-  margin-top: 24px;
-  border: 2px solid var(--color-text);
-  padding: 24px 28px;
-  background: var(--color-bg);
-}
-.lp-avulso-titulo {
-  margin: 0 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-}
-.lp-avulso-texto {
-  margin: 0;
-  max-width: 72ch;
-  font-size: 0.92rem;
-  line-height: 1.6;
-  color: color-mix(in srgb, var(--color-text) 75%, transparent);
-}
-.lp-avulso-texto strong {
-  color: var(--color-text);
 }
 
 /* Comparativo */

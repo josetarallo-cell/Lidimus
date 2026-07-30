@@ -8,7 +8,8 @@
     "worker": "pnpm --filter workers start",
     "db:generate": "pnpm --filter db generate",
     "db:migrate": "pnpm --filter db migrate",
-    "db:studio": "pnpm --filter db studio"
+    "db:studio": "pnpm --filter db studio",
+    "chave:api": "pnpm --filter db exec tsx src/gerar-chave-api.ts"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

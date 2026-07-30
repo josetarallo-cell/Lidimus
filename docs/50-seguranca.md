@@ -69,6 +69,30 @@ Enquanto estiver desligado, existe uma brecha conhecida e aceita: quem se cadast
 
 Cada upload gera um `access_token` aleatório (`packages/db` tabela `job_files`) usado para montar a URL que o n8n usa para baixar o arquivo (`buildFileUrl` em `server/lib/jobFile.ts`). O arquivo é servido via signed URL do GCS e o token é conferido contra o `jobId` antes de gerar a URL assinada — depois do processamento, o arquivo é soft-deletado (`deleted_at`) e removido do GCS (`softDeleteJobFile`). Não exponha esse token em logs.
 
+## Chaves da API pública
+
+A credencial da API (`api_keys`, ver [70-api-publica.md](70-api-publica.md)) é a segunda forma de autenticar no sistema, e foi desenhada para **não** herdar os poderes da sessão.
+
+**Como a chave é guardada.** 32 bytes de CSPRNG em base64url (256 bits), prefixados por `ldm_live_`. O banco recebe só o SHA-256 — o token em claro existe uma única vez, na resposta da emissão. SHA-256 sem sal e sem KDF é a escolha certa aqui, pelo mesmo motivo do token de convite: é segredo aleatório de alta entropia, não senha de gente, e o lookup precisa ser um índice único. O prefixo fixo serve para scanner de segredos (push protection, gitleaks) reconhecer a credencial e barrar o commit antes de o cliente vazá-la no repositório dele.
+
+**Estanqueidade.** `server/lib/requireApiKey.ts` é paralelo ao `requireAuth`, e não um ramo do `server/middleware/auth.ts`. Consequências que valem por si: a v1 nunca autentica por cookie, então nenhuma requisição de navegador de terceiro se autentica sozinha (não há superfície de CSRF na API); e as rotas de sessão nunca aceitam chave, então uma chave vazada não abre painel, equipe, Stripe ou troca de plano.
+
+**Autorização é sempre lida do plano, a cada requisição.** A chave identifica; quem autoriza é `features.api` do plano vigente. Rebaixamento, cancelamento e inadimplência cortam a API na chamada seguinte, sem depender de alguém lembrar de revogar chave. Uma chave não é um passe permanente.
+
+**Quem emite.** Só o proprietário da organização (`exigirDono`), e só em plano com a marca. A chave é da organização e pode ser compartilhada — por isso a tela exige confirmação explícita de que o consumo debita os créditos do plano antes de emitir.
+
+**Demais defesas:**
+
+- Prazo obrigatório de 365 dias (`expires_at` é NOT NULL) — chave sem prazo é chave nunca rotacionada. Máximo de 5 ativas por organização.
+- Revogação preenche `revoked_at` (não apaga a linha): o histórico de quem emitiu o que sobrevive à chave.
+- Chave inexistente, revogada e expirada devolvem **o mesmo** 401. Distinguir os casos confirmaria a quem sonda que o token em mãos existe de verdade.
+- Chave cujo emissor deixou de ser membro da organização para de valer (`chave_orfa`): credencial de ex-integrante não segue gastando o crédito de quem ficou.
+- HTTPS obrigatório em produção (`x-forwarded-proto`): credencial de portador em canal claro é credencial vazada, e o cliente merece o erro alto. Token em query string nunca é aceito — query string vaza para log de acesso, proxy e `Referer`.
+- Três limites por hora: 120 por organização, 120 por chave (isola o culpado quando a chave é compartilhada) e 20 falhas de autenticação por IP a cada 5 minutos, contadas só em falha, antes de consultar o Postgres.
+- Respostas da v1 vão com `Cache-Control: no-store`, e o cabeçalho `Authorization` não é ecoado em log.
+- O resultado devolvido pela API é filtrado (`server/lib/v1/serializarJob.ts`): `stage_data` (OCR bruto) e `result.usage` (tokens e custo por modelo) ficam de fora. O `usage` é telemetria de margem — diz quanto a análise nos custou, e não é assunto de quem compra.
+- Não exponha o token em logs, e ao excluir um usuário lembre que `api_keys.created_by` é `ON DELETE restrict`: as chaves dele precisam ser tratadas antes.
+
 ## Callback do n8n
 
 `server/api/webhooks/n8n-callback.post.ts` aceita dois esquemas de autenticação, ambos comparados com `timingSafeEqual` (evita timing attack):
@@ -95,3 +119,4 @@ Se o callback começar a falhar com 401 depois de um deploy, o `N8N_CALLBACK_SEC
 - [ ] `N8N_CALLBACK_SECRET` idêntico entre `.env.prod` e os workflows do n8n
 - [ ] Domínio verificado no Resend e `EMAIL_FROM` apontando para ele
 - [ ] `REQUIRE_EMAIL_VERIFICATION=true` (depende do item acima)
+- [ ] `API_RATE_LIMIT_PER_HOUR` revisado para o volume real dos clientes de API (padrão 120)

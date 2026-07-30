@@ -1,7 +1,7 @@
 import { eq, desc } from 'drizzle-orm'
 import { useDb } from '../../lib/db'
 import { requireAuth } from '../../lib/requireAuth'
-import { getOrCreatePersonalOrg } from '../../lib/getOrCreateOrg'
+import { resolverOrgAtivaDoUsuario } from '../../lib/orgAtiva'
 import { creditTransactions, jobs, getOrgCreditBalance } from '@lidimus/db'
 
 // Saldo e histórico de créditos da organização pessoal do usuário
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
   const db = useDb()
 
-  const orgId = await getOrCreatePersonalOrg(db, user.id, user.name)
+  const orgId = await resolverOrgAtivaDoUsuario(db, user.id, user.name)
 
   const [balance, transactions] = await Promise.all([
     getOrgCreditBalance(db, orgId),

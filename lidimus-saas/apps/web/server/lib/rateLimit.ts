@@ -17,12 +17,10 @@ export async function checkRateLimit(
   key: string,
   limit: number,
   windowSeconds: number,
+  mensagem = 'Muitas análises em pouco tempo. Tente novamente em instantes.',
 ): Promise<void> {
   const count = (await redis.eval(INCR_WITH_TTL, 1, key, windowSeconds)) as number
   if (count > limit) {
-    throw createError({
-      statusCode: 429,
-      statusMessage: 'Muitas análises em pouco tempo. Tente novamente em instantes.',
-    })
+    throw createError({ statusCode: 429, statusMessage: mensagem })
   }
 }

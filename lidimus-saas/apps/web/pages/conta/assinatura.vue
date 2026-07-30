@@ -1,6 +1,14 @@
 <script setup lang="ts">
 useHead({ title: 'Assinatura — Lidimus' })
 
+// A aba já não aparece para membro e leitor, mas a URL é adivinhável — e o
+// /api/account/subscription abaixo responderia 403 e quebraria a página.
+// Manda de volta para Créditos, que é o que essas pessoas podem ver.
+const { data: me } = await useFetch('/api/me')
+if (me.value && !me.value.donoDaOrg) {
+  await navigateTo('/conta/creditos')
+}
+
 const { data: assinaturaData, refresh: refreshAssinatura } = await useFetch('/api/account/subscription')
 const { data: planos } = await useFetch('/api/billing/plans')
 
@@ -19,9 +27,26 @@ const statusSelo: Record<string, { classe: string; texto: string }> = {
 
 const ciclo = ref<'mensal' | 'anual'>('mensal')
 
+// Preço com centavos só quando existem — R$ 29,90 e R$ 197, nunca "R$ 197,00".
+// O espaço é inquebrável: "R$" nunca fica sozinho no fim da linha.
 function precoFmt(cents: number): string {
-  return 'R$ ' + (cents / 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  const valor = cents / 100
+  const opts = Number.isInteger(valor) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  return 'R$\u00A0' + valor.toLocaleString('pt-BR', opts)
 }
+
+// Desconto do anual (2 meses), calculado sobre o mensal — mesma conta da página pública
+function economiaAnual(plano: { monthlyPriceCents: number; annualPriceCents: number }) {
+  const cheio = plano.monthlyPriceCents * 12
+  const eco = cheio - plano.annualPriceCents
+  if (eco <= 0) return null
+  return { cheio: precoFmt(cheio), eco: precoFmt(eco), pct: Math.round((eco / cheio) * 100) }
+}
+
+// Volume acima do Escritório é contrato — não tem checkout self-service
+const enterpriseMailto =
+  'mailto:jose.tarallo@gmail.com?subject=Lidimus%20Enterprise%20%E2%80%94%20contato%20comercial' +
+  '&body=Ol%C3%A1%2C%20tenho%20interesse%20no%20plano%20Enterprise%20do%20Lidimus.%0AEscrit%C3%B3rio%2Fempresa%3A%20%0AVolume%20estimado%20de%20documentos%2Fm%C3%AAs%3A%20'
 
 function dataFmt(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR')
@@ -69,7 +94,11 @@ const mudancaOk = ref('')
 
 const outrosPlanos = computed(() => {
   if (!planos.value || !assinatura.value) return []
-  return planos.value.filter((p) => p.name !== assinatura.value!.planName)
+  // Sob contrato fica de fora: a troca passa pelo Stripe, e o servidor recusa
+  // esses planos — oferecer o botão seria oferecer um 403.
+  return planos.value.filter(
+    (p) => p.name !== assinatura.value!.planName && !p.features?.sobContrato,
+  )
 })
 
 function ehUpgrade(plano: { monthlyPriceCents: number }): boolean {
@@ -144,6 +173,9 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
             </span>
           </p>
           <p class="atual-creditos">{{ assinatura.creditsPerCycle.toLocaleString('pt-BR') }} créditos por ciclo</p>
+          <ul v-if="assinatura.features?.specs?.length" class="atual-specs">
+            <li v-for="spec in assinatura.features.specs" :key="spec">{{ spec }}</li>
+          </ul>
         </div>
         <div class="atual-acoes">
           <button
@@ -185,6 +217,9 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
               <p class="migracao-opcao-detalhe">
                 {{ precoFmt(plano.monthlyPriceCents) }}/mês ·
                 {{ plano.creditsPerCycle.toLocaleString('pt-BR') }} créditos/mês
+              </p>
+              <p v-if="plano.features?.specs?.length" class="migracao-opcao-specs">
+                {{ plano.features.specs.join(' · ') }}
               </p>
             </div>
             <button
@@ -229,19 +264,57 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
       </div>
 
       <div class="planos-grade">
-        <article v-for="plano in planos" :key="plano.id" class="ld-painel plano">
+        <article
+          v-for="plano in planos"
+          :key="plano.id"
+          class="ld-painel plano"
+          :class="{ 'plano--destaque': plano.features?.destaque }"
+        >
+          <!-- As faixas abaixo são sempre renderizadas, mesmo vazias: é o que
+               permite ao subgrid alinhar preço, franquia e CTA entre os cards -->
+          <div class="plano-faixa-selo">
+            <span v-if="plano.features?.destaque" class="ld-selo ld-selo--verde">Mais popular</span>
+          </div>
           <h2 class="plano-nome">{{ plano.name }}</h2>
-          <p class="plano-preco">
-            <span>{{ precoFmt(ciclo === 'anual' ? plano.annualPriceCents : plano.monthlyPriceCents) }}</span>
-            {{ ciclo === 'anual' ? '/ano' : '/mês' }}
-          </p>
-          <p class="plano-creditos">{{ plano.creditsPerCycle.toLocaleString('pt-BR') }} créditos / mês</p>
-          <p class="plano-usuarios">
+          <p class="plano-resumo">{{ plano.features?.resumo }}</p>
+          <div class="plano-preco-bloco">
+            <!-- Enterprise não tem preço de tabela: mostrar "R$ 0,00" seria
+                 mentira, e mostrar um valor inventado, pior. -->
+            <p v-if="plano.features?.sobContrato" class="plano-preco plano-preco--contrato">
+              <span>Sob contrato</span>
+            </p>
+            <template v-else>
+              <p class="plano-preco">
+                <span>{{ precoFmt(ciclo === 'anual' ? plano.annualPriceCents : plano.monthlyPriceCents) }}</span>
+                {{ ciclo === 'anual' ? '/ano' : '/mês' }}
+              </p>
+              <p v-if="ciclo === 'anual' && economiaAnual(plano)" class="plano-economia">
+                De {{ economiaAnual(plano)!.cheio }} — economize {{ economiaAnual(plano)!.eco }}
+                ({{ economiaAnual(plano)!.pct }}%)
+              </p>
+            </template>
+          </div>
+          <ul v-if="plano.features?.specs?.length" class="plano-specs">
+            <li v-for="spec in plano.features.specs" :key="spec">{{ spec }}</li>
+          </ul>
+          <p v-else class="plano-usuarios">
             {{ plano.maxUsers === 1 ? '1 usuário' : `Até ${plano.maxUsers} usuários` }}
           </p>
+          <p v-if="plano.features?.sobContrato" class="plano-creditos">Volume sob contrato</p>
+          <p v-else class="plano-creditos">
+            {{ plano.creditsPerCycle.toLocaleString('pt-BR') }} créditos / mês
+          </p>
+
+          <!-- Sob contrato não passa pelo checkout: o servidor recusa esse
+               planId, e um botão "Assinar" só levaria a um 403. -->
+          <a v-if="plano.features?.sobContrato" :href="enterpriseMailto" class="ld-btn ld-btn--secondary plano-cta">
+            Falar com o comercial
+          </a>
           <button
+            v-else
             type="button"
-            class="ld-btn ld-btn--primary plano-cta"
+            class="ld-btn plano-cta"
+            :class="plano.features?.destaque ? 'ld-btn--primary' : 'ld-btn--secondary'"
             :disabled="carregando === plano.id"
             @click="assinar(plano.id)"
           >
@@ -249,6 +322,17 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
           </button>
         </article>
       </div>
+
+      <p class="planos-nota">
+        A franquia de cada plano é debitada em créditos, na medida do documento: uma matrícula de
+        20 páginas consome 243 créditos e um croqui, 57. Documento menor consome menos — e rende
+        mais análises do que a franquia anunciada.
+      </p>
+
+      <p class="planos-contato">
+        Volume acima do Escritório, jurídico dedicado ou contrato anual?
+        <a :href="enterpriseMailto">Fale com o comercial</a>.
+      </p>
     </section>
   </div>
 </template>
@@ -333,6 +417,29 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
   font-size: 0.9375rem;
   color: var(--ld-tinta-suave);
 }
+.atual-specs {
+  margin: var(--ld-space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: var(--ld-space-sm) var(--ld-space-md);
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: var(--ld-tinta-suave);
+}
+.atual-specs li {
+  position: relative;
+  padding-left: 14px;
+}
+.atual-specs li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  background: var(--ld-verde);
+}
 .atual-acoes {
   display: flex;
   gap: var(--ld-space-sm);
@@ -385,6 +492,12 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
   font-size: 0.875rem;
   color: var(--ld-tinta-suave);
 }
+.migracao-opcao-specs {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+  max-width: 60ch;
+}
 
 .escolha-cabecalho {
   display: flex;
@@ -426,14 +539,32 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
 
 .planos-grade {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: var(--ld-space-lg);
+  align-items: stretch;
 }
 .plano {
   padding: var(--ld-space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--ld-space-xs);
+}
+/* Grade de preço só compara de verdade se as linhas homólogas ficarem na mesma
+   altura em todos os cards — o subgrid herda as 6 faixas da grade externa
+   (selo · nome · resumo · preço · franquia · créditos+CTA). Onde não houver
+   subgrid, o flex acima segue valendo, apenas sem o alinhamento entre cards. */
+@supports (grid-template-rows: subgrid) {
+  .plano {
+    display: grid;
+    grid-row: span 7;
+    grid-template-rows: subgrid;
+  }
+}
+.plano--destaque {
+  border-color: var(--ld-verde);
+}
+.plano-faixa-selo {
+  margin-bottom: 2px;
 }
 .plano-nome {
   margin: 0;
@@ -442,10 +573,24 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
   font-size: 1.25rem;
   line-height: 1.25;
 }
+.plano-resumo {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ld-tinta-suave);
+  text-wrap: pretty;
+}
+.plano-preco-bloco {
+  margin-top: var(--ld-space-xs);
+}
 .plano-preco {
   margin: 0;
   color: var(--ld-tinta-suave);
   font-size: 0.9375rem;
+}
+/* Sem cifra para comparar, o texto ocupa o lugar do número sem imitá-lo */
+.plano-preco--contrato span {
+  font-size: 1.25rem;
 }
 .plano-preco span {
   font-family: var(--ld-font-serif);
@@ -453,14 +598,73 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
   font-size: 1.5rem;
   color: var(--ld-tinta);
 }
+.plano-economia {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ld-verde-profundo);
+}
+.plano-specs {
+  margin: var(--ld-space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+}
+.plano-specs li {
+  position: relative;
+  padding-left: 16px;
+}
+.plano-specs li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 6px;
+  height: 6px;
+  background: var(--ld-verde);
+}
 .plano-creditos,
 .plano-usuarios {
   margin: 0;
   font-size: 0.9375rem;
   color: var(--ld-tinta-suave);
 }
+.plano-creditos {
+  margin-top: var(--ld-space-sm);
+  padding-top: var(--ld-space-sm);
+  border-top: 1px solid var(--ld-filete);
+  font-size: 0.875rem;
+}
+/* margin-top: auto encosta o CTA na base — os cards têm alturas de conteúdo
+   diferentes e os botões precisam alinhar na mesma linha */
 .plano-cta {
-  margin-top: var(--ld-space-md);
+  margin-top: auto;
   align-self: flex-start;
+}
+/* O CTA do plano sob contrato é um link (mailto), não um botão */
+a.plano-cta {
+  text-decoration: none;
+}
+
+.planos-nota,
+.planos-contato {
+  margin: var(--ld-space-lg) 0 0;
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ld-tinta-suave);
+}
+.planos-contato {
+  margin-top: var(--ld-space-sm);
+}
+.planos-contato a {
+  color: var(--ld-verde);
+  font-weight: 500;
+}
+.planos-contato a:hover {
+  color: var(--ld-verde-profundo);
 }
 </style>
