@@ -7,8 +7,11 @@
 //
 // Duas coisas ficam de fora por serem nossas, não do cliente:
 //   • `stage_data` — texto de OCR bruto e estado intermediário do pipeline;
-//   • `result.usage` — tokens e custo por modelo. É telemetria de margem: diz
-//     quanto a análise nos custou, o que não é assunto de quem compra.
+//   • telemetria — custo em dólar e nome dos modelos de cada etapa. Diz quanto a
+//     análise nos custou e de que fornecedores o produto é feito; ver
+//     lib/semTelemetria.ts.
+
+import { limparErro, limparTelemetria } from '../semTelemetria'
 
 type JobDoBanco = {
   id: string
@@ -31,10 +34,13 @@ function statusPublico(status: JobDoBanco['status']): StatusPublico {
   return status === 'pending' ? 'queued' : status
 }
 
+// A limpeza de telemetria mora em lib/semTelemetria.ts e já foi aplicada no
+// getJobForOrg. Repetir aqui é redundância barata e proposital: este é o ponto
+// que monta o contrato público, e ele não deve depender de quem o chamou ter
+// lembrado de filtrar.
 function semTelemetria(result: Record<string, unknown> | null | undefined) {
   if (!result) return null
-  const { usage: _usage, ...resto } = result
-  return resto
+  return limparTelemetria(result)
 }
 
 // `incluirResultado: false` na listagem: o resultado de uma matrícula é um JSON
@@ -55,7 +61,10 @@ export function serializarJob(job: JobDoBanco, { incluirResultado = true } = {})
     concluidoEm: job.completedAt?.toISOString() ?? null,
     // Preenchidos em exclusão mútua: erro quando falhou, resultado quando
     // concluiu. Enquanto processa, os dois são nulos.
-    erro: job.status === 'error' ? (job.errorMessage ?? 'Falha ao processar a análise.') : null,
+    erro:
+      job.status === 'error'
+        ? (limparErro(job.errorMessage) ?? 'Falha ao processar a análise.')
+        : null,
     ...(incluirResultado && {
       resultado: job.status === 'done' ? semTelemetria(job.result) : null,
     }),

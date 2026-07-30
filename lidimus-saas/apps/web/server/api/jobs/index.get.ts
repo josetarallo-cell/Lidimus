@@ -4,6 +4,7 @@ import { useDb } from '../../lib/db'
 import { requireAuth } from '../../lib/requireAuth'
 import { alias } from 'drizzle-orm/pg-core'
 import { jobs, organizations, orgMembers, users } from '@lidimus/db'
+import { limparJob } from '../../lib/semTelemetria'
 
 // `users` entra duas vezes na consulta (o autor do job e, indiretamente, o
 // membro que está consultando), então o autor precisa de apelido próprio.
@@ -58,5 +59,7 @@ export default defineEventHandler(async (event) => {
       .innerJoin(orgMembers, filtro),
   ])
 
-  return { items, total }
+  // A listagem traz `result` de cada job — passa pelo mesmo filtro do acesso
+  // individual, senão o custo em dólar e os modelos vazariam por aqui.
+  return { items: items.map(limparJob), total }
 })

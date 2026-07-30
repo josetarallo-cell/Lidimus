@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
 import { jobs, organizations, orgMembers } from '@lidimus/db'
+import { limparJob } from './semTelemetria'
 
 // Job visível para o usuário (via org de que participa) — usado pelo GET e pelo SSE
 export async function getJobForUser(db: Db, jobId: string, userId: string) {
@@ -26,5 +27,7 @@ export async function getJobForUser(db: Db, jobId: string, userId: string) {
     .where(eq(jobs.id, jobId))
     .limit(1)
 
-  return job ?? null
+  // Sai limpo do custo em dólar e dos modelos usados — ver semTelemetria.ts.
+  // Limpar aqui, e não em cada rota, faz rota nova nascer segura.
+  return job ? limparJob(job) : null
 }

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
+// Saída real do motor de desenho (packages/croqui) sobre um croqui de teste.
+// A geometria é autêntica; matrícula, logradouro e confrontantes foram trocados
+// por genéricos — a página é pública e a forma é o que ilustra, não o endereço
+// de um imóvel identificável.
+import croquiExemplo from '~/assets/imagens/croqui-exemplo.svg'
+
 useHead({
   title: 'Croqui do imóvel — Lidimus',
   meta: [
@@ -33,6 +39,24 @@ const SECOES = [
       segmentos, medidas, confrontantes e o desenho fechado.
     </p>
 
+    <div class="aviso">
+      <p>
+        <strong>O croqui é uma representação visual de um texto — e nada além disso.</strong> Ele
+        desenha o que a matrícula descreve por escrito, para que a descrição possa ser conferida com
+        os olhos em vez de imaginada. <strong>É apenas ilustrativo:</strong> não é planta, não é
+        levantamento, não tem valor técnico e não serve para instruir ato registral.
+      </p>
+    </div>
+
+    <figure class="croqui-figura">
+      <img :src="croquiExemplo" alt="Croqui de um terreno retangular de 7,50 m de frente por 20,00 m
+        de profundidade, com os confrontantes de cada lado, escala e área de 150,00 m²" />
+      <figcaption>
+        Saída real da ferramenta, sobre um terreno de teste. O próprio desenho declara a precisão
+        obtida — aqui, <code>aproximada</code>. Identificação do imóvel trocada por genéricos.
+      </figcaption>
+    </figure>
+
     <!-- ── Por que importa ─────────────────────────────────────────────── -->
     <section id="por-que">
       <h2>Por que importa</h2>
@@ -64,7 +88,13 @@ const SECOES = [
             Registradores passam a emitir relatórios e alertas quando encontram sobreposição ou
             inconsistência na descrição do imóvel — instrumento contra grilagem.
           </p>
-          <p class="doc-clipe-fonte">Anoreg/BR · IRIB · 2025</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://www.anoreg.org.br/site/geotecnologia-no-registro-de-imoveis-provimento-cnj-195-2025-institui-mapeamento-digital-das-matriculas/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Anoreg/BR · 2025</a>
+          </p>
         </div>
         <div class="doc-clipe">
           <span class="doc-clipe-cat">A consequência</span>
@@ -73,7 +103,13 @@ const SECOES = [
             Se a descrição não é conferível, a inconsistência aparece na análise registral — melhor
             descobrir antes de protocolar.
           </p>
-          <p class="doc-clipe-fonte">SIG-RI · interoperável com SIGEF e CAR</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://www.irib.org.br/noticias/detalhes/geotecnologia-no-registro-de-imoveis-provimento-cnj-195-2025-institui-mapeamento-digital-das-matriculas"
+              target="_blank"
+              rel="noopener noreferrer"
+            >IRIB · SIG-RI, interoperável com SIGEF e CAR · 2025</a>
+          </p>
         </div>
       </div>
 
@@ -89,7 +125,8 @@ const SECOES = [
       <h2>O que faz</h2>
       <p>
         Localiza o trecho da matrícula que descreve o perímetro, interpreta cada segmento e monta o
-        polígono. O desenho sai em SVG, pronto para imprimir ou anexar.
+        polígono. O desenho sai em SVG — <strong>apenas ilustrativo</strong>, para conferência
+        visual e para anexar a um relatório interno, nunca como peça técnica.
       </p>
       <ul class="lista">
         <li>
@@ -252,10 +289,16 @@ const SECOES = [
       <h2>Limites</h2>
       <div class="aviso">
         <p>
-          <strong>Não é levantamento topográfico e não substitui um.</strong> O croqui é a leitura da
-          descrição que está escrita na matrícula — se a descrição estiver errada, o desenho
-          reproduz o erro fielmente. Para retificação, georreferenciamento ou certificação, o
-          trabalho é de profissional habilitado, em campo.
+          <strong>Apenas ilustrativo. Não é levantamento topográfico e não substitui um.</strong> O
+          croqui é a leitura de um texto: a descrição que está escrita na matrícula. Se a descrição
+          estiver errada, o desenho reproduz o erro fielmente e com a mesma aparência de correção.
+          Para retificação, georreferenciamento ou certificação, o trabalho é de profissional
+          habilitado, em campo, com peça assinada.
+        </p>
+        <p>
+          Ele não mede o terreno, não vai a campo, não confere o que existe no lugar — desenha o que
+          o papel diz. É por isso que serve para <em>conferir</em> a descrição, e não para
+          <em>provar</em> a área.
         </p>
       </div>
       <ul class="lista">

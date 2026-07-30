@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { Db, JobType } from '@lidimus/db'
 import { jobs } from '@lidimus/db'
+import { limparJob } from './semTelemetria'
 
 // Job visível para uma organização — usado pela API pública.
 //
@@ -31,5 +32,5 @@ export async function getJobForOrg(db: Db, jobId: string, orgId: string, tipo?: 
     )
     .limit(1)
 
-  return job ?? null
+  return job ? limparJob(job) : null
 }

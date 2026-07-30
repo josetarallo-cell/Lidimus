@@ -60,7 +60,13 @@ const SECOES = [
             O levantamento continua exigido em desmembramento, parcelamento, remembramento e
             retificação de área. Quem entendeu “ficou para 2029” vai travar no cartório.
           </p>
-          <p class="doc-clipe-fonte">ConJur · IRIB · out/2025</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://www.irib.org.br/irib-esclarece-novas-regras-para-georreferenciamento-de-imoveis-rurais-apos-decreto-no-12-689-2025/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >IRIB esclarece as novas regras · 2025</a>
+          </p>
         </div>
         <div class="doc-clipe">
           <span class="doc-clipe-cat">Escala</span>

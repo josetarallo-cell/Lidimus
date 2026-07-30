@@ -45,7 +45,13 @@ const SECOES = [
             É o primeiro item do Top 10 de 2025 — e a edição passou a incluir explicitamente a forma
             indireta: instruções escondidas em documentos que o modelo lê depois.
           </p>
-          <p class="doc-clipe-fonte">OWASP Top 10 for LLM Applications · 2025</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >LLM01:2025 Prompt Injection · OWASP Gen AI Security Project</a>
+          </p>
         </div>
         <div class="doc-clipe">
           <span class="doc-clipe-cat">Caso real</span>

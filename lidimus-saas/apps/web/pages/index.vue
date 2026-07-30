@@ -426,6 +426,9 @@ onBeforeUnmount(() => {
           <a href="#planos" class="cond lp-nav-link">Planos</a>
           <a href="#faq" class="cond lp-nav-link">Dúvidas</a>
           <a href="#detector" class="cond lp-nav-link">Segurança</a>
+          <!-- Aberta a visitante: quem está avaliando quer ver o que a ferramenta
+               entrega antes de criar conta, e o TI do cliente não tem login. -->
+          <NuxtLink to="/docs" class="cond lp-nav-link">Docs</NuxtLink>
           <NuxtLink to="/auth/login" class="cond lp-nav-link lp-nav-link--sep">Entrar</NuxtLink>
           <NuxtLink to="/auth/register" class="cond lp-btn lp-btn--primary">Criar conta</NuxtLink>
         </nav>

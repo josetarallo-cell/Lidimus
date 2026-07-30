@@ -48,7 +48,13 @@ const SECOES = [
           <p class="doc-clipe-chamada">
             Um caso a cada 14 segundos no Brasil. Alta de 429,8% desde 2018.
           </p>
-          <p class="doc-clipe-fonte">Anuário Brasileiro de Segurança Pública 2025 · FBSP</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://forumseguranca.org.br/publicacoes/anuario-brasileiro-de-seguranca-publica-2025/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >19º Anuário Brasileiro de Segurança Pública · FBSP · 2025</a>
+          </p>
         </div>
         <div class="doc-clipe">
           <span class="doc-clipe-cat">Ritmo local</span>
@@ -71,7 +77,13 @@ const SECOES = [
             Venda por quem não é proprietário, mesmo imóvel a compradores diferentes e omissão de
             débitos estão entre as fraudes mais recorrentes.
           </p>
-          <p class="doc-clipe-fonte">Cartórios / Anoreg · 2026</p>
+          <p class="doc-clipe-fonte">
+            <a
+              href="https://diariodocomercio.com.br/economia/dica-evitar-golpe-corretor-minas/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Diário do Comércio · orientação dos cartórios · 2026</a>
+          </p>
         </div>
       </div>
 

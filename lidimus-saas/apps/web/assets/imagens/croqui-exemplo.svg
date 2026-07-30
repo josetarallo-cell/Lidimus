@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 402 808" role="img" aria-label="Croqui do terreno"><style>
+      .cro-lote { fill: rgba(47,107,79,0.07); stroke: #24312a; stroke-width: 1.6; stroke-linejoin: round; }
+      text { font-family: Georgia, 'Times New Roman', serif; fill: #24312a; }
+      .cro-dist { font-size: 13px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+      .cro-conf { font-size: 10.5px; text-anchor: middle; fill: #6b7a72; font-style: italic; }
+      .cro-via { font-size: 13px; text-anchor: middle; fill: #2f6b4f; font-style: italic; letter-spacing: 0.04em; }
+      .cro-vertice { fill: #24312a; }
+      .cro-rotulo { font-size: 10px; text-anchor: middle; dominant-baseline: middle; fill: #6b7a72; }
+      .cro-norte line, .cro-escala line { stroke: #24312a; stroke-width: 1.2; }
+      .cro-norte path { fill: #24312a; }
+      .cro-norte text { font-size: 12px; text-anchor: middle; }
+      .cro-escala text { font-size: 10.5px; text-anchor: middle; fill: #6b7a72; }
+      .cro-area { font-size: 13px; text-anchor: end; }
+      .cro-precisao { font-size: 11px; fill: #6b7a72; letter-spacing: 0.06em; text-transform: uppercase; }
+    </style><path class="cro-lote" d="M 96 656 L 306 656 L 306 96 L 96 96 L 96 656 Z" /><text class="cro-dist" x="201" y="670" transform="rotate(0 201 670)">7,50 m</text><text class="cro-conf" x="201" y="686" transform="rotate(0 201 686)">prédio nº 50</text><text class="cro-dist" x="320" y="376" transform="rotate(-90 320 376)">20,00 m</text><text class="cro-conf" x="336" y="376" transform="rotate(-90 336 376)">quem de direito</text><text class="cro-dist" x="201" y="82" transform="rotate(0 201 82)">7,50 m</text><text class="cro-conf" x="201" y="66" transform="rotate(0 201 66)">Rua lateral</text><text class="cro-dist" x="82" y="376" transform="rotate(90 82 376)">20,00 m</text><text class="cro-conf" x="66" y="376" transform="rotate(90 66 376)">prédio nº 66</text><text class="cro-via" x="201" y="708">Rua do Exemplo</text><g class="cro-escala"><line x1="96" y1="782" x2="124" y2="782" /><line x1="96" y1="778" x2="96" y2="786" /><line x1="124" y1="778" x2="124" y2="786" /><text x="110" y="774">1 m</text></g><text class="cro-area" x="354" y="788">Área: 150,00 m²</text><text class="cro-precisao" x="48" y="34">Precisão: aproximada</text></svg>
