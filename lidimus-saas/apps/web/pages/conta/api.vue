@@ -116,10 +116,10 @@ async function revogar(id: string, nomeChave: string) {
         <h2 class="bloco-titulo">Chaves de integração</h2>
         <p class="bloco-texto">
           Uma chave permite que outro sistema — o ERP do escritório, um portal, um script — envie
-          matrículas para análise sem passar por esta tela. O sistema envia o PDF para
-          <code class="rota">POST /api/v1/matriculas</code> com a chave no cabeçalho
-          <code class="rota">Authorization: Bearer</code>, recebe um identificador e consulta
-          <code class="rota">GET /api/v1/matriculas/{id}</code> até a análise concluir.
+          matrículas para análise sem passar por esta tela. Como enviar, como acompanhar e o
+          formato exato do parecer que volta estão na
+          <NuxtLink to="/docs/api" class="link-forte">documentação da API</NuxtLink>; ela é pública,
+          então dá para mandar o link direto para quem vai fazer a integração.
         </p>
 
         <p class="aviso-consumo">
@@ -294,12 +294,6 @@ async function revogar(id: string, nomeChave: string) {
 .link-forte {
   color: var(--ld-verde);
   font-weight: 600;
-}
-.rota {
-  font-family: var(--ld-font-mono);
-  font-size: 0.8125rem;
-  color: var(--ld-tinta);
-  white-space: nowrap;
 }
 
 /* O consumo compartilhado é a consequência que viaja junto com a chave — fica em
