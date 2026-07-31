@@ -129,12 +129,30 @@ function riscoInfo(job: Job): { classe: string; texto: string } | null {
   }
 
   if (job.type === 'matricula') {
+    // Matrícula incompleta não tem risco a exibir: o que a listagem precisa
+    // mostrar é que aquele laudo não traz parecer.
+    if (job.result?.matricula_incompleta === true) {
+      return { classe: 'ld-selo--carimbo', texto: 'Incompleta' }
+    }
     const r = String(
       job.result?.documento?.cabecalho?.classificacao_risco ?? job.result?.classificacao_risco ?? '',
-    ).toLowerCase()
-    if (r.startsWith('baix')) return { classe: 'ld-selo--verde', texto: 'Baixo' }
+    )
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+    // O `if (r)` genérico rotulava de "Médio" tudo que não fosse baixo nem alto
+    // — inclusive 'critico' e 'indeterminado'. Cada nível se declara.
+    if (r.startsWith('nao_aplic') || r.startsWith('nao aplic')) {
+      return { classe: 'ld-selo--neutro', texto: 'Não avaliado' }
+    }
+    if (r.startsWith('crit') || r.startsWith('altissim')) {
+      return { classe: 'ld-selo--critico', texto: 'Crítico' }
+    }
     if (r.startsWith('alt')) return { classe: 'ld-selo--carimbo', texto: 'Alto' }
-    if (r) return { classe: 'ld-selo--ocre', texto: 'Médio' }
+    if (r.startsWith('baix')) return { classe: 'ld-selo--verde', texto: 'Baixo' }
+    if (r.startsWith('med') || r.startsWith('moder')) {
+      return { classe: 'ld-selo--ocre', texto: 'Médio' }
+    }
     return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
   }
 

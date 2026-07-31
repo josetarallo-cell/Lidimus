@@ -10,7 +10,7 @@ async function sair() {
     // body vazio para o $fetch enviar Content-Type: application/json — sem ele o
     // better-auth responde 415.
     await $fetch('/api/auth/sign-out', { method: 'POST', body: {} })
-    await navigateTo('/auth/login')
+    await navigateTo('/')
   } finally {
     saindo.value = false
   }

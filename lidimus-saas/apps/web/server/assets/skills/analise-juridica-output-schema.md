@@ -14,16 +14,32 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     "matricula_anterior": "string",
     "endereco": "string",
     "sql_iptu": "string",
-    "texto_origem": "string"
+    "texto_origem": "string",
+    "certidao_posterior_a": "string|null"
   },
+  "integridade": {
+    "completo": true,
+    "paginas_lidas": 0,
+    "paginas_declaradas": 0,
+    "atos_faltantes": ["string"],
+    "fichas_faltantes": ["string"],
+    "motivos": ["string"]
+  },
+  "modo_analise": "completa|dados_organizados",
+  "aviso_matricula_incompleta": "string|null",
   "linha_tempo": [
     {
       "sequencia": "string",
       "data": "string",
+      "data_titulo": "string|null",
+      "data_prenotacao": "string|null",
       "tipo": "string",
       "classe": "TRANSFERENCIA|GARANTIA|RESTRICAO|DIREITO_REAL|EXTINCAO|OUTRA",
       "partes": "string",
       "valor": "string|null",
+      "moeda": "string|null",
+      "ano_valor": "number|null",
+      "valor_display": "string|null",
       "status": "ativo|cancelado|extinto|pendente",
       "observacoes": "string|null"
     }
@@ -37,9 +53,15 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     }
   ],
   "outras_classes_detectadas": ["string"],
+  "confrontantes_descricao": [
+    {
+      "lado": "string",
+      "confrontante": "string"
+    }
+  ],
   "estado_atual": {
     "propriedade": "string",
-    "cadeia_dominial_status": "ok|quebrada|incompleta|indeterminada",
+    "cadeia_dominial_status": "ok|quebrada|incompleta|indeterminada|indeterminada_documento_incompleto",
     "onus_ativos": ["string"],
     "restricoes_ativas": ["string"],
     "direitos_reais_ativos": ["string"]
@@ -59,6 +81,14 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
       "observacao": "string|null"
     }
   ],
+  "proprietario_indicado": {
+    "nome": "string",
+    "documento_tipo": "CPF|CNPJ|null",
+    "documento_numero": "string|null",
+    "fonte": "string",
+    "titulo_aquisitivo_lido": false,
+    "observacao": "string|null"
+  },
   "promissarios_cessionarios": [
     {
       "nome": "string",
@@ -95,7 +125,7 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     }
   ],
   "resumo_executivo": {
-    "classificacao_risco": "baixo|medio|alto|critico|indeterminado",
+    "classificacao_risco": "baixo|medio|alto|critico|indeterminado|nao_aplicavel",
     "conclusao": "string",
     "recomendacao": "string"
   },
@@ -113,6 +143,28 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
   "json_final": {}
 }
 ```
+
+## Invariantes que o workflow verifica
+
+O nó `Resumo Jurídico` valida a saída antes de montar o laudo. Violar qualquer
+um destes pontos faz o pipeline sobrescrever o que você devolveu:
+
+1. **`modo_analise: "dados_organizados"` exige `classificacao_risco:
+   "nao_aplicavel"`** e `aviso_matricula_incompleta` preenchido. `riscos` fica
+   vazio; as lacunas vão para `inconsistencias`.
+2. **Coerência de nível.** Indisponibilidade ativa força `critico`; penhora ou
+   arresto ativo força no mínimo `alto`; risco de severidade `critica` força
+   `critico`. Texto com "impeditiv"/"crítica" e classificação abaixo de `critico`
+   é contradição — o pipeline eleva a classificação.
+3. **Rótulo de booleano na forma afirmativa.** Regras cujo nome contenha `not`,
+   `nao_`, `sem_` combinadas com negação na condição são descartadas.
+4. **Valor sem moeda inferida.** Quando `moeda` estiver ausente e o documento não
+   for em real corrente, o valor é exibido sem símbolo, nunca com `R$`.
+5. **Confrontação cardeal sem rumo escrito é descartada** — sobrevive apenas em
+   `confrontantes_descricao`.
+6. **Termos de andaime interno** (manual, cheatsheet, patterns, anti-patterns,
+   key concepts, frameworks, skill, prompt, RAG, workflow, parser, pipeline) são
+   removidos de todo campo de texto antes da renderização.
 
 ## Observação prática
 

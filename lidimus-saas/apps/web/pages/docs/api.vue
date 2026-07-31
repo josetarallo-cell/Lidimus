@@ -324,10 +324,14 @@ async function copiar(e: MouseEvent, chave: string) {
 ├── endereco              descrição do imóvel como consta na matrícula
 ├── data_certidao         "20/04/2004"
 ├── certidao_situacao     atualizada | desatualizada | nao_identificada
-├── classificacao_risco   critico | alto | medio | baixo | indeterminado
+├── classificacao_risco   critico | alto | medio | baixo | indeterminado | nao_aplicavel
+├── matricula_incompleta  true quando faltam páginas ou atos no documento
+├── parecer_emitido       false quando a matrícula está incompleta
+├── integridade           páginas lidas × declaradas, atos ausentes
 ├── resumo_juridico       parecer geral + contadores
 └── documento
     ├── cabecalho         identificação da matrícula e da certidão
+    ├── integridade       o mesmo diagnóstico, junto do documento
     ├── imovel            área, endereço, coordenadas, confrontantes
     ├── proprietarios     quem é o dono, com documento e ato de aquisição
     ├── onus              ônus ATIVOS (o que ainda pesa sobre o imóvel)
@@ -366,8 +370,36 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td><code>classificacao_risco</code></td>
                 <td>texto</td>
                 <td>
-                  <code>critico</code>, <code>alto</code>, <code>medio</code>, <code>baixo</code> ou
-                  <code>indeterminado</code>. É o campo em que a maioria das integrações ramifica.
+                  <code>critico</code>, <code>alto</code>, <code>medio</code>, <code>baixo</code>,
+                  <code>indeterminado</code> ou <code>nao_aplicavel</code>. É o campo em que a
+                  maioria das integrações ramifica.
+                </td>
+              </tr>
+              <tr>
+                <td><code>matricula_incompleta</code></td>
+                <td>booleano</td>
+                <td>
+                  <code>true</code> quando o documento enviado tem menos páginas do que a própria
+                  certidão declara no rodapé, quando há salto na numeração dos atos, ou quando um
+                  ato é citado sem estar transcrito. Nesse caso não há parecer.
+                </td>
+              </tr>
+              <tr>
+                <td><code>parecer_emitido</code></td>
+                <td>booleano</td>
+                <td>
+                  <code>false</code> em matrícula incompleta. Os campos de análise vêm vazios de
+                  propósito e <code>classificacao_risco</code> é <code>nao_aplicavel</code>.
+                </td>
+              </tr>
+              <tr>
+                <td><code>integridade</code></td>
+                <td>objeto</td>
+                <td>
+                  <code>completo</code>, <code>paginas_lidas</code>,
+                  <code>paginas_declaradas</code>, <code>atos_faltantes</code>,
+                  <code>atos_apenas_citados</code>, <code>motivos</code> (lista de frases prontas) e
+                  <code>certidao_posterior_a</code>.
                 </td>
               </tr>
               <tr>
@@ -383,9 +415,22 @@ async function copiar(e: MouseEvent, chave: string) {
 
           <div class="nota">
             <p>
+              <strong>Ramifique em <code>matricula_incompleta</code> antes de ler o risco.</strong>
+              Uma certidão que chegou pela metade não sustenta parecer: não dá para afirmar quem é o
+              dono sem ter lido o título aquisitivo, nem dizer que o imóvel está livre quando os
+              gravames podem estar nas páginas ausentes. Nesse caso a API devolve os dados
+              organizados — imóvel, atos legíveis, ônus visíveis — e nada de conclusão. A correção
+              não é reprocessar o arquivo: é pedir ao cartório a certidão de inteiro teor.
+            </p>
+          </div>
+
+          <div class="nota">
+            <p>
               <code>indeterminado</code> não quer dizer “sem risco”. Quer dizer que o documento não
               permitiu concluir — imagem parcial, ficha só do anverso, PDF sem fé pública. Trate-o
               como “precisa de certidão melhor”, nunca como “liberado”.
+              <code>nao_aplicavel</code> é diferente: é a resposta quando nem se tentou classificar,
+              porque o documento estava incompleto.
             </p>
           </div>
 
@@ -398,11 +443,19 @@ async function copiar(e: MouseEvent, chave: string) {
               <tr><td><code>area_total_display</code></td><td>O mesmo já formatado para exibir: <code>"15712,00 m²"</code>.</td></tr>
               <tr><td><code>endereco_curto</code></td><td>Endereço normalizado: <code>"Avenida Robert Kennedy, 2447, Capela do Socorro, São Paulo - SP"</code>.</td></tr>
               <tr><td><code>lat</code> / <code>lng</code></td><td>Coordenadas, quando <code>geocodificar</code> está ligado. <code>null</code> se o endereço não foi localizado.</td></tr>
-              <tr><td><code>confrontantes</code></td><td>Objeto com <code>norte</code>, <code>sul</code>, <code>leste</code> e <code>oeste</code>; cada um texto ou <code>null</code>.</td></tr>
+              <tr><td><code>confrontantes</code></td><td>Objeto com <code>norte</code>, <code>sul</code>, <code>leste</code> e <code>oeste</code>; cada um texto ou <code>null</code>. Só vem preenchido quando a matrícula <strong>escreve o rumo cardeal</strong>.</td></tr>
+              <tr><td><code>confrontantes_descricao</code></td><td>Lista de <code>{ lado, confrontante }</code> com a divisa como o documento a descreve: <code>"de um lado"</code>, <code>"nos fundos"</code>, <code>"à frente"</code>.</td></tr>
               <tr><td><code>tem_onus</code></td><td>Booleano — atalho para “há ônus ativo?”.</td></tr>
               <tr><td><code>testada</code></td><td>Medida da frente do terreno, quando consta.</td></tr>
             </tbody>
           </table>
+          <p class="dica">
+            A maioria das matrículas antigas não diz para que lado o lote está virado: diz “de um
+            lado”, “de outro”, “nos fundos”. Nesses casos os quatro campos cardeais são
+            <code>null</code> e a divisa aparece em <code>confrontantes_descricao</code>. A API não
+            traduz lado para ponto cardeal — confrontação cardeal inferida alimenta retificação e
+            georreferenciamento errados.
+          </p>
           <p class="dica">
             As áreas vêm como <strong>texto</strong>, no formato brasileiro
             (<code>"15712,00"</code>), preservando exatamente o que está escrito na matrícula. Para
@@ -457,7 +510,11 @@ async function copiar(e: MouseEvent, chave: string) {
   "tipo_ato": "transporte_onus_arresto",
   "tipo_label": "Transporte de Arresto",
   "data": "15/02/2012",
+  "data_titulo": "03/02/2003",
+  "data_prenotacao": null,
   "valor": "369.943,67",
+  "moeda": "R$",
+  "valor_display": "R$ 369.943,67",
   "partes": "NOME DAS PARTES; OUTRO NOME",
   "status": "ativo",
   "cancelado_por": null,
@@ -474,9 +531,22 @@ async function copiar(e: MouseEvent, chave: string) {
               <tr><td><code>tipo_label</code></td><td>O mesmo em português, para exibir.</td></tr>
               <tr><td><code>status</code></td><td><code>ativo</code> ou <code>cancelado</code>.</td></tr>
               <tr><td><code>cancelado_por</code></td><td>Qual ato o cancelou, quando cancelado: <code>"AV-35"</code>.</td></tr>
-              <tr><td><code>valor</code></td><td>Valor envolvido, em texto no formato brasileiro. Pode ser <code>null</code>.</td></tr>
+              <tr><td><code>data</code></td><td>Data do <strong>ato registral</strong> — a averbação ou o registro em si.</td></tr>
+              <tr><td><code>data_titulo</code></td><td>Data do documento que originou o ato (escritura, carta de adjudicação, certidão do juízo), quando distinta. Pode ser <code>null</code>.</td></tr>
+              <tr><td><code>data_prenotacao</code></td><td>Data do protocolo, quando distinta da data do ato. Pode ser <code>null</code>.</td></tr>
+              <tr><td><code>valor</code></td><td>Numeral como está escrito no documento. Pode ser <code>null</code>.</td></tr>
+              <tr><td><code>moeda</code></td><td>Símbolo como está escrito: <code>"R$"</code>, <code>"Cr$"</code>, <code>"CR$"</code>, <code>"NCz$"</code>, <code>"Cz$"</code>, <code>"US$"</code>.</td></tr>
+              <tr><td><code>valor_display</code></td><td>Moeda e numeral juntos, prontos para exibir: <code>"Cr$ 12.000.000"</code>.</td></tr>
             </tbody>
           </table>
+          <p class="dica">
+            <strong>Valores não são convertidos.</strong> Matrícula de 1966 traz cruzeiro; a API
+            devolve <code>"Cr$ 12.000.000"</code>, e não um equivalente em real. Converter moeda
+            extinta sem data-base e índice declarados produz um número que não existe em documento
+            nenhum, e o leitor não tem como perceber. Se o documento não escreveu centavos, o campo
+            também não os traz — não presuma o formato <code>",00"</code> ao fazer o parse. Sempre
+            leia <code>moeda</code> junto com <code>valor</code>; assumir real é o erro clássico.
+          </p>
 
           <h3>documento.analise_juridica</h3>
           <p>

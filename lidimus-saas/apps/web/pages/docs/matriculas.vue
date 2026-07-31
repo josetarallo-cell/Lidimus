@@ -272,8 +272,8 @@ const SECOES = [
 
       <p>
         <code>classificacao_risco</code> assume <code>critico</code>, <code>alto</code>,
-        <code>medio</code>, <code>baixo</code> ou <code>indeterminado</code>. Cada campo está
-        descrito, um a um, na
+        <code>medio</code>, <code>baixo</code>, <code>indeterminado</code> ou
+        <code>nao_aplicavel</code>. Cada campo está descrito, um a um, na
         <NuxtLink to="/docs/api#resultado">seção do resultado da API</NuxtLink>.
       </p>
 
@@ -282,6 +282,26 @@ const SECOES = [
           <strong><code>indeterminado</code> não significa “sem risco”.</strong> Significa que o
           documento não permitiu concluir — imagem parcial, só o anverso da ficha, PDF sem fé
           pública. Leia como “precisa de certidão melhor”, nunca como “liberado”.
+        </p>
+      </div>
+
+      <div class="aviso">
+        <p>
+          <strong>Matrícula incompleta não recebe parecer.</strong> Quando o documento enviado tem
+          menos páginas do que a certidão declara no rodapé, quando a numeração dos atos salta
+          (R-02 direto para AV-08) ou quando um ato aparece citado sem estar transcrito, a análise
+          devolve <code>matricula_incompleta: true</code> e organiza apenas os dados que constam das
+          páginas recebidas. Não é falha de leitura do arquivo — são páginas que não vieram, e
+          reprocessar não as traz. O caminho é pedir ao cartório a certidão de inteiro teor.
+        </p>
+      </div>
+
+      <div class="aviso">
+        <p>
+          <strong>Valores ficam na moeda do documento.</strong> Uma compra de 1966 registrada em
+          <code>Cr$ 12.000.000</code> sai assim, com o símbolo original — nunca convertida para
+          real. Conversão sem data-base e índice declarados cria um número que não existe em
+          documento nenhum.
         </p>
       </div>
     </section>

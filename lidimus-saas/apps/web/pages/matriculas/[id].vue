@@ -5,13 +5,6 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
-// do parecer repousa limpa sobre ele
-useHead({
-  title: 'Parecer de matrícula — Lidimus',
-  bodyAttrs: { class: 'ld-pagina-certidao' },
-})
-
 // ─── Etapas do pipeline (sequência real: a ordem informa) ────────────────────
 const STAGES = [
   { key: 'ocr', label: 'Leitura do documento' },
@@ -19,18 +12,35 @@ const STAGES = [
   { key: 'doc', label: 'Montagem do parecer' },
 ] as const
 
-const stageIndex = computed(() => {
-  const s = job.value?.stage as string | undefined
-  const idx = STAGES.findIndex((x) => x.key === s)
-  return idx === -1 ? 0 : idx
-})
+// O que a tela de espera conta enquanto o pipeline roda. Cada frase descreve
+// trabalho que a etapa realmente faz — espera de três minutos entretida com
+// enfeite genérico é a mesma espera, só que mentindo.
+const TITULOS_ESPERA: Record<string, string> = {
+  ocr: 'Lendo o documento',
+  juridico: 'Analisando os atos',
+  doc: 'Montando o parecer',
+}
 
-function stageState(idx: number): 'done' | 'active' | 'pending' {
-  if (!job.value) return 'pending'
-  if (job.value.status === 'done') return 'done'
-  if (idx < stageIndex.value) return 'done'
-  if (idx === stageIndex.value) return 'active'
-  return 'pending'
+const MENSAGENS_ESPERA: Record<string, string[]> = {
+  ocr: [
+    'Separando as páginas',
+    'Reconhecendo o texto do cartório',
+    'Recompondo a ordem dos atos',
+    'Conferindo se falta alguma página',
+  ],
+  juridico: [
+    'Identificando proprietários e transmissões',
+    'Reconstruindo a cadeia dominial',
+    'Levantando ônus, penhoras e cláusulas',
+    'Consultando a base legal',
+    'Pesando o risco de cada apontamento',
+  ],
+  doc: [
+    'Redigindo o parecer',
+    'Organizando as seções do laudo',
+    'Conferindo datas, números e valores',
+    'Batendo o carimbo final',
+  ],
 }
 
 // ─── Documento ────────────────────────────────────────────────────────────────
@@ -45,45 +55,109 @@ const textoOcr = computed(() => {
 })
 
 const processando = computed(
-  () => !!job.value && job.value.status !== 'done' && job.value.status !== 'error',
+  () => !job.value || (job.value.status !== 'done' && job.value.status !== 'error'),
 )
 
-// Classificação de risco → selo (A Regra do Carimbo: vermelho só em risco real)
-function nivelRisco(valor: unknown): 'baixo' | 'medio' | 'alto' | null {
-  const r = String(valor ?? '').toLowerCase()
-  if (r.startsWith('baix')) return 'baixo'
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha do
+// parecer repousa limpa sobre ele. Durante o processamento não há folha alguma —
+// e o papel verde brigaria com a tela de espera, que já veste o sistema
+// Modernista. Entra junto com o laudo.
+useHead({
+  title: 'Parecer de matrícula — Lidimus',
+  bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
+})
+
+// Classificação de risco → selo (A Regra do Carimbo: vermelho só em risco real).
+// O `else` genérico devolvia 'medio' para qualquer valor desconhecido: era ele
+// que estampava "Risco médio" sobre um parecer classificado como crítico, e
+// também sobre 'indeterminado' e 'nao_aplicavel'. Cada nível agora se declara.
+type NivelRisco = 'baixo' | 'medio' | 'alto' | 'critico' | 'indeterminado' | 'nao_aplicavel'
+
+function nivelRisco(valor: unknown): NivelRisco | null {
+  const r = String(valor ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+  if (!r) return null
+  if (r.startsWith('nao_aplic') || r.startsWith('nao aplic')) return 'nao_aplicavel'
+  if (r.startsWith('crit') || r.startsWith('altissim')) return 'critico'
   if (r.startsWith('alt')) return 'alto'
-  if (r) return 'medio'
-  return null
+  if (r.startsWith('baix')) return 'baixo'
+  if (r.startsWith('med') || r.startsWith('moder')) return 'medio'
+  return 'indeterminado'
+}
+
+const SELO_POR_NIVEL: Record<NivelRisco, string> = {
+  baixo: 'ld-selo--verde',
+  medio: 'ld-selo--ocre',
+  alto: 'ld-selo--carimbo',
+  critico: 'ld-selo--critico',
+  indeterminado: 'ld-selo--neutro',
+  nao_aplicavel: 'ld-selo--neutro',
+}
+const CARIMBO_POR_NIVEL: Record<NivelRisco, string> = {
+  baixo: 'ld-carimbo--baixo',
+  medio: 'ld-carimbo--medio',
+  alto: 'ld-carimbo--alto',
+  critico: 'ld-carimbo--critico',
+  indeterminado: 'ld-carimbo--neutro',
+  nao_aplicavel: 'ld-carimbo--neutro',
+}
+const LABEL_POR_NIVEL: Record<NivelRisco, string> = {
+  baixo: 'Risco baixo',
+  medio: 'Risco médio',
+  alto: 'Risco alto',
+  critico: 'Risco crítico',
+  indeterminado: 'Risco não classificado',
+  nao_aplicavel: 'Risco não avaliado',
 }
 
 const risco = computed(() => nivelRisco(doc.value?.cabecalho?.classificacao_risco))
 
-const riscoSeloClass = computed(() => {
-  if (risco.value === 'baixo') return 'ld-selo--verde'
-  if (risco.value === 'alto') return 'ld-selo--carimbo'
-  if (risco.value === 'medio') return 'ld-selo--ocre'
-  return 'ld-selo--neutro'
-})
+const riscoSeloClass = computed(() =>
+  risco.value ? SELO_POR_NIVEL[risco.value] : 'ld-selo--neutro',
+)
 
 // O carimbo do parecer estampa o veredito em destaque — cor forte por nível,
-// respeitando A Regra do Carimbo (vermelho só em risco alto)
+// respeitando A Regra do Carimbo (vermelho só em risco alto ou crítico)
 function carimboRiscoClass(valor: unknown): string {
   const nivel = nivelRisco(valor)
-  if (nivel === 'baixo') return 'ld-carimbo--baixo'
-  if (nivel === 'medio') return 'ld-carimbo--medio'
-  if (nivel === 'alto') return 'ld-carimbo--alto'
-  return 'ld-carimbo--neutro'
+  return nivel ? CARIMBO_POR_NIVEL[nivel] : 'ld-carimbo--neutro'
 }
 
 // O selo exibe o veredito em português correto — nunca o enum cru do
 // pipeline ("medio" sem acento é dialeto de máquina num parecer jurídico)
 function riscoLabel(valor: unknown): string {
   const nivel = nivelRisco(valor)
-  if (nivel === 'baixo') return 'Risco baixo'
-  if (nivel === 'medio') return 'Risco médio'
-  if (nivel === 'alto') return 'Risco alto'
-  return 'Risco não classificado'
+  return nivel ? LABEL_POR_NIVEL[nivel] : 'Risco não classificado'
+}
+
+// ─── Matrícula incompleta ────────────────────────────────────────────────────
+// Documento que chegou pela metade não recebe parecer: nem propriedade, nem
+// ônus, nem cadeia dominial se sustentam sobre páginas que ninguém leu. A
+// página passa a apresentar só o que consta do que foi enviado.
+const matriculaIncompleta = computed(() => doc.value?.cabecalho?.matricula_incompleta === true)
+const avisoIncompleta = computed(() => doc.value?.cabecalho?.aviso_matricula_incompleta ?? null)
+const integridade = computed(() => doc.value?.integridade ?? null)
+
+// O último ato data a certidão por baixo mesmo quando não há rótulo de
+// expedição: uma certidão que certifica um ato de 21/03/2024 é posterior a ele.
+const certidaoPosteriorA = computed(() => doc.value?.cabecalho?.certidao?.posterior_a ?? null)
+
+// Confrontação só sai como rumo cardeal quando a matrícula escreve o rumo. Sem
+// isso, a página exibia Norte/Sul/Leste/Oeste inferidos — confrontação
+// fabricada, que vira retificação e georreferenciamento errados.
+const confrontantesDescricao = computed(
+  () => (doc.value?.imovel?.confrontantes_descricao ?? []) as { lado: string; confrontante: string }[],
+)
+
+// Valor do ato na moeda em que o documento o escreveu. Laudos antigos não têm
+// `valor_display`; para eles o real corrente segue sendo a leitura correta.
+function valorDoAto(a: Record<string, any>): string | null {
+  if (a.valor_display) return a.valor_display
+  if (!a.valor) return null
+  return `${a.moeda ?? 'R$'} ${a.valor}`
 }
 
 // Traduz o prefixo técnico "[ocr]"/"[juridico]"/"[doc]" que o backend anexa
@@ -97,10 +171,17 @@ const mensagemFalha = computed(() => {
   return etapa ? `${etapa}: ${m[2]}` : m[2]
 })
 
+// Fuso fixo em America/Sao_Paulo: sem ele o horário saía no fuso de quem lê (ou
+// em UTC no servidor), e a mesma análise aparecia com dois horários diferentes
+// conforme o renderizador. Um laudo registral se data pelo fuso do registro.
 const emitidoEm = computed(() => {
   const ts = job.value?.completedAt as string | undefined
   if (ts) {
-    return new Date(ts).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+    return new Date(ts).toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    })
   }
   return doc.value?.metadados?.data_extracao ?? '—'
 })
@@ -112,7 +193,9 @@ const certidao = computed(() => doc.value?.cabecalho?.certidao ?? null)
 
 const certidaoLabel = computed(() => {
   const c = certidao.value
-  if (!c?.data) return 'Não identificada'
+  // Sem data de expedição ainda dá para dizer algo útil: a certidão é
+  // necessariamente posterior ao último ato que ela própria certifica.
+  if (!c?.data) return c?.posterior_a ? `Posterior a ${c.posterior_a}` : 'Não identificada'
   return c.hora ? `${c.data} · ${c.hora}` : c.data
 })
 
@@ -200,31 +283,19 @@ async function gerarCroquiDaMatricula() {
     </div>
     <p v-if="erroCroqui" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroCroqui }}</p>
 
-    <!-- ── Processando: etapas reais + esqueleto da prancha ─────────────── -->
-    <div v-if="!job || processando" class="print-hidden" aria-live="polite">
-      <div v-if="job" class="etapas" role="list" aria-label="Etapas da análise">
-        <template v-for="(s, i) in STAGES" :key="s.key">
-          <div class="etapa" role="listitem" :class="`etapa--${stageState(i)}`">
-            <span class="etapa-marco" aria-hidden="true">
-              <svg v-if="stageState(i) === 'done'" width="12" height="12" viewBox="0 0 12 12">
-                <path d="M2 6.5 5 9.5 10 3" fill="none" stroke="currentColor" stroke-width="2" />
-              </svg>
-              <span v-else>{{ i + 1 }}</span>
-            </span>
-            <span class="etapa-label">
-              {{ s.label }}
-              <span v-if="stageState(i) === 'active'" class="sr-only">(em andamento)</span>
-            </span>
-          </div>
-          <span v-if="i < STAGES.length - 1" class="etapa-regua" aria-hidden="true" />
-        </template>
-      </div>
-      <p v-if="job" class="etapas-nota">
-        Analisando sua certidão — esta página atualiza sozinha, não é preciso recarregar.
-      </p>
-
-      <PranchaEsqueleto />
-    </div>
+    <!-- ── Processando: a certidão sendo lida ───────────────────────────── -->
+    <!-- Estimativa medida em produção: mediana 2min57s, p90 4min44s -->
+    <EstadoProcessando
+      v-if="processando"
+      :job="job"
+      :etapas="STAGES"
+      :titulos="TITULOS_ESPERA"
+      :mensagens="MENSAGENS_ESPERA"
+      :texto="textoOcr"
+      estimativa="de 2 a 5 minutos"
+      :limite-atraso="420"
+      rotulo="Etapas da análise"
+    />
 
     <!-- ── Erro ──────────────────────────────────────────────────────────── -->
     <PranchaFalha
@@ -250,6 +321,31 @@ async function gerarCroquiDaMatricula() {
           {{ riscoLabel(doc.cabecalho.classificacao_risco) }}
         </span>
       </BlocoCarimbo>
+
+      <!-- Matrícula incompleta: vem antes de tudo. O leitor precisa saber que
+           não há parecer antes de ler qualquer dado. -->
+      <aside v-if="matriculaIncompleta" class="faixa-incompleta" role="alert">
+        <p class="faixa-incompleta-titulo">Matrícula incompleta — parecer jurídico não emitido</p>
+        <p class="faixa-incompleta-texto">{{ avisoIncompleta }}</p>
+        <dl v-if="integridade" class="faixa-incompleta-dados">
+          <div v-if="integridade.paginas_declaradas">
+            <dt>Páginas</dt>
+            <dd>{{ integridade.paginas_lidas ?? '?' }} de {{ integridade.paginas_declaradas }}</dd>
+          </div>
+          <div v-if="integridade.atos_faltantes?.length">
+            <dt>Atos ausentes</dt>
+            <dd>{{ integridade.atos_faltantes.join(', ') }}</dd>
+          </div>
+          <div v-if="integridade.atos_apenas_citados?.length">
+            <dt>Citados, não transcritos</dt>
+            <dd>{{ integridade.atos_apenas_citados.join(', ') }}</dd>
+          </div>
+        </dl>
+        <p class="faixa-incompleta-acao">
+          O que fazer: solicitar ao cartório a certidão de inteiro teor. Não é falha de leitura do
+          arquivo — são páginas que não constam do documento enviado, e reprocessá-lo não as traz.
+        </p>
+      </aside>
 
       <!-- Título do documento -->
       <div class="prancha-titulo">
@@ -307,6 +403,17 @@ async function gerarCroquiDaMatricula() {
             </div>
           </template>
         </dl>
+        <!-- Sem rumo cardeal escrito, a confrontação sai como a matrícula a
+             descreve. Traduzir "de um lado" para Norte é inventar o dado. -->
+        <dl v-else-if="confrontantesDescricao.length" class="meta-grid meta-grid--separada">
+          <div v-for="(c, i) in confrontantesDescricao" :key="i">
+            <dt class="dt-capitalize">{{ c.lado }}</dt>
+            <dd>{{ c.confrontante }}</dd>
+          </div>
+        </dl>
+        <p v-if="!temConfrontantes && confrontantesDescricao.length" class="secao-nota">
+          A matrícula não indica rumo cardeal; as divisas são reproduzidas como constam do documento.
+        </p>
       </section>
 
       <!-- Croqui -->
@@ -349,6 +456,12 @@ async function gerarCroquiDaMatricula() {
         <p v-else class="vazio">
           Não foi possível identificar os proprietários automaticamente. Confira o documento original.
         </p>
+        <!-- Titular sem título aquisitivo lido é indicação, não afirmação: é
+             exatamente o ponto em que o laudo não pode dizer "100%". -->
+        <p v-if="doc.proprietarios.titulo_aquisitivo_lido === false" class="secao-nota secao-nota--alerta">
+          O ato aquisitivo não consta das páginas analisadas. Os nomes acima são os indicados pelo
+          documento recebido, e não confirmam a titularidade do domínio.
+        </p>
 
         <!-- Titulares de direitos registrados que NÃO são donos: promitente
              comprador, cessionário. Separá-los evita confundi-los com o titular. -->
@@ -370,27 +483,39 @@ async function gerarCroquiDaMatricula() {
         </div>
       </section>
 
-      <!-- Parecer: a conclusão — o veredito vem antes do detalhamento -->
+      <!-- Parecer: a conclusão — o veredito vem antes do detalhamento.
+           Em matrícula incompleta não há veredito a dar: o lugar do parecer é
+           ocupado pela razão de não haver parecer. -->
       <section class="secao secao--parecer" aria-labelledby="sec-parecer">
         <div class="secao-cabecalho">
           <h2 id="sec-parecer">Parecer</h2>
-          <span class="ld-carimbo ld-carimbo--grande" :class="carimboRiscoClass(doc.parecer.classificacao_risco)">
+          <span
+            v-if="!matriculaIncompleta"
+            class="ld-carimbo ld-carimbo--grande"
+            :class="carimboRiscoClass(doc.parecer.classificacao_risco)"
+          >
             {{ riscoLabel(doc.parecer.classificacao_risco) }}
           </span>
         </div>
-        <p v-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
+        <p v-if="matriculaIncompleta" class="parecer-texto">
+          Não emitido. A certidão analisada está incompleta, e parecer sobre propriedade, ônus ou
+          cadeia dominial exigiria o documento inteiro. As seções seguintes trazem apenas os dados
+          que constam das páginas recebidas.
+        </p>
+        <p v-else-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
         <p v-else class="vazio">Parecer não disponível para esta análise.</p>
       </section>
 
-      <!-- Análise jurídica -->
+      <!-- Análise jurídica: suprimida em matrícula incompleta, exceto as
+           inconsistências, que são justamente o inventário das lacunas -->
       <section class="secao" aria-labelledby="sec-analise">
-        <h2 id="sec-analise">Análise jurídica</h2>
+        <h2 id="sec-analise">{{ matriculaIncompleta ? 'Lacunas do documento' : 'Análise jurídica' }}</h2>
         <div class="analise">
-          <div v-if="doc.analise_juridica.resumo_executivo">
+          <div v-if="!matriculaIncompleta && doc.analise_juridica.resumo_executivo">
             <h3>Resumo executivo</h3>
             <p class="prosa">{{ doc.analise_juridica.resumo_executivo }}</p>
           </div>
-          <div v-if="doc.analise_juridica.riscos_html">
+          <div v-if="!matriculaIncompleta && doc.analise_juridica.riscos_html">
             <h3>Riscos</h3>
             <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.riscos_html)" />
           </div>
@@ -398,18 +523,20 @@ async function gerarCroquiDaMatricula() {
             <h3>Inconsistências</h3>
             <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.inconsistencias_html)" />
           </div>
-          <div v-if="doc.analise_juridica.problemas_html">
-            <h3>Possíveis problemas</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.problemas_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.cadeia_dominial_html">
-            <h3>Cadeia dominial</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.cadeia_dominial_html)" />
-          </div>
-          <div v-if="doc.analise_juridica.fundamentacao_html">
-            <h3>Fundamentação legal</h3>
-            <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.fundamentacao_html)" />
-          </div>
+          <template v-if="!matriculaIncompleta">
+            <div v-if="doc.analise_juridica.problemas_html">
+              <h3>Possíveis problemas</h3>
+              <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.problemas_html)" />
+            </div>
+            <div v-if="doc.analise_juridica.cadeia_dominial_html">
+              <h3>Cadeia dominial</h3>
+              <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.cadeia_dominial_html)" />
+            </div>
+            <div v-if="doc.analise_juridica.fundamentacao_html">
+              <h3>Fundamentação legal</h3>
+              <div class="prosa analise-html" v-html="sanitizar(doc.analise_juridica.fundamentacao_html)" />
+            </div>
+          </template>
         </div>
       </section>
 
@@ -434,7 +561,10 @@ async function gerarCroquiDaMatricula() {
                 Cancelado por {{ a.cancelado_por }}
               </p>
             </div>
-            <span v-if="a.valor" class="ato-valor">R$ {{ a.valor }}</span>
+            <!-- Moeda como o documento a escreveu: "Cr$ 12.000.000" de 1966 não
+                 é "R$ 120.000,00". Converter inventa um número que não existe em
+                 documento nenhum. -->
+            <span v-if="valorDoAto(a)" class="ato-valor">{{ valorDoAto(a) }}</span>
             <span v-if="a.data" class="ato-data">{{ a.data }}</span>
           </li>
         </ol>
@@ -444,17 +574,26 @@ async function gerarCroquiDaMatricula() {
       <!-- Ônus ativos: risco jurídico real — o único vermelho da prancha -->
       <section class="secao" aria-labelledby="sec-onus">
         <h2 id="sec-onus">Ônus e gravames ativos <span class="contagem">({{ doc.onus.total }})</span></h2>
+        <p v-if="matriculaIncompleta" class="secao-nota secao-nota--alerta">
+          Lista não exaustiva: cobre apenas os atos das páginas recebidas. Gravames registrados nas
+          páginas ausentes não aparecem aqui.
+        </p>
         <ul v-if="doc.onus.ativos?.length" class="onus-lista">
           <li v-for="o in doc.onus.ativos" :key="o.sequencia" class="onus">
             <div class="onus-linha">
               <span class="onus-seq">{{ o.sequencia }}</span>
               <span class="onus-tipo">{{ o.tipo_label }}</span>
-              <span v-if="o.valor" class="onus-valor">R$ {{ o.valor }}</span>
+              <span v-if="valorDoAto(o)" class="onus-valor">{{ valorDoAto(o) }}</span>
               <span v-if="o.data" class="onus-data">{{ o.data }}</span>
             </div>
             <p v-if="o.partes" class="onus-partes">Partes: {{ o.partes }}</p>
           </li>
         </ul>
+        <!-- "Nenhum ônus" só é notícia boa quando o documento inteiro foi lido.
+             Em matrícula incompleta, o que há é ausência de informação. -->
+        <p v-else-if="matriculaIncompleta" class="vazio">
+          Nenhum ônus nos atos lidos — o que não significa que o imóvel esteja livre.
+        </p>
         <p v-else><span class="ld-selo ld-selo--verde">Nenhum ônus ativo identificado</span></p>
       </section>
 
@@ -515,72 +654,8 @@ async function gerarCroquiDaMatricula() {
   margin: calc(-1 * var(--ld-space-sm)) 0 var(--ld-space-lg);
 }
 
-/* ── Etapas (pipeline em andamento) ─────────────────────── */
-.etapas {
-  display: flex;
-  align-items: center;
-  gap: var(--ld-space-md);
-  border: 1px solid var(--ld-filete);
-  border-radius: var(--ld-r-md);
-  background: var(--ld-folha);
-  padding: var(--ld-space-lg);
-  flex-wrap: wrap;
-}
-.etapa {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.etapa-marco {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--ld-filete);
-  color: var(--ld-tinta-suave);
-  background: var(--ld-bancada);
-  transition: background var(--ld-dur-estado) var(--ld-ease),
-    color var(--ld-dur-estado) var(--ld-ease);
-}
-.etapa--done .etapa-marco {
-  background: var(--ld-verde);
-  border-color: var(--ld-verde);
-  color: var(--ld-papel);
-}
-.etapa--active .etapa-marco {
-  background: var(--ld-folha);
-  border-color: var(--ld-verde);
-  color: var(--ld-verde);
-  animation: pulso 1.6s var(--ld-ease) infinite;
-}
-.etapa-label {
-  font-size: 0.9375rem;
-  color: var(--ld-tinta-suave);
-}
-.etapa--active .etapa-label,
-.etapa--done .etapa-label {
-  color: var(--ld-tinta);
-  font-weight: 500;
-}
-.etapa-regua {
-  flex: 1;
-  min-width: 24px;
-  height: 1px;
-  background: var(--ld-filete);
-}
-.etapas-nota {
-  margin: var(--ld-space-md) 0 0;
-  font-size: 0.875rem;
-  color: var(--ld-tinta-suave);
-}
-@keyframes pulso {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(12, 92, 60, 0.28); }
-  55% { box-shadow: 0 0 0 6px rgba(12, 92, 60, 0); }
-}
+/* A tela de espera vive em EstadoProcessando.vue — as quatro ferramentas
+   compartilham a mesma, e a régua de etapas não é mais copiada por página. */
 
 /* ── A prancha ──────────────────────────────────────────── */
 /* A folha do parecer repousa sobre o papel de segurança da página: sombra
@@ -672,6 +747,63 @@ async function gerarCroquiDaMatricula() {
 }
 .secao-nota {
   font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+/* Ressalva que muda o que o leitor pode concluir da seção — não é rodapé */
+.secao-nota--alerta {
+  margin: var(--ld-space-sm) 0 0;
+  padding-left: var(--ld-space-sm);
+  border-left: 2px solid var(--ld-ocre);
+  color: var(--ld-ocre);
+}
+
+/* ── Faixa de matrícula incompleta ───────────────────────────────────────
+   Ocupa a largura da folha, acima do título: é a primeira coisa que se lê,
+   porque decide se o resto pode embasar alguma decisão. */
+.faixa-incompleta {
+  border: 2px solid var(--ld-carimbo);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-carimbo-selo);
+  padding: var(--ld-space-lg);
+  margin-bottom: var(--ld-space-xl);
+}
+.faixa-incompleta-titulo {
+  margin: 0 0 var(--ld-space-sm);
+  font-family: var(--ld-font-serif);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ld-carimbo-tinta);
+}
+.faixa-incompleta-texto {
+  margin: 0;
+  max-width: 72ch;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.faixa-incompleta-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ld-space-md) var(--ld-space-xl);
+  margin: var(--ld-space-md) 0 0;
+}
+.faixa-incompleta-dados dt {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ld-tinta-suave);
+}
+.faixa-incompleta-dados dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.faixa-incompleta-acao {
+  margin: var(--ld-space-md) 0 0;
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.55;
   color: var(--ld-tinta-suave);
 }
 .contagem {

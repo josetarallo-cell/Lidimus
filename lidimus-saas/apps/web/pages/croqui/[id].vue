@@ -6,11 +6,6 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-useHead({
-  title: 'Croqui do terreno — Lidimus',
-  bodyAttrs: { class: 'ld-pagina-certidao' },
-})
-
 // Upload avulso passa pela leitura (ocr) antes do desenho; croqui gerado de uma
 // matrícula já analisada pula direto para o desenho
 const veioDeMatricula = computed(() => {
@@ -35,23 +30,45 @@ const STAGES = computed(() =>
       ],
 )
 
-const stageIndex = computed(() => {
-  const s = job.value?.stage as string | undefined
-  const idx = STAGES.value.findIndex((x) => x.key === s)
-  return idx === -1 ? 0 : idx
-})
-
-function stageState(idx: number): 'done' | 'active' | 'pending' {
-  if (!job.value) return 'pending'
-  if (job.value.status === 'done') return 'done'
-  if (idx < stageIndex.value) return 'done'
-  if (idx === stageIndex.value) return 'active'
-  return 'pending'
+// O que a tela de espera conta enquanto o pipeline roda
+const TITULOS_ESPERA: Record<string, string> = {
+  ocr: 'Lendo o documento',
+  croqui: 'Desenhando o croqui',
 }
+
+const MENSAGENS_ESPERA: Record<string, string[]> = {
+  ocr: [
+    'Separando as páginas',
+    'Reconhecendo o texto do cartório',
+    'Procurando a descrição do perímetro',
+  ],
+  croqui: [
+    'Lendo o memorial descritivo',
+    'Convertendo rumos e distâncias',
+    'Fechando o polígono',
+    'Desenhando o lote e as confrontações',
+  ],
+}
+
+// Texto lido do documento — vira o fundo da tela de espera. Só existe no croqui
+// de upload avulso, depois que o OCR fecha: croqui gerado a partir de uma
+// matrícula recebe o texto pela fila, sem gravá-lo no próprio job, e nesse caso
+// a cena cai no esqueleto.
+const textoOcr = computed(() => {
+  const stageData = job.value?.stageData as Record<string, any> | undefined
+  return stageData?.ocr?.texto_ocr ?? null
+})
 
 const processando = computed(
   () => !job.value || (job.value.status !== 'done' && job.value.status !== 'error'),
 )
+
+// O guilhoché entra junto com a folha do croqui: durante a espera não há folha,
+// e o papel verde brigaria com a tela de espera (sistema Modernista).
+useHead({
+  title: 'Croqui do terreno — Lidimus',
+  bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
+})
 
 // ─── O croqui: extração (LLM, no n8n) + desenho (determinístico, aqui) ────────
 const resultado = computed(() => {
@@ -161,30 +178,17 @@ function exportarPdf() {
     </div>
 
     <!-- Processando -->
-    <div v-if="processando" class="print-hidden" aria-live="polite">
-      <div v-if="job" class="etapas" role="list" aria-label="Etapas do croqui">
-        <template v-for="(s, i) in STAGES" :key="s.key">
-          <div class="etapa" role="listitem" :class="`etapa--${stageState(i)}`">
-            <span class="etapa-marco" aria-hidden="true">
-              <svg v-if="stageState(i) === 'done'" width="12" height="12" viewBox="0 0 12 12">
-                <path d="M2 6.5 5 9.5 10 3" fill="none" stroke="currentColor" stroke-width="2" />
-              </svg>
-              <span v-else>{{ i + 1 }}</span>
-            </span>
-            <span class="etapa-label">
-              {{ s.label }}
-              <span v-if="stageState(i) === 'active'" class="sr-only">(em andamento)</span>
-            </span>
-          </div>
-          <span v-if="i < STAGES.length - 1" class="etapa-regua" aria-hidden="true" />
-        </template>
-      </div>
-      <p class="nota-processando">
-        Interpretando a descrição do perímetro e desenhando o lote — esta página atualiza sozinha,
-        não é preciso recarregar.
-      </p>
-      <PranchaEsqueleto />
-    </div>
+    <EstadoProcessando
+      v-if="processando"
+      :job="job"
+      :etapas="STAGES"
+      :titulos="TITULOS_ESPERA"
+      :mensagens="MENSAGENS_ESPERA"
+      :texto="textoOcr"
+      estimativa="menos de 1 minuto"
+      :limite-atraso="120"
+      rotulo="Etapas do croqui"
+    />
 
     <!-- Erro de processamento -->
     <PranchaFalha
@@ -292,60 +296,8 @@ function exportarPdf() {
   margin-left: auto;
 }
 
-/* Etapas — mesmo padrão da página de matrícula */
-.etapas {
-  display: flex;
-  align-items: center;
-  gap: var(--ld-space-sm);
-  margin-bottom: var(--ld-space-md);
-  flex-wrap: wrap;
-}
-.etapa {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.etapa-marco {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid var(--ld-filete);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ld-tinta-suave);
-}
-.etapa--done .etapa-marco {
-  background: var(--ld-verde);
-  border-color: var(--ld-verde);
-  color: #fff;
-}
-.etapa--active .etapa-marco {
-  border-color: var(--ld-verde);
-  color: var(--ld-verde);
-}
-.etapa-label {
-  font-size: 0.875rem;
-  color: var(--ld-tinta-suave);
-}
-.etapa--active .etapa-label {
-  color: var(--ld-tinta);
-  font-weight: 500;
-}
-.etapa-regua {
-  flex: none;
-  width: 24px;
-  height: 1px;
-  background: var(--ld-filete);
-}
-
-.nota-processando {
-  margin: 0 0 var(--ld-space-md);
-  font-size: 0.9375rem;
-  color: var(--ld-tinta-suave);
-}
+/* A régua de etapas e a tela de espera vivem em EstadoProcessando.vue — esta
+   página tinha uma cópia que já havia divergido da de matrícula. */
 
 /* Prancha sobre o guilhoché, como as demais folhas de resultado */
 .prancha {

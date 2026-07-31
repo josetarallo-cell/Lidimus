@@ -100,11 +100,35 @@
   --color-accent-800: #7c1405;
   --color-accent-900: #4d170e;
 
+  /* Folha — o branco do documento sobre o ground */
+  --color-folha: #ffffff;
+
   /* Tipografia — Archivo do display ao corpo, Narrow nos rótulos */
   --font-heading: 'Archivo', system-ui, sans-serif;
   --font-body: 'Archivo', system-ui, sans-serif;
   --font-cond: 'Archivo Narrow', 'Archivo', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Espaçamento (mesma base 4pt da identidade anterior) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+
+  /* Régua — a moldura é a identidade (A Regra do Raio Zero dispensa raio) */
+  --rule: 2px;
+  --rule-fina: 1px;
+
+  /* Sombra — a única em repouso é o Cartaz: sólida, sem blur */
+  --shadow-cartaz: 12px 12px 0 var(--color-text);
+  --shadow-cartaz-curto: 6px 6px 0 var(--color-text);
+
+  /* Motion — 150–250ms ease-out só para mudança de estado */
+  --motion-ease: cubic-bezier(0.16, 0.8, 0.24, 1);
+  --motion-dur: 180ms;
+  --motion-dur-superficie: 240ms;
 }
 
 /* Utilitários do sistema Modernista */
@@ -299,6 +323,10 @@
 .ld-selo--verde { background: var(--ld-verde-selo); color: var(--ld-verde-profundo); }
 .ld-selo--ocre { background: var(--ld-ocre-selo); color: var(--ld-ocre); }
 .ld-selo--carimbo { background: var(--ld-carimbo-selo); color: var(--ld-carimbo-tinta); }
+/* Crítico é um degrau acima de alto: vermelho cheio, não vermelho sobre palha.
+   Sem ele, "crítico" caía no selo neutro e o laudo anunciava risco médio ao lado
+   de um parecer que dizia "impeditiva". */
+.ld-selo--critico { background: var(--ld-carimbo); color: #fff; }
 .ld-selo--neutro { background: var(--ld-bancada); color: var(--ld-tinta-suave); }
 
 /* Carimbo de risco — o veredito do laudo, estampado como um selo de tinta.
@@ -328,6 +356,9 @@
   border-width: 3px;
   letter-spacing: 0.12em;
 }
+/* O carimbo de crítico inverte: tinta cheia, texto vago. É o único estado que
+   não pede leitura — pede parada. */
+.ld-carimbo--critico { color: #fff; background: var(--ld-carimbo); }
 .ld-carimbo--alto { color: var(--ld-carimbo); background: var(--ld-carimbo-selo); }
 .ld-carimbo--medio { color: var(--ld-ocre); background: var(--ld-ocre-selo); }
 .ld-carimbo--baixo { color: var(--ld-verde-profundo); background: var(--ld-verde-selo); }

@@ -3,18 +3,30 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
-// do laudo repousa limpa sobre ele
-useHead({
-  title: 'Laudo de verificação — Lidimus',
-  bodyAttrs: { class: 'ld-pagina-certidao' },
-})
-
 const result = computed(() => job.value?.result as Record<string, any> | undefined)
 
 const processando = computed(
   () => !job.value || (job.value.status !== 'done' && job.value.status !== 'error'),
 )
+
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha do
+// laudo repousa limpa sobre ele. Entra junto com o laudo: durante a espera não
+// há folha, e o papel verde brigaria com a tela de espera (Modernista).
+useHead({
+  title: 'Laudo de verificação — Lidimus',
+  bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
+})
+
+// A varredura fecha em segundos (mediana medida: 4s), então a tela de espera
+// aqui não anuncia estimativa — só diz o que está sendo feito enquanto passa.
+const TITULOS_ESPERA: Record<string, string> = { _: 'Varrendo o documento' }
+const MENSAGENS_ESPERA: Record<string, string[]> = {
+  _: [
+    'Extraindo o texto e as camadas ocultas',
+    'Procurando texto invisível e metadados',
+    'Avaliando o risco do que foi encontrado',
+  ],
+}
 
 const protocolo = computed(() => String(jobId.value ?? '').slice(0, 8).toUpperCase())
 
@@ -93,13 +105,13 @@ function exportarPdf() {
     </div>
 
     <!-- Processando -->
-    <div v-if="processando" class="print-hidden" aria-live="polite">
-      <p class="nota-processando">
-        Varrendo o documento em busca de conteúdo oculto — esta página atualiza sozinha, não é
-        preciso recarregar.
-      </p>
-      <PranchaEsqueleto />
-    </div>
+    <EstadoProcessando
+      v-if="processando"
+      :job="job"
+      :titulos="TITULOS_ESPERA"
+      :mensagens="MENSAGENS_ESPERA"
+      :limite-atraso="60"
+    />
 
     <!-- Erro -->
     <PranchaFalha
@@ -186,11 +198,7 @@ function exportarPdf() {
   margin-left: auto;
 }
 
-.nota-processando {
-  margin: 0 0 var(--ld-space-md);
-  font-size: 0.9375rem;
-  color: var(--ld-tinta-suave);
-}
+/* A tela de espera vive em EstadoProcessando.vue */
 
 /* Prancha — a folha do laudo repousa sobre o papel de segurança da página:
    sombra leve para descolar do guilhoché, folha amarelada, dados em azul anil. */

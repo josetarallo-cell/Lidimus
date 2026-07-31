@@ -3,18 +3,31 @@ const route = useRoute()
 const jobId = ref(route.params.id as string)
 const { job } = useJobPoller(jobId)
 
-// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha
-// do memorial repousa limpa sobre ele
-useHead({
-  title: 'Memorial descritivo — Lidimus',
-  bodyAttrs: { class: 'ld-pagina-certidao' },
-})
-
 const result = computed(() => job.value?.result as Record<string, any> | undefined)
 
 const processando = computed(
   () => !job.value || (job.value.status !== 'done' && job.value.status !== 'error'),
 )
+
+// O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha do
+// memorial repousa limpa sobre ele. Entra junto com o memorial: durante a espera
+// não há folha, e o papel verde brigaria com a tela de espera (Modernista).
+useHead({
+  title: 'Memorial descritivo — Lidimus',
+  bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
+})
+
+// O pipeline do KML não reporta etapa; a espera se conta pelo que ele faz.
+// Medida em produção: mediana 48s.
+const TITULOS_ESPERA: Record<string, string> = { _: 'Redigindo o memorial' }
+const MENSAGENS_ESPERA: Record<string, string[]> = {
+  _: [
+    'Lendo os pontos do arquivo',
+    'Calculando distâncias e azimutes',
+    'Conferindo o fechamento do perímetro',
+    'Redigindo o memorial descritivo',
+  ],
+}
 
 const protocolo = computed(() => String(jobId.value ?? '').slice(0, 8).toUpperCase())
 
@@ -214,13 +227,14 @@ function exportarPdf() {
     </div>
 
     <!-- Processando -->
-    <div v-if="processando" class="print-hidden" aria-live="polite">
-      <p class="nota-processando">
-        Calculando vértices e redigindo o memorial — esta página atualiza sozinha, não é preciso
-        recarregar.
-      </p>
-      <PranchaEsqueleto />
-    </div>
+    <EstadoProcessando
+      v-if="processando"
+      :job="job"
+      :titulos="TITULOS_ESPERA"
+      :mensagens="MENSAGENS_ESPERA"
+      estimativa="cerca de 1 minuto"
+      :limite-atraso="180"
+    />
 
     <!-- Erro -->
     <PranchaFalha
@@ -376,11 +390,7 @@ function exportarPdf() {
   margin-left: auto;
 }
 
-.nota-processando {
-  margin: 0 0 var(--ld-space-md);
-  font-size: 0.9375rem;
-  color: var(--ld-tinta-suave);
-}
+/* A tela de espera vive em EstadoProcessando.vue */
 
 /* Prancha — a folha do memorial repousa sobre o papel de segurança da página:
    sombra leve para descolar do guilhoché, folha amarelada, dados em azul anil. */
