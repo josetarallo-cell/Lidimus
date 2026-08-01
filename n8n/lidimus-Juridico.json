@@ -100,19 +100,19 @@
             },
             {
               "name": "confrontante_norte",
-              "description": "Confrontante ao Norte do imóvel. Preencha SOMENTE se a matrícula escrever explicitamente o rumo cardeal \"norte\" (ou o equivalente N). Se o documento disser apenas \"de um lado\", \"de outro lado\", \"nos fundos\" ou \"à frente\", retorne null: traduzir lado para ponto cardeal é inventar informação que não está no documento e produz retificação e georreferenciamento errados."
+              "description": "Descrição do confrontante ao Norte do imóvel (quem faz divisa ao norte)."
             },
             {
               "name": "confrontante_sul",
-              "description": "Confrontante ao Sul do imóvel. Preencha SOMENTE se a matrícula escrever explicitamente o rumo cardeal \"sul\" (ou o equivalente S). Se o documento disser apenas \"de um lado\", \"de outro lado\", \"nos fundos\" ou \"à frente\", retorne null: traduzir lado para ponto cardeal é inventar informação que não está no documento e produz retificação e georreferenciamento errados."
+              "description": "Descrição do confrontante ao Sul do imóvel (quem faz divisa ao sul)."
             },
             {
               "name": "confrontante_leste",
-              "description": "Confrontante ao Leste do imóvel. Preencha SOMENTE se a matrícula escrever explicitamente o rumo cardeal \"leste\" (ou o equivalente E, Este, Oriente ou Nascente). Se o documento disser apenas \"de um lado\", \"de outro lado\", \"nos fundos\" ou \"à frente\", retorne null: traduzir lado para ponto cardeal é inventar informação que não está no documento e produz retificação e georreferenciamento errados."
+              "description": "Descrição do confrontante ao Leste do imóvel (quem faz divisa ao leste)."
             },
             {
               "name": "confrontante_oeste",
-              "description": "Confrontante ao Oeste do imóvel. Preencha SOMENTE se a matrícula escrever explicitamente o rumo cardeal \"oeste\" (ou o equivalente O, W, Poente ou Ocidente). Se o documento disser apenas \"de um lado\", \"de outro lado\", \"nos fundos\" ou \"à frente\", retorne null: traduzir lado para ponto cardeal é inventar informação que não está no documento e produz retificação e georreferenciamento errados."
+              "description": "Descrição do confrontante ao Oeste do imóvel (quem faz divisa ao oeste)."
             },
             {
               "name": "endereco_curto",
@@ -121,7 +121,7 @@
           ]
         },
         "options": {
-          "systemPromptTemplate": "Você é um especialista em matrículas imobiliárias brasileiras. Extraia com precisão os campos solicitados do texto de matrícula fornecido. Se um campo não estiver presente no documento, retorne null. Mantenha os valores exatamente como aparecem no documento, preservando formatação original, pontuação e acentos.\n\n{format_instructions}\n\nTexto da Matrícula:\n{text}"
+          "systemPromptTemplate": "Você é um especialista em matrículas imobiliárias brasileiras. Extraia com precisão os campos solicitados do texto de matrícula fornecido. Se um campo não estiver presente no documento, retorne null. Mantenha os valores exatamente como aparecem no documento, preservando formatação original, pontuação e acentos.\n\nREGRA DAS CONFRONTAÇÕES: preencha confrontante_norte, confrontante_sul, confrontante_leste e confrontante_oeste SOMENTE quando a matrícula escrever o rumo cardeal (norte/sul/leste/oeste, ou N/S/E/O, Nascente/Poente). Quando o documento disser apenas \"de um lado\", \"de outro lado\", \"nos fundos\" ou \"à frente\", retorne null nos quatro: traduzir lado para ponto cardeal inventa informação que não está no documento e produz georreferenciamento errado.\n\nFORMATO DA RESPOSTA: responda com o objeto JSON puro e nada mais. Não use cerca de código markdown (```json ou ```), não escreva texto antes nem depois do JSON. O primeiro caractere da resposta deve ser {{ e o último }}.\n\n{format_instructions}\n\nTexto da Matrícula:\n{text}"
         }
       },
       "id": "node-extracao",
