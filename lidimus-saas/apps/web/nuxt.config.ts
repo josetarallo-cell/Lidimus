@@ -29,11 +29,21 @@ export default defineNuxtConfig({
     publicBaseUrl: process.env.PUBLIC_BASE_URL,
     googleCloudSaKeyJson: process.env.GOOGLE_CLOUD_SA_KEY_JSON,
     gcsBucketName: process.env.GCS_BUCKET_NAME || 'lidimus-job-files',
-    uploadRateLimitPerHour: Number(process.env.UPLOAD_RATE_LIMIT_PER_HOUR || 20),
+    // 60 e não 20 desde que a tela envia lote: com teto de 10 arquivos por lote,
+    // 20 por hora deixaria o cliente com dois envios e um 429 — o limite viraria
+    // o gargalo em vez da proteção.
+    uploadRateLimitPerHour: Number(process.env.UPLOAD_RATE_LIMIT_PER_HOUR || 60),
     // Teto próprio para a API pública: integração de lote legitimamente submete
     // mais que gente clicando na tela, então o limite do painel a estrangularia.
     apiRateLimitPerHour: Number(process.env.API_RATE_LIMIT_PER_HOUR || 120),
     maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 50),
+    // Teto de arquivos por lote. Não é só ergonomia: cada arquivo vira uma
+    // execução do n8n, e a espera na fila conta para o watchdog de jobs presos
+    // (STUCK_JOB_TIMEOUT_MINUTES). Subir este número exige refazer essa conta.
+    maxBatchFiles: Number(process.env.MAX_BATCH_FILES || 10),
+    // Teto do lote inteiro. O Nitro bufferiza o corpo da requisição em memória,
+    // então 10 arquivos no limite individual de 50MB seriam 500MB no processo web.
+    maxBatchTotalMb: Number(process.env.MAX_BATCH_TOTAL_MB || 120),
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     resendApiKey: process.env.RESEND_API_KEY || '',

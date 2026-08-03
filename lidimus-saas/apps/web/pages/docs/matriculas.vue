@@ -18,7 +18,7 @@ const SECOES = [
   { id: 'por-que', rotulo: 'Por que importa' },
   { id: 'o-que-faz', rotulo: 'O que a análise faz' },
   { id: 'tempo', rotulo: 'Quanto tempo leva' },
-  { id: 'como-usar', rotulo: 'Como usar' },
+  { id: 'como-usar', rotulo: 'Como usar (e em lote)' },
   { id: 'o-que-recebe', rotulo: 'O que você recebe' },
   { id: 'custo', rotulo: 'Custo' },
   { id: 'limites', rotulo: 'Limites' },
@@ -210,6 +210,23 @@ const SECOES = [
         vivo e o resultado abre na tela, com o parecer em texto e a opção de baixar em DOCX.
       </p>
 
+      <h3>Em lote — até 10 de uma vez</h3>
+      <p>
+        Na mesma tela, selecione vários PDFs ou arraste todos juntos. A lista mostra o que vai
+        ser enviado, com opção de tirar qualquer arquivo antes de confirmar. Depois do envio você
+        cai numa página do lote que acompanha as análises lado a lado e se atualiza sozinha.
+      </p>
+      <p>
+        <strong>O lote é tudo ou nada na hora de cobrar.</strong> Os arquivos são conferidos antes
+        de qualquer débito: se um deles não for PDF, nenhuma análise é criada e a mensagem diz
+        exatamente quais recusar. Se o total não couber no seu saldo, também não se cria nada — em
+        vez de pagar por seis e descobrir no sétimo que acabou.
+      </p>
+      <p>
+        Depois que o lote entra, cada análise segue por conta própria: uma que falhe tem só o
+        próprio crédito estornado, sem afetar as outras.
+      </p>
+
       <h3>Pela API</h3>
       <p>
         Para integrar ao seu sistema, a matrícula tem endpoint próprio — disponível nos planos
@@ -221,8 +238,9 @@ const SECOES = [
   -F "file=@matricula.pdf"</code></pre>
       </div>
       <p>
+        Há também <code>/api/v1/matriculas/lote</code>, com a mesma garantia de cobrança da tela.
         O envio, o acompanhamento e o formato completo da resposta estão na
-        <NuxtLink to="/docs/api">documentação da API</NuxtLink>.
+        <NuxtLink to="/docs/api#lote">documentação da API</NuxtLink>.
       </p>
 
       <h3>Opções de envio</h3>
@@ -316,6 +334,11 @@ const SECOES = [
       <p>
         A cobrança acontece no envio. <strong>Análise que falha é estornada automaticamente</strong>
         — o crédito volta para o saldo sem você precisar pedir.
+      </p>
+      <p>
+        <strong>Lote não tem desconto nem taxa.</strong> Custa a soma das análises: dez matrículas
+        de 1 página são 910 créditos, os mesmos 910 de dez envios avulsos. O que o lote poupa é
+        tempo e a incerteza de descobrir no meio do caminho que o saldo acabou.
       </p>
       <p>
         A matrícula está incluída a partir do plano <strong>Essencial</strong>. Quem está no plano

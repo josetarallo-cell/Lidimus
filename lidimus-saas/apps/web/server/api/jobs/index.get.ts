@@ -14,20 +14,29 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   type: z.enum(['matricula', 'kml', 'injection', 'croqui']).optional(),
+  // Envio em lote: os jobs de um mesmo envio compartilham este id em
+  // inputMeta.loteId. Serve à página do lote, que mostra só aquele envio.
+  loteId: z.string().uuid().optional(),
 })
 
 export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
   const db = useDb()
 
-  const { limit, offset, type } = querySchema.parse(getQuery(event))
+  const { limit, offset, type, loteId } = querySchema.parse(getQuery(event))
 
   // Busca jobs de todas as orgs do usuário
   const memberFilter = and(
     eq(orgMembers.orgId, organizations.id),
     eq(orgMembers.userId, user.id),
   )
-  const filtro = type ? and(memberFilter, eq(jobs.type, type)) : memberFilter
+  // O escopo por organização continua sendo o que autoriza — conhecer um loteId
+  // não abre job de outra org, porque o filtro é adicional, nunca alternativo.
+  const filtro = and(
+    memberFilter,
+    ...(type ? [eq(jobs.type, type)] : []),
+    ...(loteId ? [sql`${jobs.inputMeta}->>'loteId' = ${loteId}`] : []),
+  )
 
   const [items, [{ total }]] = await Promise.all([
     db

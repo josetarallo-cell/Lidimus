@@ -41,6 +41,10 @@ export function startMatriculaJuridicoWorker(
       connection: { url: redisUrl },
       // Etapa com chamadas LLM — mais lenta e cara, concorrência menor
       concurrency: Number(process.env.WORKER_CONCURRENCY ?? 3),
+      // Como no worker de OCR, `concurrency` não segura nada: o disparo do
+      // webhook volta em milissegundos. O limiter é o que evita que um lote
+      // inteiro chegue de uma vez na Anthropic e no Mistral.
+      limiter: { max: 3, duration: 1000 },
     },
   )
 

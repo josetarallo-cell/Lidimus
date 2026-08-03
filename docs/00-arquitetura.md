@@ -66,11 +66,17 @@ Monitoramento: página `/admin/queues` no app web.
 
 ## API pública (v1)
 
-`server/api/v1/matriculas` — enviar e consultar análises de matrícula a partir de
-outro sistema. Autenticação por chave de integração (`Authorization: Bearer`),
-escopada por organização, liberada apenas em plano com `features.api` (Escritório
-e Enterprise). Detalhes de contrato, erros e limites em
-[70-api-publica.md](70-api-publica.md).
+`server/api/v1/matriculas` — enviar (unitário ou em lote), acompanhar e listar
+análises de matrícula a partir de outro sistema. Autenticação por chave de
+integração (`Authorization: Bearer`), escopada por organização, liberada apenas em
+plano com `features.api` (Escritório e Enterprise). Detalhes de contrato, erros e
+limites em [70-api-publica.md](70-api-publica.md).
+
+O lote da API (`POST /api/v1/matriculas/lote`) não existe para poupar
+requisições — o laço sobre a rota unitária já cabe no teto de 120/hora. Existe
+pela garantia de cobrança atômica, a mesma da tela. `GET /api/v1/matriculas?lote=`
+acompanha o envio inteiro numa chamada, e `serializarJob` expõe o campo `lote`
+para reagrupar a partir de uma análise avulsa.
 
 Duas decisões estruturais valem registrar aqui:
 
@@ -83,6 +89,12 @@ Duas decisões estruturais valem registrar aqui:
   entitlement, limite de uso, débito de crédito e enfileiramento. A transação que
   cobra o cliente existe num lugar só; o que difere entre os dois caminhos é como
   se descobre a organização e qual limite se aplica.
+- **Envio unitário é um lote de um.** `criarAnalisesMatriculaEmLote` é a função de
+  verdade; `criarAnaliseMatricula` é um wrapper com um array de um elemento. O
+  lote (`POST /api/matriculas/lote`, até `MAX_BATCH_FILES` PDFs) valida todos os
+  arquivos antes de cobrar e debita o total num único `lockOrgCreditBalance` —
+  tudo ou nada, nunca meio lote pago. Os jobs de um mesmo envio compartilham
+  `inputMeta.loteId`, que é o filtro da página `/matriculas/lote/[id]`.
 
 ## Banco de dados (tabelas principais)
 
@@ -122,7 +134,8 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 | `N8N_CALLBACK_SECRET` | segredo compartilhado web ↔ n8n |
 | `PUBLIC_BASE_URL` | URL pública do web (n8n usa para baixar arquivo e responder) |
 | `GOOGLE_CLOUD_SA_KEY_JSON`, `GCS_BUCKET_NAME` | armazenamento de arquivos |
-| `UPLOAD_RATE_LIMIT_PER_HOUR` (padrão 20), `MAX_UPLOAD_SIZE_MB` (padrão 25) | limites por organização nos endpoints de upload (429/413) |
+| `UPLOAD_RATE_LIMIT_PER_HOUR` (padrão 60), `MAX_UPLOAD_SIZE_MB` (padrão 50) | limites por organização nos endpoints de upload (429/413). Um lote consome tantos tokens quanto tem arquivos, e é recusado inteiro sem gastar nenhum |
+| `MAX_BATCH_FILES` (padrão 10), `MAX_BATCH_TOTAL_MB` (padrão 120) | teto do envio em lote de matrículas. O de arquivos é limitado pelo watchdog (cada arquivo é uma execução do n8n, e a espera na fila conta); o de tamanho, porque o Nitro bufferiza o corpo em memória |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | pagamentos (Fase 2) — chaves de teste `sk_test_...`/`whsec_...` até existir conta definitiva; sem elas o app funciona e só o checkout responde 503 |
 | `WORKER_CONCURRENCY`, `WORKER_REPLICAS` | escala dos workers (Fase 3) — ver [20-deploy.md](20-deploy.md) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | rastreamento de erros em web e workers (Fase 3) — inativo se vazio |

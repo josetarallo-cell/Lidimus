@@ -11,6 +11,13 @@ const props = defineProps<{
   custoCreditos?: number
   custoPorPagina?: number
   custoBase?: number
+  // Envio em lote. Fora dele o componente se comporta exatamente como antes —
+  // um arquivo, emit `submit`.
+  multiple?: boolean
+  maxArquivos?: number
+  // 0 a 100 durante o envio; nulo quando não há progresso a mostrar. Só o lote
+  // usa, porque só ele demora o bastante para uma barra fazer diferença.
+  progresso?: number | null
 }>()
 
 const { data: creditos } = await useFetch<{ balance: number }>('/api/account/credits', {
@@ -34,43 +41,80 @@ const saldoInsuficiente = computed(
 // Texto do custo: por página (tarifa) ou fixo. Quando há custo base relevante além
 // da tarifa por página, mostramos os dois para não subestimar o total — o piso já
 // é "base + 1 página", então uma análise nunca custa só a tarifa por página.
+//
+// No lote a tarifa é por arquivo, e o total exato continua sendo do servidor: o
+// número de páginas de cada PDF só é conhecido lá.
 const textoCusto = computed(() => {
+  const sufixo = props.multiple && arquivos.value.length > 1 ? ', por arquivo' : ''
   if (props.custoPorPagina != null) {
     const porPag = props.custoPorPagina
     const fmt = porPag.toLocaleString('pt-BR')
     const tarifa = `${fmt} crédito${porPag === 1 ? '' : 's'} por página`
     const base = props.custoBase ?? 0
     if (base > 0) {
-      return `Esta análise consome ${base} créditos + ${tarifa}`
+      return `Esta análise consome ${base} créditos + ${tarifa}${sufixo}`
     }
-    return `Esta análise consome ${tarifa}`
+    return `Esta análise consome ${tarifa}${sufixo}`
   }
   if (props.custoCreditos != null) {
-    return `Esta análise consome ${props.custoCreditos} crédito${props.custoCreditos === 1 ? '' : 's'}`
+    return `Esta análise consome ${props.custoCreditos} crédito${props.custoCreditos === 1 ? '' : 's'}${sufixo}`
   }
   return null
 })
 
+// Dois eventos em vez de trocar a assinatura de `submit` para File[]: as páginas
+// de croqui, memorial e detector continuam com `@submit="onSubmit"` intacto.
 const emit = defineEmits<{
   (e: 'submit', file: File): void
+  (e: 'submitLote', files: File[]): void
 }>()
 
-const file = ref<File | null>(null)
+const arquivos = ref<File[]>([])
 const dragOver = ref(false)
 const inputEl = ref<HTMLInputElement | null>(null)
+const excedente = ref(0)
+
+const teto = computed(() => (props.multiple ? (props.maxArquivos ?? 10) : 1))
+
+// O servidor continua sendo a autoridade sobre o teto; recusar aqui é só para o
+// usuário não subir 30MB para receber um 400.
+function acrescentar(novos: File[]) {
+  excedente.value = 0
+  if (!props.multiple) {
+    arquivos.value = novos.slice(0, 1)
+    return
+  }
+
+  // Mesmo nome e mesmo tamanho é o mesmo arquivo escolhido duas vezes — cobrar
+  // duas análises idênticas por um deslize de clique seria indefensável.
+  const jaTem = new Set(arquivos.value.map((f) => `${f.name}:${f.size}`))
+  const somar = novos.filter((f) => !jaTem.has(`${f.name}:${f.size}`))
+
+  const vagas = teto.value - arquivos.value.length
+  if (somar.length > vagas) excedente.value = somar.length - vagas
+  arquivos.value = [...arquivos.value, ...somar.slice(0, vagas)]
+}
 
 function onFile(e: Event) {
   const input = e.target as HTMLInputElement
-  file.value = input.files?.[0] ?? null
+  acrescentar(Array.from(input.files ?? []))
+  // Zerar o input permite reescolher o mesmo arquivo depois de removê-lo da lista
+  input.value = ''
 }
 
 function onDrop(e: DragEvent) {
   dragOver.value = false
-  file.value = e.dataTransfer?.files?.[0] ?? null
+  acrescentar(Array.from(e.dataTransfer?.files ?? []))
+}
+
+function remover(i: number) {
+  arquivos.value = arquivos.value.filter((_, idx) => idx !== i)
+  excedente.value = 0
 }
 
 function limpar() {
-  file.value = null
+  arquivos.value = []
+  excedente.value = 0
   if (inputEl.value) inputEl.value.value = ''
 }
 
@@ -80,8 +124,20 @@ function tamanho(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const rotuloBotao = computed(() => {
+  if (!props.uploading) {
+    return arquivos.value.length > 1
+      ? `Enviar ${arquivos.value.length} arquivos para análise`
+      : 'Enviar para análise'
+  }
+  if (props.progresso != null) return `Enviando… ${props.progresso}%`
+  return 'Enviando…'
+})
+
 function submit() {
-  if (file.value) emit('submit', file.value)
+  if (arquivos.value.length === 0) return
+  if (props.multiple) emit('submitLote', [...arquivos.value])
+  else emit('submit', arquivos.value[0])
 }
 </script>
 
@@ -94,39 +150,99 @@ function submit() {
 
     <div
       class="envio-zona"
-      :class="{ 'envio-zona--ativa': dragOver, 'envio-zona--pronta': file }"
+      :class="{ 'envio-zona--ativa': dragOver, 'envio-zona--pronta': arquivos.length > 0 }"
       @dragover.prevent="dragOver = true"
       @dragleave="dragOver = false"
       @drop.prevent="onDrop"
     >
-      <template v-if="!file">
+      <template v-if="!arquivos.length">
         <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true" class="envio-losango">
           <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="currentColor" stroke-width="2" />
           <polygon points="14,9 19,14 14,19 9,14" fill="currentColor" />
         </svg>
         <p class="envio-instrucao">
-          Arraste o arquivo aqui ou
+          {{ multiple ? 'Arraste os arquivos aqui ou' : 'Arraste o arquivo aqui ou' }}
           <label class="envio-selecionar">
             clique para selecionar
             <input
               ref="inputEl"
               type="file"
               :accept="accept"
+              :multiple="multiple"
               class="envio-input"
               @change="onFile"
             />
           </label>
         </p>
+        <p v-if="multiple" class="envio-teto">Até {{ teto }} PDFs por envio.</p>
       </template>
-      <template v-else>
+
+      <!-- Envio unitário: o arquivo escolhido e o "trocar", como sempre foi -->
+      <template v-else-if="!multiple">
         <p class="envio-arquivo">
-          {{ file.name }}
-          <span class="envio-tamanho">{{ tamanho(file.size) }}</span>
+          {{ arquivos[0].name }}
+          <span class="envio-tamanho">{{ tamanho(arquivos[0].size) }}</span>
         </p>
         <button type="button" class="envio-trocar" :disabled="uploading" @click="limpar">
           Trocar arquivo
         </button>
       </template>
+
+      <!-- Lote: a lista é o estado. Sem ela o usuário não tem como conferir o que
+           vai ser cobrado antes de mandar. -->
+      <template v-else>
+        <ul class="envio-lista">
+          <li v-for="(f, i) in arquivos" :key="`${f.name}:${f.size}:${i}`" class="envio-item">
+            <span class="envio-item-nome" :title="f.name">{{ f.name }}</span>
+            <span class="envio-tamanho">{{ tamanho(f.size) }}</span>
+            <button
+              type="button"
+              class="envio-remover"
+              :disabled="uploading"
+              :aria-label="`Remover ${f.name}`"
+              @click="remover(i)"
+            >
+              Remover
+            </button>
+          </li>
+        </ul>
+
+        <p class="envio-contagem">
+          {{ arquivos.length }} de {{ teto }} arquivos
+          <label v-if="arquivos.length < teto" class="envio-selecionar">
+            · adicionar mais
+            <input
+              ref="inputEl"
+              type="file"
+              :accept="accept"
+              multiple
+              class="envio-input"
+              @change="onFile"
+            />
+          </label>
+          <button type="button" class="envio-trocar" :disabled="uploading" @click="limpar">
+            Limpar
+          </button>
+        </p>
+
+        <p v-if="excedente" class="envio-excedente" role="status">
+          {{ excedente }} arquivo{{ excedente === 1 ? '' : 's' }} não {{ excedente === 1 ? 'coube' : 'couberam' }}
+          no limite de {{ teto }} — envie {{ excedente === 1 ? 'ele' : 'eles' }} num segundo lote.
+        </p>
+      </template>
+    </div>
+
+    <div v-if="uploading && progresso != null" class="envio-progresso">
+      <div
+        class="envio-progresso-barra"
+        role="progressbar"
+        :aria-valuenow="progresso"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="Progresso do envio"
+      >
+        <span class="envio-progresso-preenchida" :style="{ transform: `scaleX(${progresso / 100})` }" />
+      </div>
     </div>
 
     <!-- Campos extras da análise (ex.: rua de frente no KML), entre a zona e o rodapé -->
@@ -144,11 +260,11 @@ function submit() {
       <button
         type="button"
         class="ld-btn ld-btn--primary"
-        :disabled="!file || uploading"
+        :disabled="!arquivos.length || uploading"
         @click="submit"
       >
         <span v-if="uploading" class="ld-spinner" aria-hidden="true" />
-        {{ uploading ? 'Enviando…' : 'Enviar para análise' }}
+        {{ rotuloBotao }}
       </button>
     </footer>
   </section>
@@ -258,6 +374,111 @@ function submit() {
 .envio-trocar:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.envio-teto {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+
+/* Lista do lote: alinhada à esquerda dentro da zona centralizada — nome de
+   arquivo é texto de leitura, não legenda */
+.envio-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--ld-filete);
+  border-radius: var(--ld-r-sm);
+  background: var(--ld-folha);
+}
+.envio-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ld-space-sm);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ld-filete);
+}
+.envio-item:last-child {
+  border-bottom: none;
+}
+.envio-item-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.envio-item .envio-tamanho {
+  margin-left: 0;
+}
+.envio-remover {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-family: var(--ld-font-sans);
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.envio-remover:hover:not(:disabled) {
+  color: var(--ld-carimbo-tinta);
+}
+.envio-remover:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.envio-contagem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+.envio-contagem .envio-trocar {
+  padding: 0 4px;
+  font-size: 0.8125rem;
+}
+
+.envio-excedente {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ld-ocre);
+  max-width: 48ch;
+}
+
+/* Barra de progresso: só o lote a usa, e só enquanto os bytes sobem. Depois do
+   último byte o servidor ainda conta páginas e debita, então ela para em 100%
+   com o botão ainda em "Enviando…" — o spinner cobre essa janela. */
+.envio-progresso {
+  padding: 0 var(--ld-space-lg) var(--ld-space-md);
+}
+.envio-progresso-barra {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ld-bancada);
+  overflow: hidden;
+}
+/* scaleX e não width: a barra atualiza dezenas de vezes por segundo durante o
+   envio, e animar largura recalcularia layout a cada quadro */
+.envio-progresso-preenchida {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--ld-verde);
+  transition: transform 120ms var(--ld-ease);
 }
 
 .envio-campos {

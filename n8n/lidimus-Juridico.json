@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-21T18:44:49.295Z",
+  "updatedAt": "2026-08-03T14:23:37.292Z",
   "createdAt": "2026-07-02T19:05:07.204Z",
   "id": "XakDkY7aCjCYkyqt",
   "name": "lidimus-Juridico",
@@ -131,7 +131,10 @@
       "position": [
         672,
         304
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -252,7 +255,10 @@
         2208,
         304
       ],
-      "continueOnFail": true
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
@@ -292,7 +298,10 @@
           "name": "Anthropic API - lidimus (x-api-key)"
         }
       },
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000
     },
     {
       "parameters": {
@@ -442,7 +451,10 @@
           "name": "Mistral API - RAG (header)"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -478,7 +490,10 @@
           "name": "Qdrant API - lidimus (RAG)"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
     },
     {
       "parameters": {
@@ -725,9 +740,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "d20c65d9-fc97-4bd7-b224-d4e43b17093e",
-  "activeVersionId": "d20c65d9-fc97-4bd7-b224-d4e43b17093e",
-  "versionCounter": 58,
+  "versionId": "a2b80678-7dd8-4903-8da4-b24475f822f6",
+  "activeVersionId": "a2b80678-7dd8-4903-8da4-b24475f822f6",
+  "versionCounter": 86,
   "triggerCount": 1,
   "shared": [
     {

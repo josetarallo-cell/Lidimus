@@ -1,0 +1,376 @@
+{
+  "updatedAt": "2026-08-03T14:23:36.194Z",
+  "createdAt": "2026-07-01T17:06:01.857Z",
+  "id": "MPmlcKYyq4dcgJ9U",
+  "name": "lidimus-OCR",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lidimus-ocr",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "f03b43ff-d57c-4166-8bcf-c631b0c51a44",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "node-preparar",
+      "name": "Preparar Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nreturn [{ json: {\n  jobId: body.jobId || '',\n  fileUrl: body.fileUrl || '',\n  callbackUrl: body.callbackUrl || '',\n  callbackSecret: body.callbackSecret || '',\n  params: body.params || {},\n} }];"
+      }
+    },
+    {
+      "id": "node-responder",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({ status: 'processing', stage: 'ocr', jobId: $('Preparar Input').first().json.jobId }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-baixar",
+      "name": "Baixar PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "url": "={{ $('Preparar Input').first().json.fileUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "node-docai",
+      "name": "Google Document AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://us-documentai.googleapis.com/v1/projects/106018180847/locations/us/processors/a02f03278cbcdc35:process",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json; charset=utf-8",
+        "body": "={{ JSON.stringify({ rawDocument: { content: $json.pdfBase64, mimeType: 'application/pdf' }, imagelessMode: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "cWFvav5uTN3bnhJO",
+          "name": "Google Document AI - lidimus"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "node-normalizar",
+      "name": "Normalizar Texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "jsCode": "const doc = $input.first().json.document || {};\nconst HOMOGLIFOS = {'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N','Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X','А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','Х':'X','У':'Y','а':'a','е':'e','о':'o','р':'p','с':'c','у':'y','х':'x'};\nlet texto = String(doc.text || '');\ntexto = texto.replace(/[Ͱ-ϿЀ-ӿ]/g, ch => HOMOGLIFOS[ch] || ch);\nconst total_paginas = (doc.pages || []).length;\nif (!texto.trim()) throw new Error('OCR retornou texto vazio.');\nreturn [{ json: { texto_ocr: texto, total_paginas } }];"
+      }
+    },
+    {
+      "id": "node-callback-ok",
+      "name": "Callback OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Lidimus-Secret",
+              "value": "={{ $('Preparar Input').first().json.callbackSecret }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', result: { texto_ocr: $json.texto_ocr, total_paginas: $json.total_paginas }, usage: { models: [{ workflow: 'lidimus-OCR', model: 'google-document-ai', promptTokens: 0, completionTokens: 0, totalTokens: 0, units: ($json.total_paginas || 0), unitLabel: 'páginas', costUsd: Number((($json.total_paginas || 0) * 0.0015).toFixed(6)) }] } }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-montar-erro",
+      "name": "Montar Erro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        540
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst err = (item.error && typeof item.error === 'object') ? item.error : {};\nconst partes = [];\nconst msg = err.message || item.error || item.message;\nif (msg) partes.push(String(typeof msg === 'object' ? JSON.stringify(msg) : msg));\nif (err.description && !partes.includes(String(err.description))) partes.push(String(err.description));\nconst texto = partes.join(' — ') || 'Falha no OCR';\nreturn [{ json: { errorMessage: texto.slice(0, 500) } }];"
+      }
+    },
+    {
+      "id": "node-callback-erro",
+      "name": "Callback Erro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        540
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Lidimus-Secret",
+              "value": "={{ $('Preparar Input').first().json.callbackSecret }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', error: $json.errorMessage }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-base64",
+      "name": "Preparar Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        770,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// $binary.data.data traz só o placeholder 'filesystem-v2' quando o binário vai\n// para o filesystem — ler via helpers garante o conteúdo real em base64\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf || buf.length < 100) throw new Error('PDF vazio ou não baixado.');\nreturn [{ json: { ...$input.first().json, pdfBase64: buf.toString('base64') } }];"
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Input": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder Webhook": {
+      "main": [
+        [
+          {
+            "node": "Baixar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar PDF": {
+      "main": [
+        [
+          {
+            "node": "Preparar Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Document AI": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Texto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Texto": {
+      "main": [
+        [
+          {
+            "node": "Callback OCR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Erro": {
+      "main": [
+        [
+          {
+            "node": "Callback Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Base64": {
+      "main": [
+        [
+          {
+            "node": "Google Document AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "05a75dab-8fba-40ba-b97d-172002b7b680",
+  "activeVersionId": "05a75dab-8fba-40ba-b97d-172002b7b680",
+  "versionCounter": 37,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-07-01T17:06:01.874Z",
+      "createdAt": "2026-07-01T17:06:01.874Z",
+      "role": "workflow:owner",
+      "workflowId": "MPmlcKYyq4dcgJ9U",
+      "projectId": "n8u85tVxWqa1HXNM",
+      "project": {
+        "updatedAt": "2026-04-29T17:46:38.456Z",
+        "createdAt": "2026-04-29T17:45:06.294Z",
+        "id": "n8u85tVxWqa1HXNM",
+        "name": "JOSE jose.tarallo@gmail.com <jose.tarallo@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e7a8ff6b-7cf6-478e-a336-aacbcb550a16"
+      }
+    }
+  ],
+  "tags": []
+}

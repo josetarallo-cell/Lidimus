@@ -36,6 +36,12 @@ export function startMatriculaOcrWorker(
     {
       connection: { url: redisUrl },
       concurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),
+      // `concurrency` aqui não é throttle: este worker só dispara o webhook e
+      // retorna — o n8n responde na hora (responseNode) e processa depois. Sem o
+      // limiter, um lote de 10 matrículas vira 10 chamadas simultâneas ao
+      // Document AI. O limiter espaça os disparos; o teto de execuções
+      // concorrentes de verdade é o N8N_CONCURRENCY_PRODUCTION_LIMIT da instância.
+      limiter: { max: 5, duration: 1000 },
     },
   )
 

@@ -57,6 +57,10 @@ export function serializarJob(job: JobDoBanco, { incluirResultado = true } = {})
     etapa: job.stage,
     arquivo: typeof meta.originalName === 'string' ? meta.originalName : null,
     paginas: typeof meta.paginas === 'number' ? meta.paginas : null,
+    // Identifica o envio em lote a que esta análise pertence; `null` em envio
+    // unitário. Serve para a integração reagrupar o lote ao consultar uma análise
+    // avulsa, e é o valor aceito em GET /api/v1/matriculas?lote=.
+    lote: typeof meta.loteId === 'string' ? meta.loteId : null,
     criadoEm: job.createdAt.toISOString(),
     concluidoEm: job.completedAt?.toISOString() ?? null,
     // Preenchidos em exclusão mútua: erro quando falhou, resultado quando

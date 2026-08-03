@@ -11,14 +11,16 @@ lidimus-saas/
 │   │   ├── index.vue             # landing pública
 │   │   ├── auth/login.vue, register.vue
 │   │   ├── dashboard.vue         # painel de análises do usuário
-│   │   ├── matriculas/           # index.vue = upload; [id].vue = parecer (a "prancha")
+│   │   ├── matriculas/           # index.vue = upload (1 a 10 PDFs); [id].vue = parecer (a "prancha")
+│   │   │   └── lote/[id].vue     # acompanhamento de um envio em lote
 │   │   ├── kml/                  # index.vue = upload; [id].vue = memorial
 │   │   ├── injection/            # index.vue = upload; [id].vue = laudo
 │   │   └── admin/queues.vue      # monitoramento de filas
 │   ├── components/
-│   │   ├── UploadCard.vue        # dropzone genérica usada pelas 3 ferramentas
+│   │   ├── UploadCard.vue        # dropzone genérica; `multiple` liga o modo lote
 │   │   └── JobStatus.vue         # (legado — ver nota abaixo)
 │   ├── composables/useJobPoller.ts  # polling de /api/jobs/:id a cada 3s
+│   ├── composables/useJobApresentacao.ts  # selos de status/risco da listagem (painel + lote)
 │   ├── server/api/                # endpoints internos (upload, jobs, admin, webhook do n8n)
 │   ├── server/lib/                # db, gcs, queue, auth — helpers do backend
 │   ├── assets/css/lidimus.css     # tokens e primitivas do design system (fonte: DESIGN.md)

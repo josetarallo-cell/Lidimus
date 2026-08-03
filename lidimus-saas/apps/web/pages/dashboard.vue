@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { JobListado } from '~/composables/useJobApresentacao'
+
 useHead({ title: 'Painel — Lidimus' })
 
 const PAGE_SIZE = 20
@@ -65,121 +67,19 @@ watch(totalPaginas, (t) => {
   if (pagina.value > t) pagina.value = t
 })
 
-// Etapas em linguagem de ofício — nunca jargão de máquina na UI
-const stageLabel: Record<string, string> = {
-  ocr: 'Leitura do documento',
-  juridico: 'Análise jurídica',
-  doc: 'Montagem do parecer',
-  croqui: 'Desenho do croqui',
-}
-
-type Job = {
-  id: string
-  type: string
-  status: string
-  stage?: string | null
-  inputMeta?: Record<string, any> | null
-  result?: Record<string, any> | null
-  createdAt: string
-  createdBy?: string | null
-}
+// arquivoNome, numeroDocumento, statusSelo, riscoInfo, rotaDoJob e dataFmt vêm de
+// composables/useJobApresentacao.ts (auto-import) — a página do lote mostra a
+// mesma linha e as duas telas não podem divergir.
+type Job = JobListado
 
 // Numa conta de um usuário só, "Criado por" seria a mesma resposta em todas as
 // linhas. A coluna aparece quando há equipe de fato.
 const mostrarAutor = computed(() => (equipeInfo.value?.membros.length ?? 1) > 1)
 
-// Nome do PDF original enviado — guardado em inputMeta.originalName por todos os
-// tipos de job (matrícula, memorial, croqui, verificação)
-function arquivoNome(job: Job): string {
-  const nome = job.inputMeta?.originalName
-  return typeof nome === 'string' && nome.trim() ? nome : '—'
-}
-
-// Número do documento — só faz sentido em Matrícula e Croqui. A matrícula guarda
-// no cabeçalho do parecer; o croqui, no topo do JSON de extração (numero_matricula).
-function numeroDocumento(job: Job): string | null {
-  let bruto: unknown = null
-  if (job.type === 'matricula') {
-    bruto = job.result?.documento?.cabecalho?.numero_matricula ?? job.result?.numero_matricula
-  } else if (job.type === 'croqui') {
-    bruto = job.result?.numero_matricula
-  }
-  const texto = bruto == null ? '' : String(bruto).trim()
-  return texto ? texto : null
-}
-
-function statusSelo(job: Job): { classe: string; texto: string } {
-  if (job.status === 'done') return { classe: 'ld-selo--verde', texto: 'Concluído' }
-  if (job.status === 'error') return { classe: 'ld-selo--carimbo', texto: 'Falhou' }
-  const etapa = job.stage ? stageLabel[job.stage] ?? null : null
-  return { classe: 'ld-selo--neutro', texto: etapa ? `Processando · ${etapa}` : 'Processando' }
-}
-
-// Risco só se aplica a Matrículas e Detector — Memorial (kml) e Croqui não avaliam risco
-function riscoInfo(job: Job): { classe: string; texto: string } | null {
-  if (job.type === 'kml' || job.type === 'croqui') return null
-  if (job.status !== 'done') return { classe: 'ld-selo--neutro', texto: '—' }
-
-  if (job.type === 'injection') {
-    const r = String(job.result?.risk_level ?? '').toLowerCase()
-    if (r === 'high') return { classe: 'ld-selo--carimbo', texto: 'Alto' }
-    if (r === 'medium') return { classe: 'ld-selo--ocre', texto: 'Médio' }
-    if (r === 'low') return { classe: 'ld-selo--verde', texto: 'Baixo' }
-    return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
-  }
-
-  if (job.type === 'matricula') {
-    // Matrícula incompleta não tem risco a exibir: o que a listagem precisa
-    // mostrar é que aquele laudo não traz parecer.
-    if (job.result?.matricula_incompleta === true) {
-      return { classe: 'ld-selo--carimbo', texto: 'Incompleta' }
-    }
-    const r = String(
-      job.result?.documento?.cabecalho?.classificacao_risco ?? job.result?.classificacao_risco ?? '',
-    )
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-    // O `if (r)` genérico rotulava de "Médio" tudo que não fosse baixo nem alto
-    // — inclusive 'critico' e 'indeterminado'. Cada nível se declara.
-    if (r.startsWith('nao_aplic') || r.startsWith('nao aplic')) {
-      return { classe: 'ld-selo--neutro', texto: 'Não avaliado' }
-    }
-    if (r.startsWith('crit') || r.startsWith('altissim')) {
-      return { classe: 'ld-selo--critico', texto: 'Crítico' }
-    }
-    if (r.startsWith('alt')) return { classe: 'ld-selo--carimbo', texto: 'Alto' }
-    if (r.startsWith('baix')) return { classe: 'ld-selo--verde', texto: 'Baixo' }
-    if (r.startsWith('med') || r.startsWith('moder')) {
-      return { classe: 'ld-selo--ocre', texto: 'Médio' }
-    }
-    return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
-  }
-
-  return null
-}
-
-function rota(job: Job): string {
-  if (job.type === 'kml') return `/kml/${job.id}`
-  if (job.type === 'injection') return `/injection/${job.id}`
-  if (job.type === 'croqui') return `/croqui/${job.id}`
-  return `/matriculas/${job.id}`
-}
-
 // A linha inteira é o alvo de toque; o link "Ver" continua sendo o caminho
 // acessível (teclado/leitor de tela)
 function abrir(job: Job) {
-  navigateTo(rota(job))
-}
-
-function dataFmt(iso: string): string {
-  // timeZone fixo: sem ele, servidor (UTC) e navegador (BRT) formatam horas
-  // diferentes para o mesmo timestamp e o SSR gera hydration mismatch
-  return new Date(iso).toLocaleString('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'America/Sao_Paulo',
-  })
+  navigateTo(rotaDoJob(job))
 }
 
 onMounted(() => {
@@ -275,7 +175,7 @@ onMounted(() => {
               <td v-if="mostrarAutor" class="celula-autor">{{ job.createdBy ?? '—' }}</td>
               <td class="celula-data">{{ dataFmt(job.createdAt) }}</td>
               <td class="celula-acao">
-                <NuxtLink :to="rota(job)" class="ld-btn ld-btn--ghost ld-btn--sm" @click.stop>Ver</NuxtLink>
+                <NuxtLink :to="rotaDoJob(job)" class="ld-btn ld-btn--ghost ld-btn--sm" @click.stop>Ver</NuxtLink>
               </td>
             </tr>
           </tbody>

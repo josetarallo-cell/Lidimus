@@ -19,8 +19,8 @@ useHead({
     {
       name: 'description',
       content:
-        'Envie matrículas para análise e receba o parecer estruturado em JSON. Autenticação, ' +
-        'endpoints, formato do resultado e códigos de erro da API v1 do Lidimus.',
+        'Envie matrículas para análise — uma ou até dez em lote — e receba o parecer estruturado ' +
+        'em JSON. Autenticação, endpoints, formato do resultado e códigos de erro da API v1 do Lidimus.',
     },
     // Documentação de integração não deve competir com a landing na busca.
     { name: 'robots', content: 'noindex, follow' },
@@ -32,12 +32,13 @@ const SECOES = [
   { id: 'comecar', rotulo: 'Antes de começar' },
   { id: 'autenticacao', rotulo: '1. Autenticação' },
   { id: 'enviar', rotulo: '2. Enviar a matrícula' },
-  { id: 'acompanhar', rotulo: '3. Acompanhar' },
-  { id: 'resultado', rotulo: '4. O resultado' },
-  { id: 'listar', rotulo: '5. Listar análises' },
-  { id: 'erros', rotulo: '6. Erros' },
-  { id: 'limites', rotulo: '7. Limites e custo' },
-  { id: 'exemplo', rotulo: '8. Exemplo pronto' },
+  { id: 'lote', rotulo: '3. Enviar em lote' },
+  { id: 'acompanhar', rotulo: '4. Acompanhar' },
+  { id: 'resultado', rotulo: '5. O resultado' },
+  { id: 'listar', rotulo: '6. Listar análises' },
+  { id: 'erros', rotulo: '7. Erros' },
+  { id: 'limites', rotulo: '8. Limites e custo' },
+  { id: 'exemplo', rotulo: '9. Exemplo pronto' },
 ]
 
 const copiado = ref('')
@@ -223,9 +224,119 @@ async function copiar(e: MouseEvent, chave: string) {
           </p>
         </section>
 
+        <!-- ── Lote ────────────────────────────────────────────────────── -->
+        <section id="lote">
+          <h2>3. Enviar em lote</h2>
+          <p class="rota-titulo"><span class="verbo verbo--post">POST</span> /api/v1/matriculas/lote</p>
+          <p>
+            Até <strong>10 matrículas</strong> numa requisição. Repita o campo <code>file</code>
+            uma vez por PDF; <code>params</code> é único e vale para todos.
+          </p>
+
+          <div class="nota">
+            <p>
+              <strong>Isto não existe para poupar requisições.</strong> Um laço sobre o endpoint
+              anterior já funciona e cabe folgado no teto de 120 por hora. O que o lote dá é
+              <strong>garantia de cobrança</strong>: os arquivos são validados e debitados numa
+              transação só. Ou todas as análises entram, ou nenhuma entra e nada é cobrado.
+            </p>
+            <p>
+              No laço, quem fica sem saldo no sétimo PDF termina com seis análises pagas, uma
+              recusada e três nunca enviadas — e precisa descobrir sozinho onde parou para
+              reconciliar. Aqui a recusa chega antes de qualquer débito.
+            </p>
+          </div>
+
+          <div class="bloco">
+            <button type="button" class="copiar" @click="copiar($event, 'lote')">
+              {{ copiado === 'lote' ? 'Copiado' : 'Copiar' }}
+            </button>
+            <pre><code>curl -X POST {{ BASE }}/api/v1/matriculas/lote \
+  -H "Authorization: Bearer $LIDIMUS_API_KEY" \
+  -F "file=@matricula-1.pdf" \
+  -F "file=@matricula-2.pdf" \
+  -F "file=@matricula-3.pdf" \
+  -F 'params={"incluirMemorial":true}'</code></pre>
+          </div>
+
+          <p class="resposta-rotulo">Resposta — <code>202 Accepted</code></p>
+          <div class="bloco">
+            <button type="button" class="copiar" @click="copiar($event, 'lote-r')">
+              {{ copiado === 'lote-r' ? 'Copiado' : 'Copiar' }}
+            </button>
+            <pre v-pre><code>{
+  "loteId": "2229b828-3fb6-42eb-978c-e0155f80b165",
+  "itens": [
+    { "id": "3b47e5b7-...", "status": "queued", "arquivo": "matricula-1.pdf", "paginas": 1, "custoCreditos": 91 },
+    { "id": "295e3ede-...", "status": "queued", "arquivo": "matricula-2.pdf", "paginas": 4, "custoCreditos": 115 },
+    { "id": "7fa76816-...", "status": "queued", "arquivo": "matricula-3.pdf", "paginas": 2, "custoCreditos": 99 }
+  ],
+  "custoTotal": 305,
+  "saldoRestante": 46885
+}</code></pre>
+          </div>
+
+          <p>
+            Cada item vira uma análise independente. Acompanhe pelo <code>id</code>, como no envio
+            unitário, ou o lote inteiro numa chamada com
+            <code>GET /api/v1/matriculas?lote={loteId}</code>.
+          </p>
+
+          <div class="aviso">
+            <p>
+              <strong>Depois do 202, o lote deixa de ser atômico.</strong> Uma análise que falhar
+              tem só o próprio crédito estornado, sem afetar as outras. A garantia é da admissão —
+              nunca conte com “o lote inteiro voltou” depois que ele entrou.
+            </p>
+          </div>
+
+          <h3>O que recusa o lote inteiro</h3>
+          <table class="tabela">
+            <thead><tr><th>HTTP</th><th><code>codigo</code></th><th>Quando</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>400</td><td><code>requisicao_invalida</code></td>
+                <td>Mais de 10 arquivos, ou <code>params</code> malformado.</td>
+              </tr>
+              <tr>
+                <td>415</td><td><code>arquivo_invalido</code></td>
+                <td>
+                  Um ou mais arquivos não são PDF, ou passam de 50 MB. <strong>A mensagem lista
+                  quais e por quê</strong> — você corrige todos de uma vez, em vez de um por
+                  tentativa.
+                </td>
+              </tr>
+              <tr>
+                <td>402</td><td><code>creditos_insuficientes</code></td>
+                <td>O total do lote passa do saldo. Nenhuma análise criada.</td>
+              </tr>
+              <tr>
+                <td>403</td><td><code>sem_acesso_a_ferramenta</code></td>
+                <td>Sem plano, ou lote maior que o número de análises avulsas disponíveis.</td>
+              </tr>
+              <tr>
+                <td>413</td><td><code>arquivo_grande_demais</code></td>
+                <td>O lote somado passa de 120 MB.</td>
+              </tr>
+              <tr>
+                <td>429</td><td><code>limite_de_uso</code></td>
+                <td>
+                  O lote não cabe no que resta do teto por hora. <strong>Nenhuma vaga é
+                  consumida</strong>, e a mensagem diz quantas restam.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Um lote consome tantas vagas do teto por hora quanto tem arquivos: dez matrículas
+            custam dez vagas, não uma.
+          </p>
+        </section>
+
         <!-- ── Acompanhar ──────────────────────────────────────────────── -->
         <section id="acompanhar">
-          <h2>3. Acompanhar a análise</h2>
+          <h2>4. Acompanhar a análise</h2>
           <p class="rota-titulo"><span class="verbo">GET</span> /api/v1/matriculas/{id}</p>
 
           <div class="bloco">
@@ -288,17 +399,24 @@ async function copiar(e: MouseEvent, chave: string) {
   "etapa": "juridico",
   "arquivo": "matricula.pdf",
   "paginas": 8,
+  "lote": null,
   "criadoEm": "2026-07-30T00:12:51.291Z",
   "concluidoEm": null,
   "erro": null,
   "resultado": null
 }</code></pre>
           </div>
+
+          <p>
+            <code>lote</code> traz o identificador do envio quando a análise veio de um lote, e
+            <code>null</code> quando veio do envio unitário — serve para reagrupar o lote a partir
+            de uma análise avulsa.
+          </p>
         </section>
 
         <!-- ── O RESULTADO ─────────────────────────────────────────────── -->
         <section id="resultado">
-          <h2>4. O resultado</h2>
+          <h2>5. O resultado</h2>
           <p class="doc-lide-secao">
             Esta é a parte que importa: o que exatamente chega até você, e onde cada informação
             está.
@@ -692,11 +810,12 @@ async function copiar(e: MouseEvent, chave: string) {
 
         <!-- ── Listar ──────────────────────────────────────────────────── -->
         <section id="listar">
-          <h2>5. Listar análises</h2>
+          <h2>6. Listar análises</h2>
           <p class="rota-titulo"><span class="verbo">GET</span> /api/v1/matriculas</p>
           <p>
             As análises da sua empresa, da mais recente para a mais antiga. Aceita
-            <code>limite</code> (1 a 100, padrão 20), <code>status</code> e <code>cursor</code>.
+            <code>limite</code> (1 a 100, padrão 20), <code>status</code>, <code>cursor</code> e
+            <code>lote</code>.
           </p>
           <p>
             A listagem <strong>não traz o campo <code>resultado</code></strong> — o parecer completo
@@ -709,10 +828,22 @@ async function copiar(e: MouseEvent, chave: string) {
             </button>
             <pre v-pre><code>{
   "itens": [
-    { "id": "2c7e4e0b-...", "status": "done", "arquivo": "matricula.pdf", "paginas": 1 }
+    { "id": "2c7e4e0b-...", "status": "done", "arquivo": "matricula.pdf", "paginas": 1, "lote": null }
   ],
   "proximoCursor": "MjAyNi0wNy0zMFQwMDoxMjo1MS4yOTFa"
 }</code></pre>
+          </div>
+
+          <p>
+            <code>lote={loteId}</code> restringe a listagem a um envio em lote — é assim que se
+            acompanha um lote inteiro com uma chamada, em vez de uma por análise:
+          </p>
+          <div class="bloco">
+            <button type="button" class="copiar" @click="copiar($event, 'lista-lote')">
+              {{ copiado === 'lista-lote' ? 'Copiado' : 'Copiar' }}
+            </button>
+            <pre><code>curl "{{ BASE }}/api/v1/matriculas?lote=$LOTE&amp;limite=100" \
+  -H "Authorization: Bearer $LIDIMUS_API_KEY"</code></pre>
           </div>
           <p>
             Para a próxima página, repita a chamada passando <code>cursor</code> com o valor de
@@ -723,7 +854,7 @@ async function copiar(e: MouseEvent, chave: string) {
 
         <!-- ── Erros ───────────────────────────────────────────────────── -->
         <section id="erros">
-          <h2>6. Erros</h2>
+          <h2>7. Erros</h2>
           <p>
             Todo erro chega no mesmo formato. Programe olhando o <code>codigo</code> — ele é
             estável; a <code>mensagem</code> é para a pessoa que lê o log e pode mudar.
@@ -763,15 +894,26 @@ async function copiar(e: MouseEvent, chave: string) {
               </tr>
               <tr>
                 <td>400</td><td><code>arquivo_invalido</code></td>
-                <td>O campo <code>file</code> falta ou não é um PDF.</td>
+                <td>O campo <code>file</code> falta.</td>
+              </tr>
+              <tr>
+                <td>415</td><td><code>arquivo_invalido</code></td>
+                <td>
+                  O arquivo enviado não é um PDF. Conferimos a assinatura do arquivo, não o
+                  <code>Content-Type</code> que você declara — renomear um <code>.doc</code> para
+                  <code>.pdf</code> não passa.
+                </td>
               </tr>
               <tr>
                 <td>413</td><td><code>arquivo_grande_demais</code></td>
-                <td>Acima de 50 MB.</td>
+                <td>Acima de 50 MB por arquivo, ou 120 MB no lote inteiro.</td>
               </tr>
               <tr>
                 <td>429</td><td><code>limite_de_uso</code></td>
-                <td>Limite por hora atingido. Espere e repita.</td>
+                <td>
+                  Limite por hora atingido. Espere e repita. Um lote recusado por aqui
+                  <strong>não consome</strong> as vagas que não chegou a usar.
+                </td>
               </tr>
               <tr>
                 <td>5xx</td><td><code>erro_interno</code></td>
@@ -791,13 +933,14 @@ async function copiar(e: MouseEvent, chave: string) {
 
         <!-- ── Limites ─────────────────────────────────────────────────── -->
         <section id="limites">
-          <h2>7. Limites e custo</h2>
+          <h2>8. Limites e custo</h2>
           <table class="tabela">
             <thead><tr><th>Item</th><th>Valor</th></tr></thead>
             <tbody>
               <tr><td>Custo por análise</td><td><strong>83 + 8 × número de páginas</strong> créditos</td></tr>
-              <tr><td>Envios por hora</td><td>120 por empresa, e 120 por chave</td></tr>
+              <tr><td>Análises por hora</td><td>120 por empresa, e 120 por chave</td></tr>
               <tr><td>Tamanho do arquivo</td><td>50 MB</td></tr>
+              <tr><td>Arquivos por lote</td><td>10, somando no máximo 120 MB</td></tr>
               <tr><td>Chaves ativas</td><td>5 por empresa</td></tr>
               <tr><td>Validade da chave</td><td>1 ano</td></tr>
             </tbody>
@@ -807,6 +950,10 @@ async function copiar(e: MouseEvent, chave: string) {
             <a href="/conta/creditos">Conta → Créditos</a> e na resposta de cada envio.
           </p>
           <p>
+            <strong>O teto por hora conta análises, não requisições.</strong> Um lote de 10 gasta 10
+            das 120 vagas. E o lote não tem desconto: custa a soma das análises que contém.
+          </p>
+          <p>
             O limite por chave existe para o seu benefício: se você tem uma chave por sistema, um
             script descontrolado em um deles não derruba a integração dos outros.
           </p>
@@ -814,7 +961,7 @@ async function copiar(e: MouseEvent, chave: string) {
 
         <!-- ── Exemplo ─────────────────────────────────────────────────── -->
         <section id="exemplo">
-          <h2>8. Exemplo pronto</h2>
+          <h2>9. Exemplo pronto</h2>
           <p>Envia, espera ficar pronto e imprime o parecer. Precisa de <code>curl</code> e <code>jq</code>.</p>
 
           <div class="bloco">
@@ -846,6 +993,47 @@ while :; do
       sleep 15 ;;
   esac
 done</code></pre>
+          </div>
+
+          <h3>Uma pasta inteira, em lote</h3>
+          <p>
+            Mesma ideia com vários arquivos. A diferença que importa: se não houver saldo para
+            todos, o script para <strong>antes</strong> de qualquer cobrança, em vez de descobrir no
+            meio do caminho.
+          </p>
+
+          <div class="bloco">
+            <button type="button" class="copiar" @click="copiar($event, 'script-lote')">
+              {{ copiado === 'script-lote' ? 'Copiado' : 'Copiar' }}
+            </button>
+            <pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+BASE={{ BASE }}
+CHAVE="Authorization: Bearer $LIDIMUS_API_KEY"
+
+# Monta um -F por PDF da pasta (no máximo 10)
+ARGS=()
+for pdf in "$1"/*.pdf; do ARGS+=(-F "file=@$pdf"); done
+
+LOTE=$(curl -sf -X POST "$BASE/api/v1/matriculas/lote" -H "$CHAVE" "$&#123;ARGS[@]&#125;" | jq -r .loteId)
+echo "lote $LOTE enviado; aguardando…"
+
+# Uma consulta acompanha o lote inteiro
+while :; do
+  R=$(curl -sf "$BASE/api/v1/matriculas?lote=$LOTE&amp;limite=100" -H "$CHAVE")
+  FALTAM=$(jq '[.itens[] | select(.status=="queued" or .status=="processing")] | length' <<<"$R")
+  [ "$FALTAM" -eq 0 ] &amp;&amp; break
+  echo "$FALTAM ainda processando…"; sleep 20
+done
+
+# A listagem não traz o parecer — busque cada um pelo id
+jq -r '.itens[] | select(.status=="done") | .id' <<<"$R" | while read -r ID; do
+  curl -sf "$BASE/api/v1/matriculas/$ID" -H "$CHAVE" \
+    | jq -r '"\(.arquivo): matrícula \(.resultado.numero_matricula) — risco \(.resultado.classificacao_risco)"'
+done
+
+jq -r '.itens[] | select(.status=="error") | "\(.arquivo) falhou: \(.erro) (crédito estornado)"' <<<"$R"</code></pre>
           </div>
         </section>
 

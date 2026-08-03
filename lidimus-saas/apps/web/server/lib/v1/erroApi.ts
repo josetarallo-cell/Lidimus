@@ -59,6 +59,11 @@ const CODIGO_POR_STATUS: Record<number, CodigoErro> = {
   403: 'sem_acesso_a_ferramenta',
   404: 'nao_encontrado',
   413: 'arquivo_grande_demais',
+  // 415 vem de assertPdfSignature (arquivo que não é PDF) e da recusa de um lote
+  // com arquivo inválido. Sem esta linha caía no ramo do 500: a integração
+  // recebia `erro_interno` e a mensagem genérica por ter enviado um arquivo
+  // errado — um erro dela, apresentado como falha nossa.
+  415: 'arquivo_invalido',
   429: 'limite_de_uso',
 }
 

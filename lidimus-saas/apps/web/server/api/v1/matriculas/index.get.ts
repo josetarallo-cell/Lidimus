@@ -17,6 +17,9 @@ const querySchema = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['queued', 'processing', 'done', 'error']).optional(),
   cursor: z.string().optional(),
+  // Restringe a listagem a um envio em lote. É como a integração acompanha um
+  // lote inteiro com uma chamada só, em vez de uma por análise.
+  lote: z.string().uuid().optional(),
 })
 
 // `pending` é o estado de instantes entre o débito e o enfileiramento; para quem
@@ -50,15 +53,21 @@ export default defineRotaApi(async (event) => {
     throw erroApi(
       400,
       'requisicao_invalida',
-      'Parâmetros inválidos. "limite" vai de 1 a 100 e "status" aceita queued, processing, done ou error.',
+      'Parâmetros inválidos. "limite" vai de 1 a 100, "status" aceita queued, processing, done ou error, e "lote" é o uuid devolvido por POST /api/v1/matriculas/lote.',
     )
   }
-  const { limite, status, cursor } = query.data
+  const { limite, status, cursor, lote } = query.data
 
   const filtros = [eq(jobs.orgId, orgId), eq(jobs.type, 'matricula' as const)]
 
   if (status) {
     filtros.push(inArray(jobs.status, [...STATUS_INTERNOS[status]]))
+  }
+
+  // O escopo por organização continua sendo o que autoriza — conhecer um id de
+  // lote não abre análise de outra org, porque o filtro é adicional.
+  if (lote) {
+    filtros.push(sql`${jobs.inputMeta}->>'loteId' = ${lote}`)
   }
 
   if (cursor) {

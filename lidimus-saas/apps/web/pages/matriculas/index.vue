@@ -9,7 +9,11 @@ const viaAvulso = computed(
   () => !acesso.value?.ferramentas?.includes('matricula') && (acesso.value?.avulsosMatricula ?? 0) > 0,
 )
 
+const MAX_ARQUIVOS = 10
+const PARAMS = { incluirMemorial: true, incluirCroqui: false }
+
 const uploading = ref(false)
+const progresso = ref<number | null>(null)
 const erro = ref<ErroUpload | null>(null)
 
 async function onSubmit(file: File) {
@@ -18,7 +22,7 @@ async function onSubmit(file: File) {
   try {
     const form = new FormData()
     form.append('file', file)
-    form.append('params', JSON.stringify({ incluirMemorial: true, incluirCroqui: false }))
+    form.append('params', JSON.stringify(PARAMS))
 
     const { jobId } = await $fetch<{ jobId: string; custo: number; paginas: number }>(
       '/api/matriculas',
@@ -30,6 +34,61 @@ async function onSubmit(file: File) {
     uploading.value = false
   }
 }
+
+async function onSubmitLote(arquivos: File[]) {
+  // Um arquivo só não é lote: mandar pela rota unitária mantém o destino de
+  // sempre (a tela de espera daquele parecer) em vez de uma página de lote de um.
+  if (arquivos.length === 1) return onSubmit(arquivos[0])
+
+  uploading.value = true
+  progresso.value = 0
+  erro.value = null
+
+  const form = new FormData()
+  for (const f of arquivos) form.append('file', f)
+  form.append('params', JSON.stringify(PARAMS))
+
+  try {
+    const { loteId } = await enviarComProgresso(form)
+    await navigateTo(`/matriculas/lote/${loteId}`)
+  } catch (err) {
+    erro.value = mensagemDeErroDeUpload(err)
+    uploading.value = false
+    progresso.value = null
+  }
+}
+
+type RespostaLote = { loteId: string; custoTotal: number }
+
+// XMLHttpRequest e não $fetch: só ele expõe `upload.onprogress`, e dez PDFs
+// subindo sem barra parecem uma tela travada. O erro é remontado no formato que
+// mensagemDeErroDeUpload já entende ({ statusCode, data.statusMessage }).
+function enviarComProgresso(form: FormData): Promise<RespostaLote> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/matriculas/lote')
+    xhr.responseType = 'json'
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) progresso.value = Math.round((e.loaded / e.total) * 100)
+    }
+
+    xhr.onload = () => {
+      const corpo = xhr.response as Record<string, unknown> | null
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(corpo as unknown as RespostaLote)
+        return
+      }
+      reject({
+        statusCode: xhr.status,
+        data: { statusMessage: (corpo?.statusMessage as string) ?? (corpo?.message as string) },
+      })
+    }
+
+    xhr.onerror = () => reject({ statusCode: 0 })
+    xhr.send(form)
+  })
+}
 </script>
 
 <template>
@@ -37,8 +96,8 @@ async function onSubmit(file: File) {
     <header class="pagina-cabecalho">
       <h1>Analisar matrícula</h1>
       <p>
-        Envie a certidão de matrícula em PDF e receba o parecer estruturado: cadeia dominial,
-        ônus, gravames e alertas de risco.
+        Envie a certidão de matrícula em PDF — uma ou até {{ MAX_ARQUIVOS }} de uma vez — e receba o
+        parecer estruturado de cada uma: cadeia dominial, ônus, gravames e alertas de risco.
       </p>
     </header>
 
@@ -64,13 +123,16 @@ async function onSubmit(file: File) {
       </p>
 
       <UploadCard
-        title="Enviar certidão de matrícula"
-        description="PDF da certidão, digitalizada ou nato-digital. A leitura e a análise jurídica acontecem automaticamente."
+        title="Enviar certidões de matrícula"
+        description="PDFs das certidões, digitalizadas ou nato-digitais. Podem ser várias de uma vez — a leitura e a análise jurídica de cada uma acontecem automaticamente."
         accept=".pdf,application/pdf"
         :uploading="uploading"
+        :progresso="progresso"
         :custo-por-pagina="8"
         :custo-base="83"
-        @submit="onSubmit"
+        multiple
+        :max-arquivos="MAX_ARQUIVOS"
+        @submit-lote="onSubmitLote"
       />
 
       <p v-if="erro" class="ld-erro pagina-erro" role="alert">
