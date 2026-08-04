@@ -30,6 +30,11 @@ const resumo = computed(() => {
   return `${total.value - comFalha.value} de ${total.value} concluídas · ${comFalha.value} com falha`
 })
 
+// Um arquivo só com todos os pareceres do envio: capa, índice e um parecer por
+// página. Quem abre um lote de dez matrículas quer o dossiê, não dez downloads.
+const { gerando: gerandoDocx, erro: erroDocx, exportar } = useExportarDocx('lote-matriculas.docx')
+const exportarDocx = () => exportar(`/api/matriculas/lote/${loteId.value}/docx`)
+
 onMounted(() => {
   // Para de consultar quando não há mais o que mudar — o lote é uma tela que fica
   // aberta enquanto o escritório toca outra coisa, e não vale bater no servidor
@@ -118,7 +123,21 @@ onMounted(() => {
         <p v-if="comFalha" class="lote-aviso">
           As análises que falharam tiveram os créditos estornados — reenvie só esses arquivos.
         </p>
-        <NuxtLink to="/matriculas" class="ld-btn ld-btn--secondary">Enviar outro lote</NuxtLink>
+        <p v-if="erroDocx" class="ld-erro lote-aviso" role="alert">{{ erroDocx }}</p>
+        <div class="lote-acoes">
+          <!-- Num lote terminado, levar o dossiê embora é a ação principal —
+               "enviar outro lote" é o que se faz depois, não em vez disso. -->
+          <button
+            v-if="concluidos > comFalha"
+            class="ld-btn ld-btn--primary"
+            :disabled="gerandoDocx"
+            @click="exportarDocx"
+          >
+            <span v-if="gerandoDocx" class="ld-spinner" aria-hidden="true" />
+            {{ gerandoDocx ? 'Montando…' : 'Exportar DOCX do lote' }}
+          </button>
+          <NuxtLink to="/matriculas" class="ld-btn ld-btn--secondary">Enviar outro lote</NuxtLink>
+        </div>
       </footer>
     </section>
   </div>
@@ -264,8 +283,14 @@ onMounted(() => {
   color: var(--ld-tinta-suave);
   max-width: 56ch;
 }
-.lote-rodape .ld-btn {
+/* O bloco de ações encosta na direita; os botões dentro dele ficam lado a lado
+   (o `margin-left: auto` era do botão único e separaria os dois). */
+.lote-acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-sm);
   margin-left: auto;
+  flex-wrap: wrap;
 }
 
 /* Mesmo tratamento do painel: no celular a tabela vira cards empilhados */

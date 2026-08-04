@@ -12,6 +12,7 @@
     "@google-cloud/storage": "^7.21.0",
     "@lidimus/croqui": "workspace:*",
     "@lidimus/db": "workspace:*",
+    "@lidimus/docx": "workspace:*",
     "@lidimus/queue": "workspace:*",
     "@nuxt/ui": "^3.0.0",
     "@sentry/node": "^10.63.0",

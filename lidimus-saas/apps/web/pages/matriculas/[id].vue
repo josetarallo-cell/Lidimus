@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import DOMPurify from 'isomorphic-dompurify'
+import { nivelRisco, riscoLabel } from '@lidimus/docx'
+import type { NivelRisco } from '@lidimus/docx'
 
 const route = useRoute()
 const jobId = ref(route.params.id as string)
@@ -68,26 +70,11 @@ useHead({
 })
 
 // Classificação de risco → selo (A Regra do Carimbo: vermelho só em risco real).
-// O `else` genérico devolvia 'medio' para qualquer valor desconhecido: era ele
-// que estampava "Risco médio" sobre um parecer classificado como crítico, e
-// também sobre 'indeterminado' e 'nao_aplicavel'. Cada nível agora se declara.
-type NivelRisco = 'baixo' | 'medio' | 'alto' | 'critico' | 'indeterminado' | 'nao_aplicavel'
-
-function nivelRisco(valor: unknown): NivelRisco | null {
-  const r = String(valor ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim()
-  if (!r) return null
-  if (r.startsWith('nao_aplic') || r.startsWith('nao aplic')) return 'nao_aplicavel'
-  if (r.startsWith('crit') || r.startsWith('altissim')) return 'critico'
-  if (r.startsWith('alt')) return 'alto'
-  if (r.startsWith('baix')) return 'baixo'
-  if (r.startsWith('med') || r.startsWith('moder')) return 'medio'
-  return 'indeterminado'
-}
-
+//
+// `nivelRisco` e os rótulos vivem em @lidimus/docx porque agora há dois
+// renderizadores do mesmo veredito — esta tela e o parecer exportado em Word.
+// Um job "crítico" aqui e "médio" no arquivo baixado seria pior que não
+// exportar. As tabelas de classe CSS abaixo continuam aqui: são da tela.
 const SELO_POR_NIVEL: Record<NivelRisco, string> = {
   baixo: 'ld-selo--verde',
   medio: 'ld-selo--ocre',
@@ -104,15 +91,6 @@ const CARIMBO_POR_NIVEL: Record<NivelRisco, string> = {
   indeterminado: 'ld-carimbo--neutro',
   nao_aplicavel: 'ld-carimbo--neutro',
 }
-const LABEL_POR_NIVEL: Record<NivelRisco, string> = {
-  baixo: 'Risco baixo',
-  medio: 'Risco médio',
-  alto: 'Risco alto',
-  critico: 'Risco crítico',
-  indeterminado: 'Risco não classificado',
-  nao_aplicavel: 'Risco não avaliado',
-}
-
 const risco = computed(() => nivelRisco(doc.value?.cabecalho?.classificacao_risco))
 
 const riscoSeloClass = computed(() =>
@@ -124,13 +102,6 @@ const riscoSeloClass = computed(() =>
 function carimboRiscoClass(valor: unknown): string {
   const nivel = nivelRisco(valor)
   return nivel ? CARIMBO_POR_NIVEL[nivel] : 'ld-carimbo--neutro'
-}
-
-// O selo exibe o veredito em português correto — nunca o enum cru do
-// pipeline ("medio" sem acento é dialeto de máquina num parecer jurídico)
-function riscoLabel(valor: unknown): string {
-  const nivel = nivelRisco(valor)
-  return nivel ? LABEL_POR_NIVEL[nivel] : 'Risco não classificado'
 }
 
 // ─── Matrícula incompleta ────────────────────────────────────────────────────
@@ -224,6 +195,13 @@ function exportarPdf() {
   window.print()
 }
 
+// O PDF é papel: bom de arquivar, impossível de editar. O DOCX é a outra
+// metade — o parecer que o cliente abre no Word para ajustar a redação ou colar
+// um trecho numa petição. Quem monta é o servidor (@lidimus/docx); aqui só
+// entra o estado do botão.
+const { gerando: gerandoDocx, erro: erroDocx, exportar } = useExportarDocx()
+const exportarDocx = () => exportar(`/api/jobs/${jobId.value}/docx`)
+
 // ─── Croqui do terreno: ferramenta separada que reaproveita o texto já lido ──
 const gerandoCroqui = ref(false)
 const erroCroqui = ref<string | null>(null)
@@ -273,15 +251,20 @@ async function gerarCroquiDaMatricula() {
         <span v-if="gerandoCroqui" class="ld-spinner" aria-hidden="true" />
         {{ gerandoCroqui ? 'Gerando…' : 'Gerar croqui do terreno' }}
       </button>
-      <button
-        v-if="job?.status === 'done' && doc"
-        class="ld-btn ld-btn--primary acoes-exportar"
-        @click="exportarPdf"
-      >
-        Exportar PDF
-      </button>
+      <template v-if="job?.status === 'done' && doc">
+        <button
+          class="ld-btn ld-btn--secondary acoes-exportar"
+          :disabled="gerandoDocx"
+          @click="exportarDocx"
+        >
+          <span v-if="gerandoDocx" class="ld-spinner" aria-hidden="true" />
+          {{ gerandoDocx ? 'Gerando…' : 'Exportar DOCX' }}
+        </button>
+        <button class="ld-btn ld-btn--primary" @click="exportarPdf">Exportar PDF</button>
+      </template>
     </div>
     <p v-if="erroCroqui" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroCroqui }}</p>
+    <p v-if="erroDocx" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroDocx }}</p>
 
     <!-- ── Processando: a certidão sendo lida ───────────────────────────── -->
     <!-- Estimativa medida em produção: mediana 2min57s, p90 4min44s -->

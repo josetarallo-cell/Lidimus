@@ -1,0 +1,20 @@
+{
+  "name": "@lidimus/docx",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "docx": "^9.5.0",
+    "node-html-parser": "^9.0.0"
+  },
+  "devDependencies": {
+    "jszip": "^3.10.1",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}
