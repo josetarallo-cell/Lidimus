@@ -121,6 +121,11 @@ export const organizations = pgTable('organizations', {
   ownerId: text('owner_id')
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
+  // Conta individual: a pessoa se cadastrou sem informar empresa. A organização
+  // existe do mesmo jeito — é ela que segura jobs, créditos e assinatura —, mas
+  // não é apresentada como uma: o cabeçalho mostra o nome da pessoa e Conta →
+  // Equipe oferece criar a equipe em vez de administrá-la.
+  isPersonal: boolean('is_personal').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

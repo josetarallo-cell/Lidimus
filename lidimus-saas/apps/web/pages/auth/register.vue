@@ -8,9 +8,9 @@ const company = ref('')
 const email = ref('')
 const password = ref('')
 const error = ref('')
-// Qual campo destacar em vermelho. Sem isso, um erro de empresa acenderia os
-// campos de e-mail e senha, que estão certos.
-const erroCampo = ref<'empresa' | 'credenciais' | ''>('')
+// Qual campo destacar em vermelho, para o erro não acender campos que estão
+// certos.
+const erroCampo = ref<'credenciais' | ''>('')
 const loading = ref(false)
 const aguardandoVerificacao = ref(false)
 
@@ -54,13 +54,6 @@ async function entrarComGoogle() {
 async function register() {
   error.value = ''
   erroCampo.value = ''
-  // O formulário é novalidate (as mensagens nativas destoam do resto da tela) e
-  // o better-auth aceita `company` como campo opcional — a exigência é daqui.
-  if (!veioDeConvite.value && !company.value.trim()) {
-    error.value = 'Informe o nome da sua empresa, escritório ou cartório.'
-    erroCampo.value = 'empresa'
-    return
-  }
   loading.value = true
   try {
     // Com verificação de e-mail ligada, o cadastro não abre sessão: a resposta
@@ -69,7 +62,10 @@ async function register() {
       method: 'POST',
       body: {
         name: name.value,
-        company: company.value.trim(),
+        // `undefined` e não string vazia: é `users.company` nulo que marca a
+        // conta como individual e faz as boas-vindas perguntarem a empresa a
+        // quem entrou pelo Google.
+        company: company.value.trim() || undefined,
         email: email.value,
         password: password.value,
         callbackURL: destino.value,
@@ -126,17 +122,18 @@ async function register() {
             />
           </label>
           <label v-if="!veioDeConvite" class="ld-campo">
-            <span class="ld-label">Empresa</span>
+            <span class="ld-label">Empresa <span class="auth-opcional">(opcional)</span></span>
             <input
               v-model="company"
               class="ld-input"
-              :class="{ 'ld-input--erro': erroCampo === 'empresa' }"
               type="text"
               autocomplete="organization"
+              maxlength="120"
               placeholder="Nome do seu escritório ou cartório"
-              required
             />
-            <span class="auth-dica">É como sua conta aparece para a equipe.</span>
+            <span class="auth-dica">
+              Deixe em branco se você usa o Lidimus sozinho — dá para criar uma equipe depois.
+            </span>
           </label>
           <label class="ld-campo">
             <span class="ld-label">E-mail</span>
@@ -241,6 +238,12 @@ async function register() {
 }
 .auth-dica {
   font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+/* "(opcional)" é qualificador do rótulo, não parte dele: peso e cor abaixo do
+   nome do campo para não competir com ele na varredura vertical do formulário. */
+.auth-opcional {
+  font-weight: 400;
   color: var(--ld-tinta-suave);
 }
 .auth-cta {

@@ -99,7 +99,7 @@ Duas decisões estruturais valem registrar aqui:
 ## Banco de dados (tabelas principais)
 
 - `users`, `sessions`, `accounts`, `verifications` — better-auth (login por e-mail/senha); `users.is_platform_admin` controla acesso às telas `/admin/*` (promoção manual — ver [30-banco-de-dados.md](30-banco-de-dados.md))
-- `organizations`, `org_members`, `org_invitations` — multi-tenant (todo job pertence a uma org; a equipe entra por convite, com teto de usuários vindo de `plans.max_users`)
+- `organizations`, `org_members`, `org_invitations` — multi-tenant (todo job pertence a uma org; a equipe entra por convite, com teto de usuários vindo de `plans.max_users`). Quem se cadastra sem informar empresa fica com uma **conta individual** (`organizations.is_personal`): a org existe do mesmo jeito, mas sem equipe para administrar. Sai desse estado por dois caminhos — aceitar o convite de outra organização, ou nomear a própria em `POST /api/account/team/criar`, que exige um plano de 2+ assentos (`exigirPlanoComEquipe`)
 - `jobs` — uma análise: `type` (matricula/kml/injection), `status` (pending/queued/processing/done/error), `stage`, `result` (JSONB), `error_message`
 - `job_files` — ponteiro para o arquivo no GCS + `access_token` de download
 - `api_keys` — chaves da API pública, por organização: só o SHA-256 do token, mais `prefix` visível, `expires_at` (1 ano), `revoked_at` e `last_used_at`

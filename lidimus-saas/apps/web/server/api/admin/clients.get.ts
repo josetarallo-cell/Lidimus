@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
     select
       o.id,
       o.name,
+      o.is_personal,
       u.email as owner_email,
       o.created_at,
       coalesce((select sum(ct.delta) from credit_transactions ct where ct.org_id = o.id), 0)::int as balance,

@@ -126,7 +126,10 @@ async function trocarSenha() {
           </div>
           <div class="perfil-item">
             <dt>Empresa</dt>
-            <dd>{{ me?.orgName }}</dd>
+            <!-- Na conta individual orgName é o nome da própria pessoa, que já
+                 está duas linhas acima — repeti-lo aqui daria a entender que a
+                 pessoa é a razão social. -->
+            <dd>{{ me?.orgPersonal ? 'Conta individual' : me?.orgName }}</dd>
           </div>
           <div class="perfil-item">
             <dt>Seu acesso</dt>

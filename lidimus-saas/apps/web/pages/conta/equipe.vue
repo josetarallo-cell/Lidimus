@@ -24,6 +24,39 @@ function mensagemDeErro(e: unknown, padrao: string): string {
   return (e as { data?: { message?: string } })?.data?.message ?? padrao
 }
 
+// ── Conta individual ───────────────────────────────────────
+// Quem se cadastrou sem informar empresa não tem equipe para administrar: no
+// lugar da lista de membros a tela oferece montar uma, quando o plano comporta
+// mais de uma pessoa, ou explica que receber um convite é o outro caminho.
+const personal = computed(() => equipe.value?.personal === true)
+
+const nomeEquipe = ref('')
+const criandoEquipe = ref(false)
+const equipeErro = ref('')
+
+async function criarEquipe() {
+  equipeErro.value = ''
+  if (!nomeEquipe.value.trim()) {
+    equipeErro.value = 'Informe o nome da organização.'
+    return
+  }
+  criandoEquipe.value = true
+  try {
+    await $fetch('/api/account/team/criar', {
+      method: 'POST',
+      body: { name: nomeEquipe.value.trim() },
+    })
+    nomeEquipe.value = ''
+    // refreshNuxtData e não refresh(): o cabeçalho do layout vive de /api/me e
+    // passa a mostrar o nome da organização no lugar do nome da pessoa.
+    await refreshNuxtData()
+  } catch (e: unknown) {
+    equipeErro.value = mensagemDeErro(e, 'Não foi possível criar a equipe. Tente novamente.')
+  } finally {
+    criandoEquipe.value = false
+  }
+}
+
 // ── Convite ────────────────────────────────────────────────
 const emailConvite = ref('')
 const nivelConvite = ref<'member' | 'reader'>('member')
@@ -173,7 +206,63 @@ async function salvarNome() {
 
     <ContaNav />
 
-    <section class="ld-painel bloco">
+    <!-- ── Conta individual ─────────────────────────────────── -->
+    <template v-if="personal">
+      <section class="ld-painel bloco">
+        <h2 class="bloco-titulo">Conta individual</h2>
+        <p class="org-nome">{{ equipe?.orgName }}</p>
+        <p class="org-assentos">
+          As análises e os créditos são só seus.
+          <template v-if="equipe?.assentos.planName"> Plano {{ equipe.assentos.planName }}.</template>
+          <template v-else> Você ainda não tem plano.</template>
+        </p>
+      </section>
+
+      <section v-if="equipe?.souDono" class="ld-painel bloco">
+        <h2 class="bloco-titulo">Trabalhar em equipe</h2>
+
+        <template v-if="equipe?.podeCriarEquipe">
+          <p class="bloco-intro">
+            Dê um nome à sua organização para começar a convidar gente. As análises e os créditos
+            que você já tem continuam nesta conta e passam a ser da equipe.
+          </p>
+          <form class="org-form" novalidate @submit.prevent="criarEquipe">
+            <label class="ld-campo campo">
+              <span class="ld-label">Nome da organização</span>
+              <input
+                v-model="nomeEquipe"
+                class="ld-input"
+                :class="{ 'ld-input--erro': equipeErro }"
+                type="text"
+                maxlength="120"
+                placeholder="Seu escritório, cartório ou razão social"
+              />
+            </label>
+            <p v-if="equipeErro" class="ld-erro" role="alert">{{ equipeErro }}</p>
+            <div class="org-form-acoes">
+              <button type="submit" class="ld-btn ld-btn--primary" :disabled="criandoEquipe">
+                {{ criandoEquipe ? 'Criando…' : 'Criar equipe' }}
+              </button>
+            </div>
+          </form>
+        </template>
+
+        <p v-else class="convite-upgrade">
+          Seu plano atual é de um usuário só. Os planos <strong>Profissional</strong> (até 3) e
+          <strong>Escritório</strong> (até 10) liberam o trabalho em equipe, compartilhando as
+          análises e os créditos da mesma assinatura.
+          <NuxtLink to="/conta/assinatura" class="convite-upgrade-link">Ver planos</NuxtLink>
+        </p>
+
+        <p class="bloco-rodape">
+          Você também pode entrar na equipe de outra pessoa: quem administra a conta de lá envia
+          um convite para o seu e-mail.
+        </p>
+      </section>
+    </template>
+
+    <!-- ── Organização com equipe ───────────────────────────── -->
+    <section v-if="!personal" class="ld-painel bloco">
       <div class="org-topo">
         <div>
           <h2 class="bloco-titulo">Organização</h2>
@@ -216,7 +305,7 @@ async function salvarNome() {
       </p>
     </section>
 
-    <section v-if="equipe?.souDono" class="ld-painel bloco">
+    <section v-if="equipe?.souDono && !personal" class="ld-painel bloco">
       <h2 class="bloco-titulo">Convidar</h2>
 
       <p v-if="equipe?.assentos.limite === 1" class="convite-upgrade">
@@ -268,7 +357,7 @@ async function salvarNome() {
 
     <p v-if="acaoErro" class="ld-erro acao-erro" role="alert">{{ acaoErro }}</p>
 
-    <section class="ld-painel bloco bloco--tabela">
+    <section v-if="!personal" class="ld-painel bloco bloco--tabela">
       <h2 class="bloco-titulo">Membros</h2>
       <p v-if="membroErro" class="ld-erro acao-erro acao-erro--tabela" role="alert">{{ membroErro }}</p>
       <div class="tabela-rolagem">
@@ -463,6 +552,26 @@ async function salvarNome() {
   margin: var(--ld-space-md) 0 0;
   font-size: 0.9375rem;
   color: var(--ld-tinta-suave);
+}
+
+/* ── Conta individual ────────────────────────────────────── */
+/* Texto corrido de bloco: mesma medida das outras explicações da tela, com a
+   margem que o reset global tira dos parágrafos. */
+.bloco-intro,
+.bloco-rodape {
+  line-height: 1.5;
+  color: var(--ld-tinta-suave);
+  max-width: 60ch;
+}
+.bloco-intro {
+  margin: 0 0 var(--ld-space-md);
+  font-size: 0.9375rem;
+}
+.bloco-rodape {
+  margin: var(--ld-space-lg) 0 0;
+  padding-top: var(--ld-space-md);
+  border-top: 1px solid var(--ld-filete);
+  font-size: 0.8125rem;
 }
 
 /* ── Convite ─────────────────────────────────────────────── */

@@ -28,7 +28,11 @@ export default defineEventHandler(async (event) => {
     // empresa — as boas-vindas perguntam, mas só a quem manda na organização.
     company: user.company ?? null,
     orgId: vinculo.orgId,
-    orgName: org?.name ?? null,
+    // Na conta individual o cabeçalho mostra a pessoa, não uma organização que
+    // ela nunca nomeou. Sai do nome do perfil, e não de organizations.name, para
+    // acompanhar quem trocar o próprio nome depois do cadastro.
+    orgName: vinculo.orgPersonal ? user.name : (org?.name ?? null),
+    orgPersonal: vinculo.orgPersonal,
     // Só rótulo, ao lado da empresa no cabeçalho: o plano explica por que uma
     // ferramenta aparece bloqueada antes de a pessoa tentar. Quem decide acesso
     // continua sendo /api/account/access (features), nunca este nome.

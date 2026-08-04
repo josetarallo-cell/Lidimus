@@ -11,6 +11,7 @@ const { data: clientes, refresh } = await useFetch('/api/admin/clients')
 type Cliente = {
   id: string
   name: string
+  is_personal: boolean
   owner_email: string
   created_at: string
   balance: number
@@ -146,7 +147,12 @@ async function suspender(cliente: Cliente) {
           <tbody>
             <tr v-for="cliente in (clientes as Cliente[])" :key="cliente.id">
               <td>
-                <span class="celula-nome">{{ cliente.name }}</span>
+                <span class="celula-nome">
+                  {{ cliente.name }}
+                  <!-- Sem a marca, a lista mistura escritórios e pessoas físicas
+                       sob a mesma coluna "Cliente", e o nome não distingue. -->
+                  <span v-if="cliente.is_personal" class="celula-tipo">individual</span>
+                </span>
                 <span class="celula-email">{{ cliente.owner_email }}</span>
               </td>
               <td>{{ cliente.plan_name ?? '—' }}</td>
@@ -296,6 +302,14 @@ async function suspender(cliente: Cliente) {
 .celula-nome {
   display: block;
   font-weight: 500;
+}
+/* Qualificador do nome, não um segundo nome: peso e tamanho abaixo dele para a
+   coluna continuar sendo varrida pelo nome do cliente. */
+.celula-tipo {
+  margin-left: var(--ld-space-xs);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ld-tinta-suave);
 }
 .celula-email {
   display: block;

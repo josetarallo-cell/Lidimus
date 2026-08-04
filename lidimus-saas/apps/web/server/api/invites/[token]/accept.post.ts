@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import { useDb } from '../../../lib/db'
 import { requireAuth } from '../../../lib/requireAuth'
 import { hashDoToken } from '../../../lib/inviteToken'
@@ -94,6 +94,29 @@ export default defineEventHandler(async (event) => {
   const orgPessoal = await findOwnedOrg(db, user.id)
 
   if (orgPessoal) {
+    // Dissolver só faz sentido quando a organização é de uma pessoa só. Sem
+    // esta conferência, o dono de uma equipe que aceitasse um convite apagaria a
+    // própria organização e todos os vínculos dela — os colegas perderiam o
+    // acesso sem nunca terem sido avisados. Contamos membros em vez de olhar
+    // is_personal porque as contas anteriores a essa coluna são todas
+    // `is_personal = false`, e uma conta antiga de uma pessoa só continua tendo
+    // o direito de migrar como sempre migrou.
+    const [equipe] = await db
+      .select({ n: sql<number>`count(*)::int`, nome: organizations.name })
+      .from(orgMembers)
+      .innerJoin(organizations, eq(organizations.id, orgMembers.orgId))
+      .where(eq(orgMembers.orgId, orgPessoal))
+      .groupBy(organizations.name)
+
+    if ((equipe?.n ?? 0) > 1) {
+      throw createError({
+        statusCode: 409,
+        statusMessage:
+          `Você é proprietário da equipe ${equipe.nome}, com ${equipe.n} pessoas. ` +
+          'Transfira ou encerre essa equipe antes de entrar em outra.',
+      })
+    }
+
     // Assinatura própria é o único caso em que não dá para simplesmente
     // dissolver: haveria duas cobranças ativas e nenhuma regra óbvia sobre qual
     // encerrar. O cancelamento é decisão do titular, não deste endpoint.

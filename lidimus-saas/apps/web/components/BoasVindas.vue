@@ -92,7 +92,7 @@ function fechar() {
 
       <section v-if="pedirEmpresa" class="bv-empresa">
         <label class="bv-empresa-campo">
-          <span class="cond bv-item-nome">Sua empresa</span>
+          <span class="cond bv-item-nome">Sua empresa (opcional)</span>
           <input
             v-model="empresa"
             type="text"
@@ -104,6 +104,7 @@ function fechar() {
         </label>
         <p class="bv-item-texto">
           É o nome que identifica sua conta e aparece para quem você convidar para a equipe.
+          Deixe em branco se usa o Lidimus sozinho.
         </p>
       </section>
 

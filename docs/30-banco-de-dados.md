@@ -41,7 +41,7 @@ Schema completo em `packages/db/src/schema.ts`.
 | Tabela | Papel |
 |---|---|
 | `users`, `sessions`, `accounts`, `verifications` | autenticação (better-auth) |
-| `organizations`, `org_members` | organizações — todo `job` pertence a uma org. **Uma pessoa pertence a exatamente uma organização**: o aceite de convite dissolve a organização pessoal do convidado, migrando análises e créditos. `role` ∈ owner (paga a conta) / member (cria análises) / reader (só consulta); `title` é o cargo em texto livre que o dono escolhe ("escrevente", "corretor") e não afeta permissão |
+| `organizations`, `org_members` | organizações — todo `job` pertence a uma org. **Uma pessoa pertence a exatamente uma organização**: o aceite de convite dissolve a organização do convidado quando ela é de uma pessoa só, migrando análises e créditos (quem é dono de uma equipe com mais gente recebe 409 em vez de ter a equipe apagada). `is_personal` marca a **conta individual** — quem se cadastrou sem informar empresa: a org existe igual (segura jobs, créditos e assinatura), mas leva o nome da pessoa e a interface oferece criar equipe em vez de administrá-la. `role` ∈ owner (paga a conta) / member (cria análises) / reader (só consulta); `title` é o cargo em texto livre que o dono escolhe ("escrevente", "corretor") e não afeta permissão |
 | `org_invitations` | convites de equipe: `token_hash` (SHA-256 do token do link), `expires_at`, `accepted_at`; índice parcial garante um convite aberto por e-mail em cada org |
 | `jobs` | cada análise enviada: `type`, `status`, `stage`, `result` (JSONB), `error_message` |
 | `job_files` | arquivo original no GCS (`gcs_path`) + `access_token` de download temporário |

@@ -15,7 +15,11 @@ export default defineEventHandler(async (event) => {
 
   const [[org], membros, convites, assentos] = await Promise.all([
     db
-      .select({ name: organizations.name, ownerId: organizations.ownerId })
+      .select({
+        name: organizations.name,
+        ownerId: organizations.ownerId,
+        isPersonal: organizations.isPersonal,
+      })
       .from(organizations)
       .where(eq(organizations.id, orgId))
       .limit(1),
@@ -56,6 +60,12 @@ export default defineEventHandler(async (event) => {
     orgId,
     orgName: org?.name ?? '',
     souDono: org?.ownerId === user.id,
+    // Conta individual: a tela troca a administração da equipe pela oferta de
+    // criar uma. `podeCriarEquipe` espelha o gate de exigirPlanoComEquipe — quem
+    // decide continua sendo o servidor, aqui é só para não oferecer um botão que
+    // vai devolver 403.
+    personal: org?.isPersonal ?? false,
+    podeCriarEquipe: assentos.limite >= 2,
     membros,
     convites,
     assentos,

@@ -34,17 +34,18 @@ async function findMembership(db: Db, userId: string): Promise<string | undefine
 type Usuario = { id: string; name: string; company?: string | null }
 
 // Cria a organização do usuário junto com o bônus de boas-vindas. O nome sai da
-// empresa informada no cadastro; quem entrou pelo Google (ou é conta antiga)
-// cai no nome sintético e renomeia depois em Conta → Equipe.
+// empresa informada no cadastro; sem empresa é conta individual — a organização
+// continua existindo, porque é ela que segura jobs, créditos e assinatura, mas
+// leva o nome da própria pessoa e a interface não a apresenta como escritório.
 async function criarOrgDoUsuario(db: Db, user: Usuario): Promise<string> {
   const empresa = user.company?.trim()
-  const nome = empresa || `${user.name}'s workspace`
+  const nome = empresa || user.name.trim() || 'Conta individual'
 
   try {
     return await db.transaction(async (tx) => {
       const [org] = await tx
         .insert(organizations)
-        .values({ name: nome, ownerId: user.id })
+        .values({ name: nome, ownerId: user.id, isPersonal: !empresa })
         .returning({ id: organizations.id })
 
       // org_members_one_owner_per_user_idx rejeita esta linha se outra
@@ -101,6 +102,10 @@ export type Vinculo = {
   role: 'owner' | 'member' | 'reader'
   ehDono: boolean
   podeCriarAnalise: boolean
+  // Conta individual: quem nunca informou empresa. Muda o que a interface
+  // mostra — nome da pessoa no cabeçalho, "criar equipe" no lugar de
+  // administrá-la —, nunca o que ela pode fazer: permissão sai sempre do `role`.
+  orgPersonal: boolean
 }
 
 // Organização + papel de uma vez, para as rotas que precisam decidir permissão:
@@ -109,8 +114,9 @@ export async function vinculoDoUsuario(db: Db, userId: string, userName: string)
   const orgId = await resolverOrgAtivaDoUsuario(db, userId, userName)
 
   const [row] = await db
-    .select({ role: orgMembers.role })
+    .select({ role: orgMembers.role, isPersonal: organizations.isPersonal })
     .from(orgMembers)
+    .innerJoin(organizations, eq(organizations.id, orgMembers.orgId))
     .where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.userId, userId)))
     .limit(1)
 
@@ -121,6 +127,7 @@ export async function vinculoDoUsuario(db: Db, userId: string, userName: string)
     ehDono: role === 'owner',
     // Leitor consulta o histórico da equipe, mas não gasta crédito da empresa.
     podeCriarAnalise: role !== 'reader',
+    orgPersonal: row?.isPersonal ?? false,
   }
 }
 

@@ -79,6 +79,21 @@ export async function exigirAssentoLivre(db: Db, orgId: string): Promise<Assento
   return assentos
 }
 
+// Converter a conta individual em equipe exige um plano que comporte mais de
+// uma pessoa. Sem esta checagem a pessoa batizaria a organização, veria a tela
+// de equipe montada e só descobriria o limite no primeiro convite — a promessa
+// vem antes da frustração, que é justamente a ordem errada.
+export async function exigirPlanoComEquipe(db: Db, orgId: string): Promise<void> {
+  const { limite } = await limiteDeUsuarios(db, orgId)
+  if (limite < 2) {
+    throw createError({
+      statusCode: 403,
+      statusMessage:
+        'Seu plano atual é de um usuário só. Assine o Profissional (até 3) ou o Escritório (até 10) para montar sua equipe.',
+    })
+  }
+}
+
 // O Enterprise não tem preço de tabela: os `price_cents` da linha são 0, e um
 // checkout com esse planId sairia com assinatura gratuita e franquia cheia.
 // Quem coloca um cliente num plano sob contrato é o admin da plataforma.
