@@ -303,6 +303,13 @@ export const plans = pgTable('plans', {
     // consultado a cada requisição da API — assim rebaixar o plano corta o
     // acesso na hora, sem depender de revogar chave (migration 0019).
     api?: boolean
+    // Libera exportar o parecer em Word (/api/jobs/:id/docx e o lote). Mesma
+    // natureza do `api`: a string "White-label e DOCX" que aparece em `specs`
+    // é copy da landing desde a 0018 e não decide nada. Quem resolve é
+    // planoLiberaDocx(), consultado a cada exportação — rebaixar o plano corta
+    // o acesso na hora (migration 0020). Ausência vale como false, então plano
+    // novo nasce sem DOCX.
+    docx?: boolean
   }>(),
 })
 

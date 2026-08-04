@@ -1,12 +1,16 @@
 import { and, eq, gt, ne, sql } from 'drizzle-orm'
 import type { Db, JobType } from '@lidimus/db'
-import { creditTransactions, jobs, featuresDoPlano } from '@lidimus/db'
+import { creditTransactions, jobs, featuresDoPlano, planoLiberaDocx } from '@lidimus/db'
 
 // A consulta do plano vigente e a lista de status que dão acesso moram em
 // @lidimus/db (src/planos.ts): o script `pnpm chave:api` faz a mesma pergunta
 // sobre entitlement, e um pacote não importa do app. Reexportados aqui porque
 // este continua sendo o lugar de olhar quando se quer entender acesso.
+// `planoLiberaDocx` também é importado acima, e não só reexportado: um
+// `export { x } from '…'` reexporta sem trazer o nome ao escopo do módulo, e o
+// exigirDocx aqui embaixo precisa chamá-lo.
 export { STATUS_COM_ACESSO, planoLiberaApi } from '@lidimus/db'
+export { planoLiberaDocx }
 
 // Nível de acesso de quem não tem assinatura ativa. É idêntico ao do plano de
 // entrada (Croqui) de propósito: se o piso fosse mais alto, cancelar o plano
@@ -57,6 +61,21 @@ export async function avulsosDisponiveis(db: Consulta, orgId: string): Promise<n
     )
 
   return Math.max(0, (compras?.n ?? 0) - (usados?.n ?? 0))
+}
+
+// Barra a exportação em Word quando o plano não a inclui.
+//
+// 403 e não 402, pela mesma razão do exigirAcesso: não é falta de saldo, é
+// falta de plano — a mensagem precisa oferecer upgrade, nunca "compre mais
+// créditos". Exportar em si não consome crédito nenhum.
+export async function exigirDocx(db: Db, orgId: string): Promise<void> {
+  if (await planoLiberaDocx(db, orgId)) return
+  throw createError({
+    statusCode: 403,
+    statusMessage:
+      'A exportação em Word está disponível a partir do plano Profissional. ' +
+      'O parecer continua acessível na tela e em PDF.',
+  })
 }
 
 export type AcessoFerramenta =

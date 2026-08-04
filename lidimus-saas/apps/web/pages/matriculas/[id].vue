@@ -202,6 +202,11 @@ function exportarPdf() {
 const { gerando: gerandoDocx, erro: erroDocx, exportar } = useExportarDocx()
 const exportarDocx = () => exportar(`/api/jobs/${jobId.value}/docx`)
 
+// DOCX é recurso do Profissional para cima. Esconder o botão de quem não tem é
+// só cortesia — não oferecer o que levaria 403; quem barra é a rota.
+const { data: acesso } = useAcesso()
+const podeExportarDocx = computed(() => acesso.value?.docx === true)
+
 // ─── Croqui do terreno: ferramenta separada que reaproveita o texto já lido ──
 const gerandoCroqui = ref(false)
 const erroCroqui = ref<string | null>(null)
@@ -251,9 +256,10 @@ async function gerarCroquiDaMatricula() {
         <span v-if="gerandoCroqui" class="ld-spinner" aria-hidden="true" />
         {{ gerandoCroqui ? 'Gerando…' : 'Gerar croqui do terreno' }}
       </button>
-      <template v-if="job?.status === 'done' && doc">
+      <div v-if="job?.status === 'done' && doc" class="acoes-exportar">
         <button
-          class="ld-btn ld-btn--secondary acoes-exportar"
+          v-if="podeExportarDocx"
+          class="ld-btn ld-btn--secondary"
           :disabled="gerandoDocx"
           @click="exportarDocx"
         >
@@ -261,7 +267,7 @@ async function gerarCroquiDaMatricula() {
           {{ gerandoDocx ? 'Gerando…' : 'Exportar DOCX' }}
         </button>
         <button class="ld-btn ld-btn--primary" @click="exportarPdf">Exportar PDF</button>
-      </template>
+      </div>
     </div>
     <p v-if="erroCroqui" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroCroqui }}</p>
     <p v-if="erroDocx" class="ld-erro acoes-erro print-hidden" role="alert">{{ erroDocx }}</p>
@@ -623,7 +629,9 @@ async function gerarCroquiDaMatricula() {
   margin-bottom: var(--ld-space-lg);
   flex-wrap: wrap;
 }
-/* Os botões de ação alinham à direita; o croqui abre a margem */
+/* Os botões de ação alinham à direita; o croqui abre a margem.
+   Os de exportar vivem num bloco próprio: o DOCX aparece só para quem tem o
+   recurso no plano, e com seletor de irmão o alinhamento sumia junto com ele. */
 .acoes-croqui {
   margin-left: auto;
 }
@@ -631,7 +639,11 @@ async function gerarCroquiDaMatricula() {
   margin-left: 0;
 }
 .acoes-exportar {
+  display: flex;
+  align-items: center;
+  gap: var(--ld-space-md);
   margin-left: auto;
+  flex-wrap: wrap;
 }
 .acoes-erro {
   margin: calc(-1 * var(--ld-space-sm)) 0 var(--ld-space-lg);

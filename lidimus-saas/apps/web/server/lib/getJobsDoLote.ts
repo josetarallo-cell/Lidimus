@@ -13,6 +13,8 @@ export async function getJobsDoLote(db: Db, loteId: string, userId: string) {
   const linhas = await db
     .select({
       id: jobs.id,
+      // Organização dona do envio — é o plano dela que decide a exportação.
+      orgId: jobs.orgId,
       type: jobs.type,
       status: jobs.status,
       inputMeta: jobs.inputMeta,

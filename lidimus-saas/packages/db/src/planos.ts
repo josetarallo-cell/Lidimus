@@ -45,6 +45,18 @@ export async function planoLiberaApi(db: Db, orgId: string): Promise<boolean> {
   return features?.api === true
 }
 
+// A organização pode exportar o parecer em Word? Falha fechada pelo mesmo
+// mecanismo do planoLiberaApi: sem assinatura, com assinatura cancelada ou em
+// plano sem a marca, `features?.docx` é undefined ou false e a resposta é não.
+//
+// Consultado a cada exportação (e não só na hora de mostrar o botão), porque
+// esconder o botão não é controle de acesso: a rota é a única coisa entre o
+// arquivo e quem souber montar a URL.
+export async function planoLiberaDocx(db: Db, orgId: string): Promise<boolean> {
+  const features = await featuresDoPlano(db, orgId)
+  return features?.docx === true
+}
+
 // Nome do plano vigente, só para mensagem de erro ("está no plano X, que não
 // inclui a API"). Nunca use isto para decidir acesso — quem decide é o dado.
 export async function nomeDoPlano(db: Db, orgId: string): Promise<string | undefined> {

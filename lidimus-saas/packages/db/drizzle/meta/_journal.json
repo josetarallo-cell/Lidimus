@@ -141,6 +141,13 @@
       "when": 1786008000000,
       "tag": "0019_api_publica",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786011600000,
+      "tag": "0020_entitlement_docx",
+      "breakpoints": true
     }
   ]
 }

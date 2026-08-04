@@ -8,6 +8,11 @@ export async function getJobForUser(db: Db, jobId: string, userId: string) {
   const [job] = await db
     .select({
       id: jobs.id,
+      // A organização DONA do job — não a org ativa de quem pede. É ela que
+      // paga a análise, então é o plano dela que decide o que se pode fazer
+      // com o parecer (ex.: exportar em Word). Quem participa de duas orgs
+      // leva o entitlement de cada uma, job a job.
+      orgId: jobs.orgId,
       type: jobs.type,
       status: jobs.status,
       stage: jobs.stage,

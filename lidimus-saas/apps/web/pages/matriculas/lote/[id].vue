@@ -35,6 +35,13 @@ const resumo = computed(() => {
 const { gerando: gerandoDocx, erro: erroDocx, exportar } = useExportarDocx('lote-matriculas.docx')
 const exportarDocx = () => exportar(`/api/matriculas/lote/${loteId.value}/docx`)
 
+// Recurso do Profissional para cima — esconder o botão evita oferecer o que
+// levaria 403. A rota é quem barra de fato.
+const { data: acesso } = useAcesso()
+const podeExportarDocx = computed(
+  () => acesso.value?.docx === true && terminou.value && concluidos.value > comFalha.value,
+)
+
 onMounted(() => {
   // Para de consultar quando não há mais o que mudar — o lote é uma tela que fica
   // aberta enquanto o escritório toca outra coisa, e não vale bater no servidor
@@ -128,7 +135,7 @@ onMounted(() => {
           <!-- Num lote terminado, levar o dossiê embora é a ação principal —
                "enviar outro lote" é o que se faz depois, não em vez disso. -->
           <button
-            v-if="concluidos > comFalha"
+            v-if="podeExportarDocx"
             class="ld-btn ld-btn--primary"
             :disabled="gerandoDocx"
             @click="exportarDocx"

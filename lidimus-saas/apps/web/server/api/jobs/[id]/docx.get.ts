@@ -2,6 +2,7 @@ import { nomeDoArquivoParecer, pareceMatriculaDocx } from '@lidimus/docx'
 import { useDb } from '../../../lib/db'
 import { requireAuth } from '../../../lib/requireAuth'
 import { getJobForUser } from '../../../lib/getJobForUser'
+import { exigirDocx } from '../../../lib/planAccess'
 import { dataDeEmissao, enviarDocx } from '../../../lib/respostaDocx'
 
 // O parecer em .docx — a versão editável do que a tela imprime em PDF.
@@ -17,6 +18,10 @@ export default defineEventHandler(async (event) => {
 
   const job = await getJobForUser(db, id, user.id)
   if (!job) throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+
+  // O plano de quem PAGOU a análise. Esconder o botão na tela não é controle de
+  // acesso: esta linha é a única coisa entre o arquivo e quem montar a URL.
+  await exigirDocx(db, job.orgId)
 
   if (job.type !== 'matricula') {
     throw createError({ statusCode: 404, statusMessage: 'Job não é uma análise de matrícula' })
