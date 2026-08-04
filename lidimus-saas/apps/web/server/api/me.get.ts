@@ -2,18 +2,21 @@ import { eq } from 'drizzle-orm'
 import { useDb } from '../lib/db'
 import { requireAuth } from '../lib/requireAuth'
 import { vinculoDoUsuario } from '../lib/orgAtiva'
-import { organizations } from '@lidimus/db'
+import { organizations, nomeDoPlano } from '@lidimus/db'
 
 export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
   const db = useDb()
 
   const vinculo = await vinculoDoUsuario(db, user.id, user.name)
-  const [org] = await db
-    .select({ name: organizations.name })
-    .from(organizations)
-    .where(eq(organizations.id, vinculo.orgId))
-    .limit(1)
+  const [[org], planName] = await Promise.all([
+    db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, vinculo.orgId))
+      .limit(1),
+    nomeDoPlano(db, vinculo.orgId),
+  ])
 
   return {
     id: user.id,
@@ -26,6 +29,10 @@ export default defineEventHandler(async (event) => {
     company: user.company ?? null,
     orgId: vinculo.orgId,
     orgName: org?.name ?? null,
+    // Só rótulo, ao lado da empresa no cabeçalho: o plano explica por que uma
+    // ferramenta aparece bloqueada antes de a pessoa tentar. Quem decide acesso
+    // continua sendo /api/account/access (features), nunca este nome.
+    planName: planName ?? null,
     // A interface usa estes dois para esconder o que a pessoa não pode fazer:
     // assinatura e compra de crédito são do dono; leitor não cria análise.
     role: vinculo.role,

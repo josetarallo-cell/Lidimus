@@ -2,6 +2,11 @@
 const { data: me } = await useFetch('/api/me')
 const { data: acesso } = await useAcesso()
 
+// Sem assinatura em vigor a pessoa ainda tem as ferramentas do piso (croqui,
+// memorial, detector) — dizer "Sem plano" é o que torna compreensível a
+// matrícula bloqueada logo ali no menu.
+const planoRotulo = computed(() => (me.value?.planName ? `Plano ${me.value.planName}` : 'Sem plano'))
+
 const saindo = ref(false)
 async function sair() {
   if (saindo.value) return
@@ -56,8 +61,12 @@ watch(() => route.path, () => {
             <img src="/logo.svg" alt="Lidimus" class="app-brand-logo" />
           </NuxtLink>
           <!-- Em equipe, saber em qual organização se está trabalhando é o que
-               explica o saldo de créditos e o histórico que aparecem na tela. -->
-          <NuxtLink v-if="me?.orgName" to="/conta/equipe" class="app-org">{{ me.orgName }}</NuxtLink>
+               explica o saldo de créditos e o histórico que aparecem na tela; o
+               plano ao lado explica a franquia e o que aparece bloqueado. -->
+          <NuxtLink v-if="me?.orgName" to="/conta/equipe" class="app-org">
+            <span class="app-org-nome">{{ me.orgName }}</span>
+            <span class="app-org-plano">— {{ planoRotulo }}</span>
+          </NuxtLink>
         </div>
         <nav class="app-nav" aria-label="Principal">
           <NuxtLink to="/dashboard" class="app-nav-link">Painel</NuxtLink>
@@ -193,10 +202,11 @@ watch(() => route.path, () => {
 /* O nome da organização é referência, não navegação principal: fica menor que
    os links do menu e cede espaço primeiro quando a barra aperta. */
 .app-org {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
   min-width: 0;
-  max-width: 16rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 26rem;
   white-space: nowrap;
   padding-left: var(--ld-space-md);
   border-left: 1px solid var(--color-divider);
@@ -210,6 +220,20 @@ watch(() => route.path, () => {
 }
 .app-org:hover {
   color: var(--color-text);
+}
+/* Quando a barra aperta, quem encolhe é o nome da empresa: o plano é curto e
+   perde o sentido pela metade ("Plano Profissio…"). */
+.app-org-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Peso, não cor: o vermelho no cabeçalho é do item de menu ativo, e um rótulo
+   permanente em acento disputaria com ele. */
+.app-org-plano {
+  flex: none;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-text) 85%, transparent);
 }
 @media (max-width: 40rem) {
   .app-org {
