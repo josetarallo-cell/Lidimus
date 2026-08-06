@@ -37,6 +37,15 @@ if (route.query.erro === 'google') {
   error.value = 'Não foi possível criar a conta com o Google. Tente novamente ou use e-mail e senha.'
 }
 
+// Marcar a caixa já resolve a pendência: manter "é preciso aceitar" na tela
+// depois disso faria a cobrança sobreviver ao seu próprio motivo.
+watch(aceitouTermos, (aceitou) => {
+  if (aceitou && erroCampo.value === 'termos') {
+    error.value = ''
+    erroCampo.value = ''
+  }
+})
+
 // O aceite vale para os dois caminhos de cadastro: pelo Google a conta nasce
 // no callback, então a checagem precisa acontecer antes de sair da página.
 function faltaAceitarTermos() {
