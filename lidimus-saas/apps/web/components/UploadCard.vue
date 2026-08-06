@@ -11,6 +11,10 @@ const props = defineProps<{
   custoCreditos?: number
   custoPorPagina?: number
   custoBase?: number
+  // Análise que a casa paga (a primeira matrícula). Cala a tarifa e a checagem
+  // de saldo: cobrar zero e ainda assim avisar "você tem 150 créditos" faria o
+  // usuário procurar o desconto que não vai acontecer.
+  isento?: boolean
   // Envio em lote. Fora dele o componente se comporta exatamente como antes —
   // um arquivo, emit `submit`.
   multiple?: boolean
@@ -33,6 +37,7 @@ const custoMinimo = computed(() =>
 
 const saldoInsuficiente = computed(
   () =>
+    !props.isento &&
     custoMinimo.value != null &&
     creditos.value != null &&
     creditos.value.balance < custoMinimo.value,
@@ -45,6 +50,8 @@ const saldoInsuficiente = computed(
 // No lote a tarifa é por arquivo, e o total exato continua sendo do servidor: o
 // número de páginas de cada PDF só é conhecido lá.
 const textoCusto = computed(() => {
+  if (props.isento) return 'Esta análise é por nossa conta — não consome créditos'
+
   const sufixo = props.multiple && arquivos.value.length > 1 ? ', por arquivo' : ''
   if (props.custoPorPagina != null) {
     const porPag = props.custoPorPagina
@@ -252,7 +259,7 @@ function submit() {
 
     <footer class="envio-rodape">
       <p v-if="textoCusto != null" class="envio-custo" :class="{ 'envio-custo--alerta': saldoInsuficiente }">
-        {{ textoCusto }}<template v-if="creditos != null"> · você tem {{ creditos.balance }}</template>.
+        {{ textoCusto }}<template v-if="!isento && creditos != null"> · você tem {{ creditos.balance }}</template>.
         <NuxtLink v-if="saldoInsuficiente" to="/conta/assinatura" class="envio-custo-link">
           Ver planos e créditos
         </NuxtLink>

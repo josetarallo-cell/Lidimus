@@ -2,6 +2,7 @@ import { useDb } from '../../lib/db'
 import { requireAuth } from '../../lib/requireAuth'
 import { exigirPermissaoDeCriar, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { criarAnalisesMatriculaEmLote, paramsMatriculaSchema } from '../../lib/criarAnaliseMatricula'
+import { ipDoCliente } from '../../lib/ipDoCliente'
 
 // POST /api/matriculas/lote — várias matrículas num envio só.
 //
@@ -61,6 +62,7 @@ export default defineEventHandler(async (event) => {
     })),
     params,
     origem: 'app',
+    ip: ipDoCliente(event),
   })
 
   return { loteId, itens, custoTotal, saldoRestante }

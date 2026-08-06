@@ -5,8 +5,16 @@ useHead({ title: 'Analisar matrícula — Lidimus' })
 
 const { data: acesso } = await useAcesso()
 const liberado = computed(() => acesso.value?.podeMatricula !== false)
-const viaAvulso = computed(
-  () => !acesso.value?.ferramentas?.includes('matricula') && (acesso.value?.avulsosMatricula ?? 0) > 0,
+const semPlano = computed(() => !acesso.value?.ferramentas?.includes('matricula'))
+const viaAvulso = computed(() => semPlano.value && (acesso.value?.avulsosMatricula ?? 0) > 0)
+// A ordem é a mesma do servidor (plano → avulso → cortesia): a tela precisa
+// anunciar a via que vai ser de fato usada, senão promete grátis o que vai sair
+// de uma avulsa comprada.
+const viaCortesia = computed(
+  () =>
+    semPlano.value &&
+    (acesso.value?.avulsosMatricula ?? 0) === 0 &&
+    (acesso.value?.cortesiasMatricula ?? 0) > 0,
 )
 
 const MAX_ARQUIVOS = 10
@@ -95,7 +103,11 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
   <div>
     <header class="pagina-cabecalho">
       <h1>Analisar matrícula</h1>
-      <p>
+      <p v-if="viaCortesia">
+        Envie a certidão de matrícula em PDF e receba o parecer estruturado: cadeia dominial, ônus,
+        gravames e alertas de risco.
+      </p>
+      <p v-else>
         Envie a certidão de matrícula em PDF — uma ou até {{ MAX_ARQUIVOS }} de uma vez — e receba o
         parecer estruturado de cada uma: cadeia dominial, ônus, gravames e alertas de risco.
       </p>
@@ -116,7 +128,13 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
     </section>
 
     <template v-else>
-      <p v-if="viaAvulso" class="avulso-aviso" role="status">
+      <p v-if="viaCortesia" class="avulso-aviso" role="status">
+        Sua primeira análise de matrícula é por nossa conta — ela não consome créditos, e o que
+        você tem hoje continua inteiro para croqui, memorial e Detector. Vale para um documento;
+        análise que falha não gasta a cortesia.
+      </p>
+
+      <p v-else-if="viaAvulso" class="avulso-aviso" role="status">
         Você tem {{ acesso?.avulsosMatricula }}
         {{ acesso?.avulsosMatricula === 1 ? 'análise avulsa' : 'análises avulsas' }} — esta leitura
         consome uma delas. Análise que falha não é descontada.
@@ -124,14 +142,20 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
 
       <UploadCard
         title="Enviar certidões de matrícula"
-        description="PDFs das certidões, digitalizadas ou nato-digitais. Podem ser várias de uma vez — a leitura e a análise jurídica de cada uma acontecem automaticamente."
+        :description="
+          viaCortesia
+            ? 'O PDF da certidão, digitalizada ou nato-digital. A leitura e a análise jurídica acontecem automaticamente.'
+            : 'PDFs das certidões, digitalizadas ou nato-digitais. Podem ser várias de uma vez — a leitura e a análise jurídica de cada uma acontecem automaticamente.'
+        "
         accept=".pdf,application/pdf"
         :uploading="uploading"
         :progresso="progresso"
         :custo-por-pagina="8"
         :custo-base="83"
-        multiple
+        :isento="viaCortesia"
+        :multiple="!viaCortesia"
         :max-arquivos="MAX_ARQUIVOS"
+        @submit="onSubmit"
         @submit-lote="onSubmitLote"
       />
 

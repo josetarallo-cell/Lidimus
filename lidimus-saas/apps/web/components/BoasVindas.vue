@@ -78,9 +78,9 @@ function fechar() {
       </header>
 
       <p class="bv-abertura">
-        Sua conta está ativa e já tem <strong>150 créditos</strong> para as primeiras análises.
-        Cada ferramenta pega um documento bruto e devolve um resultado pronto para uso
-        profissional:
+        Sua conta está ativa, com <strong>a primeira análise de matrícula por nossa conta</strong> e
+        <strong>150 créditos</strong> para as demais ferramentas. Cada uma pega um documento bruto e
+        devolve um resultado pronto para uso profissional:
       </p>
 
       <dl class="bv-lista">

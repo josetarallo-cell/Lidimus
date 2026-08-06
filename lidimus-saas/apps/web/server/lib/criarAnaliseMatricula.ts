@@ -6,7 +6,7 @@ import { useDb } from './db'
 import { useQueues } from './queue'
 import { storeJobFile } from './jobFile'
 import { checkRateLimit, vagasRestantes } from './rateLimit'
-import { exigirAcesso, avulsosDisponiveis } from './planAccess'
+import { exigirAcesso, avulsosDisponiveis, cortesiasDisponiveis } from './planAccess'
 import { countPdfPages } from './pdfPages'
 import { assertPdfSignature } from './fileSignature'
 
@@ -46,6 +46,10 @@ export type NovaAnaliseMatricula = ArquivoMatricula & {
   userId: string
   params: ParamsMatricula
   origem: OrigemAnalise
+  // IP de quem está enviando. Só a análise de cortesia o usa, como teto contra
+  // cadastros em série; obrigatório mesmo assim, para que nenhum caminho novo
+  // de entrada chegue aqui sem ele e ganhe cortesia sem teto.
+  ip: string
   // Só na origem 'api': permite ao suporte descobrir qual integração gerou o
   // gasto quando a organização tem várias chaves.
   apiKeyId?: string
@@ -57,6 +61,7 @@ export type NovoLoteMatricula = {
   arquivos: ArquivoMatricula[]
   params: ParamsMatricula
   origem: OrigemAnalise
+  ip: string
   apiKeyId?: string
 }
 
@@ -103,7 +108,7 @@ export async function criarAnaliseMatricula(entrada: NovaAnaliseMatricula): Prom
 export async function criarAnalisesMatriculaEmLote(
   entrada: NovoLoteMatricula,
 ): Promise<LoteCriado> {
-  const { orgId, userId, arquivos, params, origem, apiKeyId } = entrada
+  const { orgId, userId, arquivos, params, origem, ip, apiKeyId } = entrada
   const config = useRuntimeConfig()
   const db = useDb()
 
@@ -142,18 +147,41 @@ export async function criarAnalisesMatriculaEmLote(
   }
 
   // Nível de acesso antes de qualquer trabalho: a matrícula começa no Essencial,
-  // e fora dele só roda com análise avulsa comprada. Vale igual para a API — a
-  // chave não passa por cima do entitlement de ferramenta.
-  const acesso = await exigirAcesso(db, orgId, 'matricula')
+  // e fora dele só roda com análise avulsa comprada ou com a análise de
+  // cortesia. Vale igual para a API — a chave não passa por cima do entitlement
+  // de ferramenta.
+  const acesso = await exigirAcesso(db, orgId, 'matricula', ip)
+  const porCortesia = acesso.via === 'cortesia'
+
+  // A cortesia é uma análise, não um saldo: não há como partir meia cortesia
+  // entre cinco arquivos. Recusar aqui, antes de medir e enfileirar, deixa a
+  // conta com a cortesia intacta para o envio seguinte.
+  if (porCortesia && arquivos.length > 1) {
+    throw createError({
+      statusCode: 403,
+      statusMessage:
+        `Sua análise de cortesia cobre um documento, e este envio tem ${arquivos.length}. ` +
+        'Envie um por vez, assine o Essencial ou compre análises avulsas.',
+    })
+  }
 
   const { connection, matriculaOcrQueue } = useQueues()
   await aplicarLimiteDeUso(connection, config, orgId, origem, arquivos.length, apiKeyId)
 
   // Custo proporcional ao nº de páginas — o custo real de tokens escala com o
   // tamanho do documento. A contagem no upload é best-effort (ver countPdfPages).
+  //
+  // Na cortesia o custo é zero, e não um débito coberto por um bônus equivalente:
+  // assim o tamanho do PDF não entra na conta em lugar nenhum, e a análise que
+  // falha não gera estorno — o que ela devolve é a própria cortesia, porque job
+  // com erro não conta em cortesiasDisponiveis.
   const medidos = arquivos.map((a) => {
     const paginas = countPdfPages(a.arquivo)
-    return { ...a, paginas, custo: creditCostFor('matricula', { pages: paginas }) }
+    return {
+      ...a,
+      paginas,
+      custo: porCortesia ? 0 : creditCostFor('matricula', { pages: paginas }),
+    }
   })
   const custoTotal = medidos.reduce((soma, m) => soma + m.custo, 0)
 
@@ -192,6 +220,17 @@ export async function criarAnalisesMatriculaEmLote(
       }
     }
 
+    // Mesma revalidação para a cortesia, pela mesma razão: sem ela, dois envios
+    // simultâneos leriam "1 disponível" antes de qualquer job existir e as duas
+    // análises sairiam de graça. O lock da organização serializa os dois.
+    if (porCortesia && (await cortesiasDisponiveis(tx, orgId, ip)) < 1) {
+      throw createError({
+        statusCode: 403,
+        statusMessage:
+          'Sua análise de cortesia já foi usada. Assine o Essencial ou compre uma análise avulsa.',
+      })
+    }
+
     const inseridos = await tx
       .insert(jobs)
       .values(
@@ -210,23 +249,31 @@ export async function criarAnalisesMatriculaEmLote(
             // A marca é o que dá baixa no avulso: `avulsosDisponiveis` conta os
             // jobs com esta marca que não falharam.
             ...(acesso.via === 'avulso' && { viaAvulso: true }),
+            // O par equivalente da cortesia. O IP vai junto porque é ele que o
+            // teto por endereço conta — guardá-lo no job mantém a contagem e o
+            // fato que ela conta no mesmo lugar, sem tabela nova.
+            ...(porCortesia && { viaCortesia: true, cortesiaIp: ip }),
             ...(loteId && { loteId }),
           },
         })),
       )
       .returning({ id: jobs.id })
 
-    await tx.insert(creditTransactions).values(
-      // Uma linha por job, e não uma pelo total: é o que mantém o estorno
-      // individual de refundJobCredits funcionando quando só um arquivo do lote
-      // falha lá na frente.
-      inseridos.map((job, i) => ({
-        orgId,
-        delta: -medidos[i].custo,
-        reason: 'consumption' as const,
-        jobId: job.id,
-      })),
-    )
+    // A cortesia não passa por aqui: lançamento de zero crédito só sujaria o
+    // extrato e faria refundJobCredits gerar um estorno de zero na falha.
+    if (custoTotal > 0) {
+      await tx.insert(creditTransactions).values(
+        // Uma linha por job, e não uma pelo total: é o que mantém o estorno
+        // individual de refundJobCredits funcionando quando só um arquivo do lote
+        // falha lá na frente.
+        inseridos.map((job, i) => ({
+          orgId,
+          delta: -medidos[i].custo,
+          reason: 'consumption' as const,
+          jobId: job.id,
+        })),
+      )
+    }
 
     // O saldo já foi lido sob o lock — devolver o resultado do débito não custa
     // consulta nenhuma, e a API responde o consumo na mesma chamada.

@@ -2,6 +2,7 @@ import { useDb } from '../../lib/db'
 import { requireAuth } from '../../lib/requireAuth'
 import { exigirPermissaoDeCriar, vinculoDoUsuario } from '../../lib/orgAtiva'
 import { criarAnaliseMatricula, paramsMatriculaSchema } from '../../lib/criarAnaliseMatricula'
+import { ipDoCliente } from '../../lib/ipDoCliente'
 
 export default defineEventHandler(async (event) => {
   const user = requireAuth(event)
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
     originalName: filePart.filename ?? 'matricula.pdf',
     params,
     origem: 'app',
+    ip: ipDoCliente(event),
   })
 
   return { jobId, custo, paginas }

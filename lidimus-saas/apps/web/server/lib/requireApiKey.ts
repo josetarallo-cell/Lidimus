@@ -4,6 +4,7 @@ import { apiKeys, orgMembers, hashDaChave, pareceChave, planoLiberaApi } from '@
 import { useDb } from './db'
 import { useQueues } from './queue'
 import { checkRateLimit } from './rateLimit'
+import { ipDoCliente } from './ipDoCliente'
 import { erroApi } from './v1/erroApi'
 
 // Autenticação da API pública. É o irmão de requireAuth, deliberadamente
@@ -39,12 +40,6 @@ const FALHAS_LIMITE = 20
 // chamada por chamada — atualizar a cada requisição transformaria um lote em um
 // UPDATE por análise, de graça.
 const INTERVALO_MARCA_USO_MS = 5 * 60 * 1000
-
-function ipDoCliente(event: H3Event): string {
-  // Atrás do cloudflared/reverse proxy o IP real vem no cabeçalho; o remoteAddress
-  // seria sempre o do proxy. `xForwardedFor: true` faz o h3 preferir o cabeçalho.
-  return getRequestIP(event, { xForwardedFor: true }) ?? 'desconhecido'
-}
 
 export async function requireApiKey(event: H3Event): Promise<ContextoApi> {
   const db = useDb()

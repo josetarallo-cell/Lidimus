@@ -38,6 +38,17 @@ const matriculaBloqueada = computed(
   () => abaAtiva.value === 'matricula' && acesso.value?.podeMatricula === false,
 )
 
+// Quem ainda tem a análise de cortesia recebe um convite diferente do "envie uma
+// certidão": o que falta a essa pessoa não é saber como começar, é saber que a
+// primeira sai de graça.
+const matriculaDeCortesia = computed(
+  () =>
+    abaAtiva.value === 'matricula' &&
+    !acesso.value?.ferramentas?.includes('matricula') &&
+    (acesso.value?.avulsosMatricula ?? 0) === 0 &&
+    (acesso.value?.cortesiasMatricula ?? 0) > 0,
+)
+
 // Boas-vindas do primeiro acesso — o painel é onde todo mundo cai depois de
 // confirmar o e-mail, então é aqui que a tela aparece (uma vez só).
 const { data: me } = await useFetch('/api/me')
@@ -135,6 +146,10 @@ onMounted(() => {
           A análise de matrícula começa no plano Essencial.
           <NuxtLink to="/conta/assinatura">Ver planos</NuxtLink> ou
           <NuxtLink to="/conta/creditos">comprar uma análise avulsa</NuxtLink>.
+        </p>
+        <p v-else-if="matriculaDeCortesia" class="vazio-texto">
+          Sua primeira análise de matrícula é por nossa conta — ela não consome créditos.
+          <NuxtLink :to="abaInfo.novoTo">Enviar uma certidão</NuxtLink>.
         </p>
         <p v-else class="vazio-texto">
           {{ abaInfo.vazioTexto }} <NuxtLink :to="abaInfo.novoTo">Começar agora</NuxtLink>.

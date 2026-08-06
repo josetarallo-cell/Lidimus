@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "cortesias_extra" integer DEFAULT 0 NOT NULL;

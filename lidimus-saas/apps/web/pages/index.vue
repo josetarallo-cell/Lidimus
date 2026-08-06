@@ -13,7 +13,8 @@ const url = useRequestURL()
 const SITE_TITLE = 'Lidimus — Inteligência documental jurídica e técnica'
 const SITE_DESC =
   'Pareceres de matrícula imobiliária, memoriais descritivos a partir de KML e detecção de ' +
-  'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. Comece com 150 créditos gratuitos.'
+  'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. A primeira análise de ' +
+  'matrícula é grátis, mais 150 créditos para as demais ferramentas.'
 
 useHead({
   title: SITE_TITLE,
@@ -945,9 +946,10 @@ onBeforeUnmount(() => {
       <!-- ══════════ CTA FINAL — poster vermelho ══════════ -->
       <section class="lp-cta">
         <div class="lp-cta-inner">
-          <h2 data-reveal class="lp-cta-titulo">Comece com 150 créditos gratuitos.</h2>
+          <h2 data-reveal class="lp-cta-titulo">Sua primeira matrícula é por nossa conta.</h2>
           <p data-reveal data-reveal-delay="60" class="lp-cta-sub">
-            Sem cartão de crédito. Teste as três ferramentas com seus próprios documentos.
+            Uma análise completa sem custo, mais 150 créditos para croqui, memorial e Detector. Sem
+            cartão de crédito.
           </p>
           <NuxtLink data-reveal data-reveal-delay="120" to="/auth/register" class="cond lp-btn lp-btn--inverso lp-btn--lg">
             Criar conta gratuita →

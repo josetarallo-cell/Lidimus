@@ -15,6 +15,9 @@ type Cliente = {
   owner_email: string
   created_at: string
   balance: number
+  cortesias_extra: number
+  cortesias_usadas: number
+  cortesias_disponiveis: number
   last_job_at: string | null
   subscription_id: string | null
   subscription_status: string | null
@@ -43,6 +46,35 @@ function abrirConcessao(orgId: string) {
   concedendoOrg.value = orgId
   concessaoDelta.value = null
   acaoErro.value = ''
+}
+
+// Uma análise de matrícula por conta da casa. Não passa pelo formulário de
+// créditos porque não é crédito: não tem valor em créditos, não entra no
+// extrato e não é debitada por página — o que ela muda é o teto de análises
+// gratuitas da organização.
+async function concederCortesia(cliente: Cliente) {
+  if (
+    !confirm(
+      `Dar mais uma análise de matrícula de cortesia para ${cliente.name}?\n\n` +
+        `Hoje: ${cliente.cortesias_disponiveis} disponível(is), ${cliente.cortesias_usadas} já usada(s).\n` +
+        'A concessão também isenta esta conta do limite por endereço de internet.',
+    )
+  )
+    return
+
+  salvando.value = true
+  acaoErro.value = ''
+  try {
+    await $fetch(`/api/admin/clients/${cliente.id}/cortesia`, {
+      method: 'POST',
+      body: { delta: 1 },
+    })
+    await refresh()
+  } catch {
+    acaoErro.value = 'Não foi possível conceder a análise de cortesia.'
+  } finally {
+    salvando.value = false
+  }
 }
 
 async function conceder() {
@@ -140,6 +172,7 @@ async function suspender(cliente: Cliente) {
               <th scope="col">Plano</th>
               <th scope="col">Assinatura</th>
               <th scope="col" class="th-num">Saldo</th>
+              <th scope="col" class="th-num">Cortesias</th>
               <th scope="col">Último job</th>
               <th scope="col"><span class="sr-only">Ações</span></th>
             </tr>
@@ -167,6 +200,13 @@ async function suspender(cliente: Cliente) {
                 <span v-else class="sem-assinatura">—</span>
               </td>
               <td class="celula-num">{{ cliente.balance }}</td>
+              <td
+                class="celula-num"
+                :title="`${cliente.cortesias_usadas} usada(s)` + (cliente.cortesias_extra ? ` · ${cliente.cortesias_extra} concedida(s) pelo suporte` : '')"
+              >
+                {{ cliente.cortesias_disponiveis }}
+                <span v-if="cliente.cortesias_extra" class="celula-tipo">+{{ cliente.cortesias_extra }}</span>
+              </td>
               <td class="celula-data">{{ dataFmt(cliente.last_job_at) }}</td>
               <td class="celula-acoes">
                 <form
@@ -221,6 +261,14 @@ async function suspender(cliente: Cliente) {
                   >
                     Conceder créditos
                   </button>
+                  <button
+                    type="button"
+                    class="ld-btn ld-btn--ghost ld-btn--sm"
+                    :disabled="salvando"
+                    @click="concederCortesia(cliente)"
+                  >
+                    + 1 cortesia
+                  </button>
                   <!-- Só aparece se existir plano sob contrato cadastrado -->
                   <button
                     v-if="planosDeContrato.length"
@@ -242,7 +290,7 @@ async function suspender(cliente: Cliente) {
               </td>
             </tr>
             <tr v-if="!clientes?.length">
-              <td colspan="6" class="celula-vazia">Nenhuma organização ainda.</td>
+              <td colspan="7" class="celula-vazia">Nenhuma organização ainda.</td>
             </tr>
           </tbody>
         </table>

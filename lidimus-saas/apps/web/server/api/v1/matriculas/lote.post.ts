@@ -3,6 +3,7 @@ import {
   criarAnalisesMatriculaEmLote,
   paramsMatriculaSchema,
 } from '../../../lib/criarAnaliseMatricula'
+import { ipDoCliente } from '../../../lib/ipDoCliente'
 import { defineRotaApi, erroApi } from '../../../lib/v1/erroApi'
 
 // POST /api/v1/matriculas/lote — várias matrículas numa requisição só.
@@ -79,6 +80,7 @@ export default defineRotaApi(async (event) => {
     })),
     params,
     origem: 'api',
+    ip: ipDoCliente(event),
     apiKeyId: keyId,
   })
 

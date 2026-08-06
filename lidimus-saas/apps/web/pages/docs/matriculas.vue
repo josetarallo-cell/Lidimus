@@ -341,8 +341,14 @@ const SECOES = [
         tempo e a incerteza de descobrir no meio do caminho que o saldo acabou.
       </p>
       <p>
-        A matrícula está incluída a partir do plano <strong>Essencial</strong>. Quem está no plano
-        Croqui pode comprar análises avulsas sem trocar de plano.
+        <strong>A primeira análise da conta é por nossa conta</strong> — ela não consome créditos,
+        seja qual for o tamanho do documento, e vale para um arquivo por envio. Usar croqui,
+        memorial ou Detector antes não a gasta: ela só é baixada por uma análise de matrícula que
+        chega ao fim.
+      </p>
+      <p>
+        Depois dela, a matrícula está incluída a partir do plano <strong>Essencial</strong>. Quem
+        está no plano Croqui pode comprar análises avulsas sem trocar de plano.
       </p>
     </section>
 

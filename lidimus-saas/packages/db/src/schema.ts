@@ -126,6 +126,11 @@ export const organizations = pgTable('organizations', {
   // não é apresentada como uma: o cabeçalho mostra o nome da pessoa e Conta →
   // Equipe oferece criar a equipe em vez de administrá-la.
   isPersonal: boolean('is_personal').notNull().default(false),
+  // Análises de matrícula de cortesia concedidas à mão pelo suporte, além da
+  // primeira que toda organização ganha. Contador e não booleano: o suporte
+  // pode precisar dar a segunda depois de já ter dado a primeira. Some-se ao
+  // teto padrão em server/lib/planAccess.ts.
+  cortesiasExtra: integer('cortesias_extra').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

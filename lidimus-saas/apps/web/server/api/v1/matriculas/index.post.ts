@@ -1,5 +1,6 @@
 import { requireApiKey } from '../../../lib/requireApiKey'
 import { criarAnaliseMatricula, paramsMatriculaSchema } from '../../../lib/criarAnaliseMatricula'
+import { ipDoCliente } from '../../../lib/ipDoCliente'
 import { defineRotaApi, erroApi } from '../../../lib/v1/erroApi'
 
 // POST /api/v1/matriculas — envia uma matrícula para análise.
@@ -45,6 +46,7 @@ export default defineRotaApi(async (event) => {
     originalName: filePart.filename ?? 'matricula.pdf',
     params,
     origem: 'api',
+    ip: ipDoCliente(event),
     apiKeyId: keyId,
   })
 
