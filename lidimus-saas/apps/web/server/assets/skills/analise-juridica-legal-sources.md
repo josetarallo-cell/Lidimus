@@ -5,7 +5,7 @@ Use este resumo como base para RAG e citações na análise de matrículas.
 ## Ordem de consulta
 
 1. Lei n. 6.015/1973 - Registros Públicos
-2. Lei n. 13.097/2015, art. 54 - concentração dos atos na matrícula
+2. Lei n. 13.097/2015, art. 54 - concentração dos atos na matrícula (redação da Lei n. 14.382/2022)
 3. Lei n. 4.591/1964 - Incorporações Imobiliárias
 4. Lei n. 9.514/1997 - Sistema de Financiamento Imobiliário e alienação fiduciária
 5. CPC/2015 - penhora, averbação premonitória e fraude à execução
@@ -46,6 +46,36 @@ insolvência ou risco de insolvência.
 
 **Súmula 375/STJ**: o reconhecimento da fraude à execução depende de averbação da
 penhora no registro do bem ou de prova de má-fé do terceiro adquirente.
+
+## Origem e cadeia anterior
+
+Quando a matrícula indica `REGISTRO ANTERIOR` — porque foi aberta por destaque,
+desmembramento ou transporte —, o histórico pretérito está na matrícula apontada.
+
+- **Lei 6.015/1973**: art. 176 (requisitos da matrícula), art. 195
+  (continuidade — o registro anterior é o elo exigido), art. 228 (matrícula por
+  ocasião do primeiro registro na vigência da lei), arts. 233 a 235 (fusão e
+  encerramento), arts. 248 a 252 (cancelamento só por ato expresso; o registro
+  não cancelado produz todos os seus efeitos).
+- **Lei 13.097/2015, art. 54** (redação da Lei 14.382/2022): §1º — situações não
+  constantes da matrícula não são oponíveis ao terceiro de boa-fé, **ressalvados
+  os arts. 129 e 130 da Lei 11.101/2005** e as hipóteses de aquisição e extinção
+  da propriedade que independem de registro; §2º — não se exigem certidões além
+  das previstas no art. 1º, §2º, da Lei 7.433/1985.
+- **Código Civil**: art. 1.245, §2º (o adquirente é havido como dono enquanto o
+  registro não for invalidado por ação própria).
+
+**A distinção decisória.** Abrir matrícula nova **não cancela nem apaga** os atos
+da matrícula de origem: eles permanecem lá, e o oficial transporta para a nova
+apenas a titularidade e os ônus vigentes. A concentração dos atos protege o
+adquirente de boa-fé, mas o próprio registro anterior, impresso na face da
+matrícula, dá notícia da origem — o que torna a diligência **recomendável, não
+dispensável**. Os três riscos que a justificam: ônus vigente não transportado por
+erro na abertura; cobertura temporal insuficiente quando a matrícula é recente; e
+as ressalvas expressas do §1º do art. 54.
+
+Nunca converta isso em impedimento nem em incompletude documental: é ressalva de
+escopo com diligência nomeada (matrícula, ato e cartório).
 
 ## Distinções que mudam a recomendação
 

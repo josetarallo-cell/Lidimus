@@ -23,8 +23,29 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     "paginas_declaradas": 0,
     "atos_faltantes": ["string"],
     "fichas_faltantes": ["string"],
-    "motivos": ["string"]
+    "motivos": ["string"],
+    "cadeia_anterior_nao_examinada": false
   },
+  "origem": {
+    "matricula_anterior": "string|null",
+    "ato_anterior": "string|null",
+    "data_registro_anterior": "string|null",
+    "referencias_externas": [{ "ato": "string", "matricula": "string" }],
+    "cobertura_desde": "string|null",
+    "examinada": false
+  },
+  "escopo_e_limites": {
+    "periodo_examinado": "string",
+    "base_documental": "string",
+    "fora_do_escopo": ["string"]
+  },
+  "diligencias_recomendadas": [
+    {
+      "item": "string",
+      "motivo": "string",
+      "prioridade": "alta|media|baixa"
+    }
+  ],
   "modo_analise": "completa|dados_organizados",
   "aviso_matricula_incompleta": "string|null",
   "linha_tempo": [
@@ -61,7 +82,7 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
   ],
   "estado_atual": {
     "propriedade": "string",
-    "cadeia_dominial_status": "ok|quebrada|incompleta|indeterminada|indeterminada_documento_incompleto",
+    "cadeia_dominial_status": "ok|quebrada|incompleta|indeterminada|indeterminada_documento_incompleto|atual_integra_origem_nao_examinada",
     "onus_ativos": ["string"],
     "restricoes_ativas": ["string"],
     "direitos_reais_ativos": ["string"]
@@ -152,17 +173,24 @@ um destes pontos faz o pipeline sobrescrever o que você devolveu:
 1. **`modo_analise: "dados_organizados"` exige `classificacao_risco:
    "nao_aplicavel"`** e `aviso_matricula_incompleta` preenchido. `riscos` fica
    vazio; as lacunas vão para `inconsistencias`.
-2. **Coerência de nível.** Indisponibilidade ativa força `critico`; penhora ou
+2. **Origem não examinada não aciona esse modo.** Com `integridade.completo:
+   true`, a existência de `origem.matricula_anterior` não autoriza
+   `dados_organizados`, `nao_aplicavel` nem `aviso_matricula_incompleta`. A
+   limitação vai para `escopo_e_limites` e `diligencias_recomendadas`, e o
+   status é `atual_integra_origem_nao_examinada`. Devolver `nao_aplicavel` com
+   documento íntegro faz o nó `Resumo Jurídico` elevar para `indeterminado` e
+   registrar a coerção.
+3. **Coerência de nível.** Indisponibilidade ativa força `critico`; penhora ou
    arresto ativo força no mínimo `alto`; risco de severidade `critica` força
    `critico`. Texto com "impeditiv"/"crítica" e classificação abaixo de `critico`
    é contradição — o pipeline eleva a classificação.
-3. **Rótulo de booleano na forma afirmativa.** Regras cujo nome contenha `not`,
+4. **Rótulo de booleano na forma afirmativa.** Regras cujo nome contenha `not`,
    `nao_`, `sem_` combinadas com negação na condição são descartadas.
-4. **Valor sem moeda inferida.** Quando `moeda` estiver ausente e o documento não
+5. **Valor sem moeda inferida.** Quando `moeda` estiver ausente e o documento não
    for em real corrente, o valor é exibido sem símbolo, nunca com `R$`.
-5. **Confrontação cardeal sem rumo escrito é descartada** — sobrevive apenas em
+6. **Confrontação cardeal sem rumo escrito é descartada** — sobrevive apenas em
    `confrontantes_descricao`.
-6. **Termos de andaime interno** (manual, cheatsheet, patterns, anti-patterns,
+7. **Termos de andaime interno** (manual, cheatsheet, patterns, anti-patterns,
    key concepts, frameworks, skill, prompt, RAG, workflow, parser, pipeline) são
    removidos de todo campo de texto antes da renderização.
 

@@ -107,6 +107,96 @@ devolver "não identificada" e parar aí.
 
 ---
 
+## 0.1 Cadeia anterior ≠ documento incompleto
+
+Documento incompleto e cadeia anterior em outra matrícula são estados
+**diferentes, com ações corretivas diferentes**. Um se resolve pedindo as páginas
+que faltam ao cartório e impede o parecer; o outro se resolve com a certidão da
+matrícula de origem e apenas **delimita o alcance** do parecer. Tratar o segundo
+como se fosse o primeiro manda o cliente pedir páginas que já estão nas mãos
+dele.
+
+### Como se lê `R.18/126.092`
+
+Nessa notação o número **depois da barra é a matrícula**, e o de antes é o ato
+dentro dela. Portanto:
+
+| O que você vê | Se a matrícula em análise é… | Leitura |
+|---|---|---|
+| `R.14/82.662` | a 82.662 | cabeçalho de ato **desta** matrícula (formato de ficha moderna) |
+| `R.18/126.092` | a 229.216 | ato de **outra** matrícula — referência, não ato desta |
+
+Referência a outra matrícula **nunca** é ato desta, **nunca** entra na
+`linha_tempo`, **nunca** conta como "ato citado e não transcrito" e **nunca**
+gera ato faltante. Um `R.18` de outra matrícula não significa que esta tenha 18
+atos nem que faltem os dezessete primeiros.
+
+### `REGISTRO ANTERIOR` é ponteiro de origem
+
+A matrícula aberta por destaque, desmembramento ou transporte indica de onde veio
+em `REGISTRO ANTERIOR: R.18/126.092`. Isso é o **elo de continuidade** exigido
+pelo art. 195 da LRP, não uma lacuna. O que ele diz é: *o título que investiu o
+titular atual está registrado sob o nº 18 da matrícula 126.092*.
+
+### O que NÃO é sinal de incompletude
+
+Espelho da tabela da seção 0 — nenhum destes autoriza o modo de dados
+organizados:
+
+| Sinal | Por que não é incompletude |
+|---|---|
+| Registro anterior com número alto (`R.18`) | conta os atos da matrícula **de origem**, não desta |
+| Matrícula recente com poucos atos | matrícula aberta em 2015 tem mesmo poucos atos |
+| Primeiro ato ser `Av.1` de abertura de matrícula | é o marco inicial correto desta matrícula |
+| Não haver histórico anterior à abertura | ele está na matrícula de origem, por definição |
+
+### Modo obrigatório quando há origem não examinada
+
+O oposto do modo da seção 0. Com o documento íntegro e uma matrícula de origem
+apontada:
+
+**PROIBIDO:**
+
+- usar `modo_analise: "dados_organizados"` por causa da origem;
+- usar `classificacao_risco: "nao_aplicavel"` por causa da origem;
+- preencher `aviso_matricula_incompleta`;
+- dizer que faltam páginas ou atos;
+- dizer que a cadeia dominial está **quebrada** — ela não está: está **fora do
+  documento**, que é outra coisa.
+
+**OBRIGATÓRIO:**
+
+- `modo_analise: "completa"`, com classificação de risco real sobre o que foi
+  lido;
+- `estado_atual.cadeia_dominial_status: "atual_integra_origem_nao_examinada"`;
+- bloco `escopo_e_limites` preenchido (`periodo_examinado`, `base_documental`,
+  `fora_do_escopo`);
+- `diligencias_recomendadas` abrindo com a certidão de inteiro teor da matrícula
+  de origem, **nomeando matrícula, ato e cartório**;
+- bloco `origem` refletindo o que o workflow entregou.
+
+Texto-padrão da ressalva (adapte apenas os dados):
+
+> Esta análise cobre a matrícula desde DD/MM/AAAA. O histórico anterior está na
+> matrícula de origem indicada como registro anterior (o R.NN da matrícula
+> MMM.MMM, de DD/MM/AAAA), e não nesta peça: os atos anteriores não foram
+> cancelados nem suprimidos. Para fechar o período usual de análise e confirmar
+> que nenhum ônus vigente deixou de ser transportado na abertura, solicite a
+> certidão de inteiro teor da matrícula MMM.MMM.
+
+### Por que a diligência é recomendável e não dispensável
+
+A concentração dos atos na matrícula (Lei 13.097/2015, art. 54) protege o
+adquirente de boa-fé e dispensa exigir certidões além das legalmente previstas.
+Mas a própria matrícula **dá notícia da origem** no registro anterior, e três
+riscos concretos permanecem: ônus vigente que não foi transportado na abertura
+por erro; cobertura temporal insuficiente quando a matrícula é recente; e as
+ressalvas expressas do próprio art. 54 (arts. 129 e 130 da Lei 11.101/2005 e as
+aquisições que independem de registro). Diga isso na recomendação — sem
+transformá-lo em impedimento.
+
+---
+
 ## Ordem de Execução
 
 1. **Parser temporal**
@@ -120,6 +210,9 @@ devolver "não identificada" e parar aí.
      a partir de citação, e nunca atribua propriedade, valor ou partes a um ato
      que você só conhece por citação. Registre a referência em `observacoes` e,
      se o ato citado não constar do documento, liste-o entre os atos faltantes.
+   - **Exceção: ato de outra matrícula não é nem ato nem citação.** `R.18/126.092`
+     numa análise da matrícula 229.216 é ato da 126.092. Vai para `origem`, não
+     para `linha_tempo` nem para os atos faltantes — ver a seção 0.1.
 
 2. **Datas: a da averbação, não a do título**
    - A data que vale para o registro é a **data do ato registral** (a averbação
@@ -182,6 +275,9 @@ devolver "não identificada" e parar aí.
    - Com documento incompleto, `cadeia_dominial_status` é
      `indeterminada_documento_incompleto` — nunca `ok` e nunca `quebrada`. Uma
      lacuna de páginas não prova quebra de cadeia; prova que não dá para afirmar.
+   - Com documento íntegro e origem em outra matrícula,
+     `cadeia_dominial_status` é `atual_integra_origem_nao_examinada` — a cadeia
+     desta matrícula está encadeada; o que não foi examinado é o que a antecede.
 
 5. **Regras determinísticas em Python**
    - Use Python apenas para regras objetivas e repetíveis.
@@ -307,6 +403,12 @@ penhora_ativa = bool(penhora and not cancelamento_penhora)
    | Algum risco com severidade `alta` | `alto` |
    | Palavras "impeditiv", "crítica", "inviabiliza" no parecer | `critico` |
    | Documento incompleto (portão 0) | `nao_aplicavel` |
+
+   `nao_aplicavel` é exclusivo do portão 0. Origem não examinada (seção 0.1)
+   **não** rebaixa a classificação: o risco é o dos atos lidos, e a limitação vai
+   para `escopo_e_limites` e `diligencias_recomendadas`. Se você devolver
+   `nao_aplicavel` com o documento íntegro, o workflow eleva para `indeterminado`
+   e registra a coerção.
 
    Na dúvida entre dois níveis, suba — subestimar risco causa dano; superestimar
    causa uma verificação a mais.
@@ -617,11 +719,64 @@ recente — registre esse intervalo em `observacao`.
 }
 ```
 
+### Exemplo — matrícula íntegra com origem não examinada
+
+Caso real (matrícula 229.216 do 18º RI de São Paulo): sete faces, atos Av.1 a
+R.6 sem lacuna, registro anterior apontando o R.18 da matrícula 126.092. Parecer
+emitido, com ressalva de escopo.
+
+```json
+{
+   "integridade": {
+      "completo": true,
+      "paginas_lidas": 7,
+      "atos_faltantes": [],
+      "motivos": [],
+      "cadeia_anterior_nao_examinada": true
+   },
+   "origem": {
+      "matricula_anterior": "126.092",
+      "ato_anterior": "R.18",
+      "data_registro_anterior": "05/08/2013",
+      "cobertura_desde": "05/02/2015",
+      "examinada": false
+   },
+   "modo_analise": "completa",
+   "aviso_matricula_incompleta": null,
+   "estado_atual": {
+      "cadeia_dominial_status": "atual_integra_origem_nao_examinada",
+      "propriedade": "LIBBS HOLDING LTDA (R.6, 17/10/2016)",
+      "onus_ativos": []
+   },
+   "escopo_e_limites": {
+      "periodo_examinado": "05/02/2015 a 17/10/2016 (abertura da matrícula ao último ato registrado)",
+      "base_documental": "visualização da matrícula 229.216 — não é certidão",
+      "fora_do_escopo": [
+         "Atos anteriores a 05/08/2013, registrados na matrícula 126.092.",
+         "Confirmação de que os ônus vigentes foram integralmente transportados na abertura."
+      ]
+   },
+   "diligencias_recomendadas": [
+      {
+         "item": "Certidão de inteiro teor da matrícula 126.092 do 18º Registro de Imóveis de São Paulo",
+         "motivo": "Origem indicada no registro anterior (R.18); fecha o período de análise e revela ônus não transportados.",
+         "prioridade": "alta"
+      }
+   ],
+   "legacy_compatibility": {
+      "classificacao_risco": "baixo",
+      "parecer_geral": "Matrícula íntegra e sem ônus vigentes. A análise cobre desde a abertura em 05/02/2015; o histórico anterior está na matrícula 126.092. ..."
+   }
+}
+```
+
 ---
 
 ## Regras de Qualidade
 
 - **Não opine sobre documento incompleto.** É a regra que vence todas as outras.
+- **Mas cadeia anterior em outra matrícula não é documento incompleto** e não
+  suspende o parecer: é ressalva de escopo com diligência nomeada (seção 0.1).
 - Priorize determinismo quando a evidência documental for objetiva.
 - Nunca converta moeda; preserve o símbolo original e o ano.
 - Nunca use emolumentos, selos ou custas do rodapé da certidão como valor de um ato.
