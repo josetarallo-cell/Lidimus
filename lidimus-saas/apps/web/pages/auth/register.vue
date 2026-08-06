@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { COOKIE_ACEITE, VERSAO_TERMOS } from '~/shared/termos'
+
 definePageMeta({ layout: false })
 
 useHead({ title: 'Criar conta — Lidimus' })
@@ -37,9 +39,20 @@ if (route.query.erro === 'google') {
   error.value = 'Não foi possível criar a conta com o Google. Tente novamente ou use e-mail e senha.'
 }
 
-// Marcar a caixa já resolve a pendência: manter "é preciso aceitar" na tela
-// depois disso faria a cobrança sobreviver ao seu próprio motivo.
+// O aceite viaja num cookie porque precisa sobreviver à ida ao Google e voltar
+// no callback, onde a conta de fato nasce e não existe corpo de requisição para
+// carregá-lo. SameSite=Lax é o que permite essa volta; 30 minutos bastam para
+// preencher o formulário e não deixam a marca envelhecendo no navegador.
+function gravarCookieAceite(aceitou: boolean) {
+  const base = `${COOKIE_ACEITE}=${aceitou ? VERSAO_TERMOS : ''}; Path=/; SameSite=Lax`
+  const seguro = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = aceitou ? `${base}; Max-Age=1800${seguro}` : `${base}; Max-Age=0${seguro}`
+}
+
 watch(aceitouTermos, (aceitou) => {
+  gravarCookieAceite(aceitou)
+  // Marcar a caixa já resolve a pendência: manter "é preciso aceitar" na tela
+  // depois disso faria a cobrança sobreviver ao seu próprio motivo.
   if (aceitou && erroCampo.value === 'termos') {
     error.value = ''
     erroCampo.value = ''

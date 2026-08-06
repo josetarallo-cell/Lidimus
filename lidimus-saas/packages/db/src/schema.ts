@@ -71,6 +71,35 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+// ─── Aceite dos termos ────────────────────────────────────────────────────────
+
+// Registro do clickwrap do cadastro: uma linha por aceite, escrita uma vez e
+// nunca atualizada. O que ela prova é que alguém, em determinada data e vindo de
+// determinado IP, declarou ter lido uma versão específica dos Termos — por isso
+// a versão fica gravada aqui em cópia, e não como referência ao texto vigente,
+// que muda. Sem isso, uma alteração futura reescreveria retroativamente aquilo
+// que todo mundo aceitou.
+export const termsAcceptances = pgTable(
+  'terms_acceptances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    version: text('version').notNull(),
+    // Por onde a conta nasceu — 'email' ou 'google'. O aceite é o mesmo; o
+    // caminho muda como ele chegou até aqui, e vale saber qual foi.
+    via: text('via').notNull(),
+    // IP inteiro, não o prefixo /64 com que o resto do servidor conta limites:
+    // ali ele é chave de agrupamento, aqui é evidência, e evidência truncada
+    // vale menos.
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    acceptedAt: timestamp('accepted_at').notNull().defaultNow(),
+  },
+  (t) => [index('terms_acceptances_user_idx').on(t.userId)],
+)
+
 // ─── Better Auth tables ───────────────────────────────────────────────────────
 
 export const sessions = pgTable('sessions', {
@@ -382,6 +411,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   orgMembers: many(orgMembers),
   jobs: many(jobs),
+  termsAcceptances: many(termsAcceptances),
+}))
+
+export const termsAcceptancesRelations = relations(termsAcceptances, ({ one }) => ({
+  user: one(users, { fields: [termsAcceptances.userId], references: [users.id] }),
 }))
 
 export const organizationsRelations = relations(organizations, ({ many, one }) => ({

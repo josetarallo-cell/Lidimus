@@ -7,9 +7,7 @@
 // assets/css/lidimus.css: espaçamento e z-index seguem os tokens estruturais,
 // que ainda não têm equivalente no sistema novo.
 
-// A data de vigência aparece no texto e é o que o usuário declara ter lido —
-// mudou o texto, muda a data, e o aceite anterior passa a ser de outra versão.
-const VIGENCIA = '6 de agosto de 2026'
+import { VIGENCIA_TERMOS } from '~/shared/termos'
 
 const dialogo = ref<HTMLDialogElement | null>(null)
 
@@ -21,7 +19,7 @@ function fechar() {
   dialogo.value?.close()
 }
 
-defineExpose({ abrir, fechar, VIGENCIA })
+defineExpose({ abrir, fechar })
 </script>
 
 <template>
@@ -31,7 +29,7 @@ defineExpose({ abrir, fechar, VIGENCIA })
         <div>
           <p class="cond tm-marca">Lidimus</p>
           <h2 id="tm-titulo" class="tm-titulo">Termos e Condições de Uso</h2>
-          <p class="tm-vigencia">Vigentes desde {{ VIGENCIA }}</p>
+          <p class="tm-vigencia">Vigentes desde {{ VIGENCIA_TERMOS }}</p>
         </div>
         <button type="button" class="tm-fechar" aria-label="Fechar termos" @click="fechar">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">

@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { useDb } from './db'
 import { sendEmail } from './email'
+import { registrarAceiteTermos } from './registrarAceiteTermos'
 import * as schema from '@lidimus/db'
 
 let _auth: ReturnType<typeof betterAuth> | null = null
@@ -112,6 +113,20 @@ export function useAuth() {
             type: 'string',
             required: false,
             input: true,
+          },
+        },
+      },
+      databaseHooks: {
+        user: {
+          create: {
+            // O aceite é gravado na criação do usuário, e não numa chamada que
+            // o cliente faria depois: com verificação de e-mail ligada o
+            // cadastro não abre sessão, e pelo Google a conta nasce dentro do
+            // callback — em nenhum dos dois o navegador teria como voltar aqui
+            // autenticado para registrar o que já havia declarado.
+            after: async (user, context) => {
+              await registrarAceiteTermos(db, user.id, context)
+            },
           },
         },
       },

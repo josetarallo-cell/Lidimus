@@ -162,6 +162,13 @@
       "when": 1786018800000,
       "tag": "0022_cortesia_extra",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786042963628,
+      "tag": "0023_aceite_termos",
+      "breakpoints": true
     }
   ]
 }
