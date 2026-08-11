@@ -8,7 +8,7 @@ product
 
 Profissionais brasileiros que trabalham com documentos críticos e não podem errar:
 
-- **Advogados(as)** — due diligence imobiliária, pareceres de matrícula antes de negociações.
+- **Advogados(as)** — due diligence imobiliária, relatórios técnicos de matrícula antes de negociações.
 - **Engenheiros(as) e arquitetos(as)** — memoriais descritivos, georreferenciamento, correção de matrículas antigas com descrição imprecisa.
 - **Cartórios e registros de imóveis** — qualificação registral, verificação de integridade de documentos recebidos.
 
@@ -18,7 +18,7 @@ Contexto de uso: sessão de trabalho concentrada, geralmente em desktop, sob pra
 
 Lidimus é um SaaS de inteligência documental jurídica e técnica com três ferramentas:
 
-1. **Leitor de Matrículas** — upload da certidão → parecer estruturado (cadeia dominial, ônus, gravames, penhoras, indisponibilidades, alertas de risco) com indicação do registro/averbação de origem de cada apontamento.
+1. **Leitor de Matrículas** — upload da certidão → relatório técnico estruturado (cadeia dominial, ônus, gravames, penhoras, indisponibilidades, alertas de risco) com indicação do registro/averbação de origem de cada apontamento.
 2. **Memorial Descritivo** — upload de KML do Google Earth → memorial técnico-jurídico pronto para o registro de imóveis (vértices, azimutes, distâncias, confrontações).
 3. **Detector de Prompt Injection** — varredura de PDFs em busca de instruções ocultas (texto branco, fontes minúsculas, metadados).
 
@@ -36,7 +36,7 @@ Modelo de negócio: créditos por análise, planos Croqui / Essencial / Profissi
 
 ## Design Principles
 
-1. **O relatório é o produto.** O parecer, o memorial e o laudo de varredura são onde a confiança se ganha ou se perde. Essas telas merecem o maior investimento de craft — hierarquia impecável, rastreabilidade de cada conclusão até o registro/averbação de origem.
+1. **O relatório é o produto.** O relatório técnico de matrícula, o memorial e o laudo de varredura são onde a confiança se ganha ou se perde. Essas telas merecem o maior investimento de craft — hierarquia impecável, rastreabilidade de cada conclusão até o registro/averbação de origem.
 2. **Rigor visível, máquina invisível.** Mostrar de onde veio cada apontamento; nunca expor OCR, filas, workers ou estágios internos como jargão cru na interface.
 3. **Familiaridade conquistada.** Affordances padrão, vocabulário de componentes consistente, nada de reinvenção decorativa. A ferramenta desaparece na tarefa.
 4. **Desenhado para o menos técnico da sala.** Se o fluxo funciona para o escrevente do cartório, funciona para todos. Linguagem simples, estados vazios que ensinam, erros que dizem o que fazer.

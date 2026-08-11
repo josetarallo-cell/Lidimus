@@ -38,7 +38,7 @@ const SECOES = [
         <NuxtLink to="/docs/matriculas" class="doc-cartao">
           <h2>Análise de matrícula</h2>
           <p>
-            Parecer completo do imóvel: cadeia dominial, proprietários, ônus ativos, riscos
+            Relatório técnico completo do imóvel: cadeia dominial, proprietários, ônus ativos, riscos
             classificados e fundamentação legal. Uma por vez ou até dez em lote.
           </p>
           <span class="doc-cartao-meta">~3 min · 83 + 8/página · plano Essencial</span>
@@ -74,8 +74,8 @@ const SECOES = [
         <NuxtLink to="/docs/api" class="doc-cartao">
           <h2>API</h2>
           <p>
-            Integre o Lidimus ao seu sistema: envie matrículas — uma ou em lote — e receba o parecer
-            em JSON, sem passar pelo painel.
+            Integre o Lidimus ao seu sistema: envie matrículas — uma ou em lote — e receba o
+            relatório técnico em JSON, sem passar pelo painel.
           </p>
           <span class="doc-cartao-meta">Escritório e Enterprise</span>
         </NuxtLink>

@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
   if (!prontos.length) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'Nenhuma análise deste lote foi concluída — não há parecer para exportar.',
+      statusMessage: 'Nenhuma análise deste lote foi concluída — não há relatório para exportar.',
     })
   }
 

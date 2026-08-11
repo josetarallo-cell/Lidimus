@@ -1,7 +1,7 @@
 // Baixa um .docx gerado pelo servidor.
 //
 // Não é um <a href> simples porque o arquivo leva um instante para ser montado
-// (um lote monta dezenas de pareceres): sem estado de carregamento, o clique
+// (um lote monta dezenas de relatórios): sem estado de carregamento, o clique
 // não devolve sinal nenhum e o usuário clica de novo. E um <a> não tem como
 // mostrar o motivo quando o servidor recusa.
 //

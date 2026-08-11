@@ -63,8 +63,8 @@ export function nomeDoParecer(doc: Documento, jobId?: string): string {
         .replace(/^-+|-+$/g, '')
         .toLowerCase()
     : ''
-  if (slug) return `parecer-matricula-${slug}`
-  return `parecer-${(jobId ?? '').slice(0, 8) || 'matricula'}`
+  if (slug) return `relatorio-matricula-${slug}`
+  return `relatorio-${(jobId ?? '').slice(0, 8) || 'matricula'}`
 }
 
 // ── Peças de montagem ────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ function secaoTitulo(doc: Documento, meta: MetaParecer): (Paragraph | Table)[] {
   }
 
   const dados: [string, string][] = [
-    ['Documento', `Parecer de matrícula${meta.arquivoOriginal ? ` · ${meta.arquivoOriginal}` : ''}`],
+    ['Documento', `Relatório técnico de matrícula${meta.arquivoOriginal ? ` · ${meta.arquivoOriginal}` : ''}`],
     ['Certidão', rotuloCertidao(doc)],
   ]
   if (meta.emitidoEm) dados.push(['Emitido em', meta.emitidoEm])
@@ -136,7 +136,7 @@ function secaoIncompleta(doc: Documento): (Paragraph | Table)[] {
   const saida: (Paragraph | Table)[] = [
     new Paragraph({
       style: E.alerta,
-      children: [new TextRun({ text: 'Matrícula incompleta — parecer jurídico não emitido', bold: true })],
+      children: [new TextRun({ text: 'Matrícula incompleta — relatório técnico não emitido', bold: true })],
     }),
   ]
 
@@ -317,12 +317,12 @@ function secaoProprietarios(doc: Documento): (Paragraph | Table)[] {
 // Em matrícula incompleta não há veredito a dar: o lugar do parecer é ocupado
 // pela razão de não haver parecer.
 function secaoParecer(doc: Documento): (Paragraph | Table)[] {
-  const saida: (Paragraph | Table)[] = [h1('Parecer')]
+  const saida: (Paragraph | Table)[] = [h1('Conclusão técnica')]
 
   if (matriculaIncompleta(doc)) {
     saida.push(
       p(
-        'Não emitido. A certidão analisada está incompleta, e parecer sobre propriedade, ônus ou ' +
+        'Não emitida. A certidão analisada está incompleta, e concluir sobre propriedade, ônus ou ' +
           'cadeia dominial exigiria o documento inteiro. As seções seguintes trazem apenas os dados ' +
           'que constam das páginas recebidas.',
       ),
@@ -338,7 +338,7 @@ function secaoParecer(doc: Documento): (Paragraph | Table)[] {
   )
 
   const corpo = texto(doc?.parecer?.texto)
-  saida.push(corpo ? p(corpo) : p('Parecer não disponível para esta análise.', E.vazio))
+  saida.push(corpo ? p(corpo) : p('Conclusão não disponível para esta análise.', E.vazio))
   return saida
 }
 

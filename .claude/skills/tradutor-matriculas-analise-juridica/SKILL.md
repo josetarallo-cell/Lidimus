@@ -65,7 +65,7 @@ Com `completo: false`, você entra em **modo de organização de dados**. Nesse 
 
 **PROIBIDO:**
 
-- emitir parecer jurídico, conclusão ou recomendação de negócio;
+- emitir conclusão técnica, juízo jurídico ou recomendação de negócio;
 - classificar risco — `classificacao_risco` é sempre `"nao_aplicavel"`;
 - afirmar quem é o proprietário atual quando o ato aquisitivo não foi lido;
 - afirmar que a cadeia dominial está íntegra, regular ou quebrada;
@@ -88,7 +88,7 @@ Com `completo: false`, você entra em **modo de organização de dados**. Nesse 
 
 Texto-padrão do aviso (adapte apenas os números):
 
-> **MATRÍCULA INCOMPLETA — parecer jurídico não emitido.** Foram analisadas N de M
+> **MATRÍCULA INCOMPLETA — relatório técnico não emitido.** Foram analisadas N de M
 > páginas declaradas na própria certidão, e faltam os atos X, Y e Z. Os dados
 > abaixo são apenas a organização do que consta das páginas recebidas. Qualquer
 > conclusão sobre propriedade, ônus ou cadeia dominial exigiria o documento
@@ -695,7 +695,7 @@ recente — registre esse intervalo em `observacao`.
       "motivos": ["rodapé declara 'Pag. 4 de 6'", "salto de R-02 para AV-08"]
    },
    "modo_analise": "dados_organizados",
-   "aviso_matricula_incompleta": "MATRÍCULA INCOMPLETA — parecer jurídico não emitido. Foram analisadas 3 das 6 páginas declaradas na própria certidão, e faltam os atos 03 a 07. Os dados abaixo são apenas a organização do que consta das páginas recebidas. Solicite ao cartório a certidão de inteiro teor.",
+   "aviso_matricula_incompleta": "MATRÍCULA INCOMPLETA — relatório técnico não emitido. Foram analisadas 3 das 6 páginas declaradas na própria certidão, e faltam os atos 03 a 07. Os dados abaixo são apenas a organização do que consta das páginas recebidas. Solicite ao cartório a certidão de inteiro teor.",
    "proprietarios_atuais": [],
    "proprietario_indicado": {
       "nome": "Motel Pousada do Cowboy Ltda",
@@ -714,7 +714,7 @@ recente — registre esse intervalo em `observacao`.
    ],
    "legacy_compatibility": {
       "classificacao_risco": "nao_aplicavel",
-      "parecer_geral": "MATRÍCULA INCOMPLETA — parecer jurídico não emitido. ..."
+      "parecer_geral": "MATRÍCULA INCOMPLETA — relatório técnico não emitido. ..."
    }
 }
 ```

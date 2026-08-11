@@ -29,12 +29,12 @@ export default defineEventHandler(async (event) => {
 
   const documento = (job.result as Record<string, any> | null)?.documento
   if (job.status !== 'done' || !documento) {
-    // 409 e não 404: o job existe e é do usuário — só ainda não tem parecer.
+    // 409 e não 404: o job existe e é do usuário — só ainda não tem relatório.
     throw createError({
       statusCode: 409,
       statusMessage:
         job.status === 'error'
-          ? 'Esta análise falhou e não tem parecer para exportar.'
+          ? 'Esta análise falhou e não tem relatório para exportar.'
           : 'Esta análise ainda não foi concluída.',
     })
   }

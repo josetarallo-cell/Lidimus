@@ -22,7 +22,7 @@ export type Selo = { classe: string; texto: string }
 export const ETAPA_ROTULO: Record<string, string> = {
   ocr: 'Leitura do documento',
   juridico: 'Análise jurídica',
-  doc: 'Montagem do parecer',
+  doc: 'Montagem do relatório',
   croqui: 'Desenho do croqui',
 }
 
@@ -68,7 +68,7 @@ export function riscoInfo(job: JobListado): Selo | null {
 
   if (job.type === 'matricula') {
     // Matrícula incompleta não tem risco a exibir: o que a listagem precisa
-    // mostrar é que aquele laudo não traz parecer.
+    // mostrar é que aquele laudo não traz conclusão.
     if (job.result?.matricula_incompleta === true) {
       return { classe: 'ld-selo--carimbo', texto: 'Incompleta' }
     }

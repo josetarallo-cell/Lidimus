@@ -11,7 +11,7 @@ const { job } = useJobPoller(jobId)
 const STAGES = [
   { key: 'ocr', label: 'Leitura do documento' },
   { key: 'juridico', label: 'Análise jurídica' },
-  { key: 'doc', label: 'Montagem do parecer' },
+  { key: 'doc', label: 'Montagem do relatório' },
 ] as const
 
 // O que a tela de espera conta enquanto o pipeline roda. Cada frase descreve
@@ -20,7 +20,7 @@ const STAGES = [
 const TITULOS_ESPERA: Record<string, string> = {
   ocr: 'Lendo o documento',
   juridico: 'Analisando os atos',
-  doc: 'Montando o parecer',
+  doc: 'Montando o relatório',
 }
 
 const MENSAGENS_ESPERA: Record<string, string[]> = {
@@ -38,7 +38,7 @@ const MENSAGENS_ESPERA: Record<string, string[]> = {
     'Pesando o risco de cada apontamento',
   ],
   doc: [
-    'Redigindo o parecer',
+    'Redigindo o relatório',
     'Organizando as seções do laudo',
     'Conferindo datas, números e valores',
     'Batendo o carimbo final',
@@ -65,7 +65,7 @@ const processando = computed(
 // e o papel verde brigaria com a tela de espera, que já veste o sistema
 // Modernista. Entra junto com o laudo.
 useHead({
-  title: 'Parecer de matrícula — Lidimus',
+  title: 'Relatório técnico de matrícula — Lidimus',
   bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
 })
 
@@ -299,7 +299,7 @@ async function gerarCroquiDaMatricula() {
     <article v-else-if="doc" id="documento-matricula" class="prancha">
       <!-- Bloco-carimbo -->
       <BlocoCarimbo
-        analise="Parecer de matrícula"
+        analise="Relatório técnico de matrícula"
         documento-label="Documento"
         :documento="`MAT ${doc.cabecalho.numero_matricula ?? '—'}`"
         :certidao="certidaoLabel"
@@ -314,7 +314,7 @@ async function gerarCroquiDaMatricula() {
       <!-- Matrícula incompleta: vem antes de tudo. O leitor precisa saber que
            não há parecer antes de ler qualquer dado. -->
       <aside v-if="matriculaIncompleta" class="faixa-incompleta" role="alert">
-        <p class="faixa-incompleta-titulo">Matrícula incompleta — parecer jurídico não emitido</p>
+        <p class="faixa-incompleta-titulo">Matrícula incompleta — relatório técnico não emitido</p>
         <p class="faixa-incompleta-texto">{{ avisoIncompleta }}</p>
         <dl v-if="integridade" class="faixa-incompleta-dados">
           <div v-if="integridade.paginas_declaradas">
@@ -477,7 +477,7 @@ async function gerarCroquiDaMatricula() {
            ocupado pela razão de não haver parecer. -->
       <section class="secao secao--parecer" aria-labelledby="sec-parecer">
         <div class="secao-cabecalho">
-          <h2 id="sec-parecer">Parecer</h2>
+          <h2 id="sec-parecer">Conclusão técnica</h2>
           <span
             v-if="!matriculaIncompleta"
             class="ld-carimbo ld-carimbo--grande"
@@ -487,12 +487,12 @@ async function gerarCroquiDaMatricula() {
           </span>
         </div>
         <p v-if="matriculaIncompleta" class="parecer-texto">
-          Não emitido. A certidão analisada está incompleta, e parecer sobre propriedade, ônus ou
+          Não emitida. A certidão analisada está incompleta, e concluir sobre propriedade, ônus ou
           cadeia dominial exigiria o documento inteiro. As seções seguintes trazem apenas os dados
           que constam das páginas recebidas.
         </p>
         <p v-else-if="doc.parecer.texto" class="parecer-texto">{{ doc.parecer.texto }}</p>
-        <p v-else class="vazio">Parecer não disponível para esta análise.</p>
+        <p v-else class="vazio">Conclusão não disponível para esta análise.</p>
       </section>
 
       <!-- Análise jurídica: suprimida em matrícula incompleta, exceto as

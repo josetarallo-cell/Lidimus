@@ -30,7 +30,7 @@ const resumo = computed(() => {
   return `${total.value - comFalha.value} de ${total.value} concluídas · ${comFalha.value} com falha`
 })
 
-// Um arquivo só com todos os pareceres do envio: capa, índice e um parecer por
+// Um arquivo só com todos os relatórios do envio: capa, índice e um relatório por
 // página. Quem abre um lote de dez matrículas quer o dossiê, não dez downloads.
 const { gerando: gerandoDocx, erro: erroDocx, exportar } = useExportarDocx('lote-matriculas.docx')
 const exportarDocx = () => exportar(`/api/matriculas/lote/${loteId.value}/docx`)
@@ -65,7 +65,7 @@ onMounted(() => {
       <p v-if="total">
         {{ resumo }}<template v-if="enviadoEm"> · enviado em {{ enviadoEm }}</template>.
         <template v-if="!terminou">
-          Cada análise percorre leitura, parecer jurídico e montagem — pode levar alguns minutos.
+          Cada análise percorre leitura, análise técnica e montagem — pode levar alguns minutos.
           Esta página se atualiza sozinha.
         </template>
       </p>

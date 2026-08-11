@@ -45,7 +45,7 @@ async function onSubmit(file: File) {
 
 async function onSubmitLote(arquivos: File[]) {
   // Um arquivo só não é lote: mandar pela rota unitária mantém o destino de
-  // sempre (a tela de espera daquele parecer) em vez de uma página de lote de um.
+  // sempre (a tela de espera daquele relatório) em vez de uma página de lote de um.
   if (arquivos.length === 1) return onSubmit(arquivos[0])
 
   uploading.value = true
@@ -104,12 +104,13 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
     <header class="pagina-cabecalho">
       <h1>Analisar matrícula</h1>
       <p v-if="viaCortesia">
-        Envie a certidão de matrícula em PDF e receba o parecer estruturado: cadeia dominial, ônus,
-        gravames e alertas de risco.
+        Envie a certidão de matrícula em PDF e receba o relatório técnico estruturado: cadeia
+        dominial, ônus, gravames e alertas de risco.
       </p>
       <p v-else>
         Envie a certidão de matrícula em PDF — uma ou até {{ MAX_ARQUIVOS }} de uma vez — e receba o
-        parecer estruturado de cada uma: cadeia dominial, ônus, gravames e alertas de risco.
+        relatório técnico estruturado de cada uma: cadeia dominial, ônus, gravames e alertas de
+        risco.
       </p>
     </header>
 
@@ -117,7 +118,7 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
       <p class="bloqueio-rotulo">Não incluída no seu plano</p>
       <h2 class="bloqueio-titulo">A análise de matrícula começa no Essencial</h2>
       <p class="bloqueio-texto">
-        O plano Croqui cobre croqui, memorial descritivo e Detector. Para o parecer jurídico —
+        O plano Croqui cobre croqui, memorial descritivo e Detector. Para o relatório técnico —
         cadeia dominial, ônus, gravames e alertas de risco — assine o Essencial, com 5 matrículas
         por mês, ou compre uma análise avulsa quando precisar de uma só.
       </p>

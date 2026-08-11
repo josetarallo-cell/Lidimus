@@ -23,7 +23,7 @@ const ferramentas = [
   {
     nome: 'Leitor de Matrículas',
     texto:
-      'Envie a certidão e receba um parecer estruturado: cadeia dominial, ônus, gravames e alertas de risco — cada apontamento com o registro ou averbação de origem.',
+      'Envie a certidão e receba um relatório técnico estruturado: cadeia dominial, ônus, gravames e alertas de risco — cada apontamento com o registro ou averbação de origem.',
   },
   {
     nome: 'Croqui do terreno',

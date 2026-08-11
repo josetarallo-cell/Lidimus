@@ -12,7 +12,7 @@ import fotoInjection from '~/assets/imagens/promptInjection.jpg'
 const url = useRequestURL()
 const SITE_TITLE = 'Lidimus — Inteligência documental jurídica e técnica'
 const SITE_DESC =
-  'Pareceres de matrícula imobiliária, memoriais descritivos a partir de KML e detecção de ' +
+  'Relatórios técnicos de matrícula imobiliária, memoriais descritivos a partir de KML e detecção de ' +
   'manipulação em PDFs — para advogados, engenheiros, arquitetos e cartórios. A primeira análise de ' +
   'matrícula é grátis, mais 150 créditos para as demais ferramentas.'
 
@@ -447,7 +447,7 @@ onBeforeUnmount(() => {
             </h1>
             <p data-reveal data-reveal-delay="120" class="lp-hero-sub">
               O Lidimus reúne três ferramentas de IA para quem trabalha com documentos críticos.
-              Pareceres de matrículas, memoriais descritivos e verificação de integridade — em
+              Relatórios técnicos de matrículas, memoriais descritivos e verificação de integridade — em
               minutos, não em dias.
             </p>
             <div data-reveal data-reveal-delay="180" class="lp-hero-acoes">
@@ -526,7 +526,7 @@ onBeforeUnmount(() => {
         <div class="lp-ferramenta-inner">
           <div data-reveal class="lp-ferramenta-texto lp-ferramenta-texto--divisa">
             <p class="cond lp-ferramenta-nome"><span class="lp-ferramenta-num">01</span> Leitor de Matrículas</p>
-            <h3 class="lp-ferramenta-titulo">Parecer jurídico de matrículas imobiliárias em minutos.</h3>
+            <h3 class="lp-ferramenta-titulo">Relatório técnico de matrículas imobiliárias em minutos.</h3>
             <p class="lp-ferramenta-desc">
               Envie a certidão de matrícula e receba um relatório estruturado: cadeia dominial,
               situação jurídica e todos os apontamentos que comprometem uma negociação — com
@@ -561,9 +561,9 @@ onBeforeUnmount(() => {
                   <span class="lp-barra-fake" style="width: 78%" />
                 </div>
 
-                <div class="lp-relatorio-parecer">
-                  <p class="cond lp-relatorio-secao-nome">Parecer jurídico</p>
-                  <p class="lp-relatorio-parecer-texto">
+                <div class="lp-relatorio-conclusao">
+                  <p class="cond lp-relatorio-secao-nome">Conclusão técnica</p>
+                  <p class="lp-relatorio-conclusao-texto">
                     Cadeia dominial regular, sem ônus ativos. Nenhum apontamento impede a lavratura
                     da escritura.
                   </p>
@@ -982,9 +982,9 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <p class="cond lp-rodape-col-titulo">Legal</p>
-            <a href="#" class="lp-rodape-link">Privacidade</a>
-            <a href="#" class="lp-rodape-link">Termos</a>
-            <a href="#" class="lp-rodape-link">LGPD</a>
+            <NuxtLink to="/privacidade" class="lp-rodape-link">Privacidade</NuxtLink>
+            <NuxtLink to="/termos" class="lp-rodape-link">Termos</NuxtLink>
+            <NuxtLink to="/privacidade#direitos" class="lp-rodape-link">LGPD</NuxtLink>
           </div>
         </div>
         <div class="lp-rodape-base">
@@ -1622,12 +1622,12 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
-.lp-relatorio-parecer {
+.lp-relatorio-conclusao {
   border: 1px solid var(--color-text);
   background: var(--color-bg);
   padding: 10px 12px;
 }
-.lp-relatorio-parecer-texto {
+.lp-relatorio-conclusao-texto {
   margin: 0;
   font-size: 0.76rem;
   line-height: 1.45;

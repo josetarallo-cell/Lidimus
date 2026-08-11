@@ -8,7 +8,7 @@ const pagina = ref(1)
 
 // Abas por origem — cada aba é um tipo de job, com sua própria paginação
 const abas = [
-  { tipo: 'matricula', label: 'Matrículas', novoTo: '/matriculas', vazioTexto: 'Envie uma certidão de matrícula para gerar seu primeiro parecer.' },
+  { tipo: 'matricula', label: 'Matrículas', novoTo: '/matriculas', vazioTexto: 'Envie uma certidão de matrícula para gerar seu primeiro relatório técnico.' },
   { tipo: 'croqui', label: 'Croqui', novoTo: '/croqui', vazioTexto: 'Envie um arquivo para gerar seu primeiro croqui do terreno.' },
   { tipo: 'kml', label: 'Memorial', novoTo: '/kml', vazioTexto: 'Envie um KML para gerar seu primeiro memorial descritivo.' },
   { tipo: 'injection', label: 'Detector', novoTo: '/injection', vazioTexto: 'Envie um PDF para verificar conteúdo oculto.' },

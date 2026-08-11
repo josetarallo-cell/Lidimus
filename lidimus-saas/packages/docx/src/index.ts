@@ -87,7 +87,7 @@ export async function pareceMatriculaDocx(
   const documento = documentoBase([
     {
       children: corpoDoParecer(doc, meta),
-      headers: { default: cabecalhoCorrido(`Parecer de matrícula${numero ? ` · MAT ${numero}` : ''}`) },
+      headers: { default: cabecalhoCorrido(`Relatório técnico de matrícula${numero ? ` · MAT ${numero}` : ''}`) },
     },
   ])
   return Packer.toBuffer(documento)
@@ -117,7 +117,7 @@ export async function loteMatriculasDocx(itens: ItemDoLote[], meta: MetaLote): P
   const prontos = itens.filter((i) => i.status === 'done' && i.documento)
 
   const capa: (Paragraph | Table)[] = [
-    new Paragraph({ style: E.capaTitulo, children: [new TextRun('Pareceres de matrícula')] }),
+    new Paragraph({ style: E.capaTitulo, children: [new TextRun('Relatórios técnicos de matrícula')] }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       style: E.subtitulo,
@@ -140,7 +140,7 @@ export async function loteMatriculasDocx(itens: ItemDoLote[], meta: MetaLote): P
     capa.push(
       new Paragraph({
         style: E.vazio,
-        children: [new TextRun('Nenhuma análise deste lote foi concluída — não há parecer a exportar.')],
+        children: [new TextRun('Nenhuma análise deste lote foi concluída — não há relatório a exportar.')],
       }),
     )
   }
@@ -157,7 +157,7 @@ export async function loteMatriculasDocx(itens: ItemDoLote[], meta: MetaLote): P
         arquivoOriginal: item.arquivoOriginal,
       }),
       headers: {
-        default: cabecalhoCorrido(`Parecer de matrícula${numero ? ` · MAT ${numero}` : ''}`),
+        default: cabecalhoCorrido(`Relatório técnico de matrícula${numero ? ` · MAT ${numero}` : ''}`),
       },
     })
   }
@@ -172,9 +172,9 @@ function indiceDoLote(itens: ItemDoLote[]): (Paragraph | Table)[] {
     let situacao: string
     if (item.status === 'error') situacao = 'Não concluída — falhou'
     else if (item.status !== 'done') situacao = 'Não concluída — em processamento'
-    else if (!doc) situacao = 'Não concluída — sem parecer'
+    else if (!doc) situacao = 'Não concluída — sem relatório'
     // Regras 1 e 7: incompleta não tem risco; risco sai sempre em português
-    else if (matriculaIncompleta(doc)) situacao = 'Matrícula incompleta — parecer não emitido'
+    else if (matriculaIncompleta(doc)) situacao = 'Matrícula incompleta — relatório não emitido'
     else situacao = riscoLabel(doc.cabecalho?.classificacao_risco)
 
     return [item.arquivoOriginal || '—', numero ? String(numero) : '—', situacao]

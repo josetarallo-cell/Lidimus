@@ -117,7 +117,7 @@ async function revogar(id: string, nomeChave: string) {
         <p class="bloco-texto">
           Uma chave permite que outro sistema — o ERP do escritório, um portal, um script — envie
           matrículas para análise sem passar por esta tela. Como enviar, como acompanhar e o
-          formato exato do parecer que volta estão na
+          formato exato do relatório que volta estão na
           <NuxtLink to="/docs/api" class="link-forte">documentação da API</NuxtLink>; ela é pública,
           então dá para mandar o link direto para quem vai fazer a integração.
         </p>

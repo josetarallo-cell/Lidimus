@@ -93,7 +93,7 @@ describe.skipIf(!disponivel)('pareceres reais do banco', () => {
       for (const rotulo of Object.values(LABEL_POR_NIVEL)) {
         if (texto.includes(rotulo)) vazamentos.push(`${caso.id}: estampou "${rotulo}"`)
       }
-      if (!texto.includes('parecer jurídico não emitido')) {
+      if (!texto.includes('relatório técnico não emitido')) {
         vazamentos.push(`${caso.id}: sem o aviso de incompleta`)
       }
       if (texto.includes('Nenhum ônus ativo identificado')) {

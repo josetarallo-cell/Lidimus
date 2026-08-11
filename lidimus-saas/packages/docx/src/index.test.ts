@@ -69,7 +69,7 @@ describe('pareceMatriculaDocx — matrícula completa', () => {
     for (const secao of [
       'Imóvel',
       'Proprietários atuais',
-      'Parecer',
+      'Conclusão técnica',
       'Análise jurídica',
       'Histórico de atos',
       'Ônus e gravames ativos',
@@ -113,7 +113,7 @@ describe('pareceMatriculaDocx — matrícula completa', () => {
   })
 
   it('não traz as ressalvas que só valem para documento incompleto', () => {
-    expect(texto).not.toContain('parecer jurídico não emitido')
+    expect(texto).not.toContain('relatório técnico não emitido')
     expect(texto).not.toContain('Lista não exaustiva')
     expect(texto).not.toContain('não confirmam a titularidade do domínio')
   })
@@ -133,11 +133,11 @@ describe('pareceMatriculaDocx — matrícula incompleta (regras 1, 2, 3, 5, 6)',
     texto = await textoDoDocx(await pareceMatriculaDocx(documentoIncompleto))
   })
 
-  it('avisa que o parecer não foi emitido, antes de qualquer dado (regra 1)', () => {
-    expect(texto).toContain('Matrícula incompleta — parecer jurídico não emitido')
+  it('avisa que o relatório não foi emitido, antes de qualquer dado (regra 1)', () => {
+    expect(texto).toContain('Matrícula incompleta — relatório técnico não emitido')
     expect(texto).toContain('3 das 8 páginas declaradas')
     expect(texto).toContain('certidão de inteiro teor')
-    expect(texto).toContain('Não emitido.')
+    expect(texto).toContain('Não emitida.')
   })
 
   it('NÃO estampa classificação de risco (regra 1)', () => {
@@ -147,7 +147,7 @@ describe('pareceMatriculaDocx — matrícula incompleta (regras 1, 2, 3, 5, 6)',
     expect(texto).not.toContain('medio')
   })
 
-  it('suprime parecer, resumo, riscos, cadeia e fundamentação (regra 1)', () => {
+  it('suprime conclusão, resumo, riscos, cadeia e fundamentação (regra 1)', () => {
     expect(texto).not.toContain('Não deveria aparecer no documento.')
     expect(texto).not.toContain('Resumo que não deve sair')
     expect(texto).not.toContain('Risco que não deve sair')
@@ -223,15 +223,15 @@ describe('valorDoAto (regra 4)', () => {
 
 describe('nome do arquivo', () => {
   it('usa o número da matrícula', () => {
-    expect(nomeDoParecer(documentoCompleto)).toBe('parecer-matricula-12.345')
-    expect(nomeDoArquivoParecer(documentoCompleto)).toBe('parecer-matricula-12.345.docx')
+    expect(nomeDoParecer(documentoCompleto)).toBe('relatorio-matricula-12.345')
+    expect(nomeDoArquivoParecer(documentoCompleto)).toBe('relatorio-matricula-12.345.docx')
   })
   it('cai para o id do job quando não há número', () => {
-    expect(nomeDoParecer({}, 'abcdef01-2345-6789')).toBe('parecer-abcdef01')
+    expect(nomeDoParecer({}, 'abcdef01-2345-6789')).toBe('relatorio-abcdef01')
   })
   it('não deixa acento nem barra escaparem para o nome do arquivo', () => {
     const nome = nomeDoParecer({ cabecalho: { numero_matricula: 'Matrícula 1/2 nº 9' } })
-    expect(nome).toBe('parecer-matricula-matricula-1-2-n-9')
+    expect(nome).toBe('relatorio-matricula-matricula-1-2-n-9')
     expect(nome).not.toMatch(/[^\w.-]/)
   })
   it('data o arquivo do lote', () => {
@@ -259,20 +259,20 @@ describe('loteMatriculasDocx', () => {
     { id: 'c3', status: 'error', arquivoOriginal: 'ilegivel.pdf', documento: null },
   ]
 
-  it('traz capa, índice e um parecer por análise concluída', async () => {
+  it('traz capa, índice e um relatório por análise concluída', async () => {
     const texto = await textoDoDocx(
       await loteMatriculasDocx(itens, { loteId: 'lote-1', enviadoEm: '03/08/2026 08:00' }),
     )
-    expect(texto).toContain('Pareceres de matrícula')
+    expect(texto).toContain('Relatórios técnicos de matrícula')
     expect(texto).toContain('2 de 3 análise(s) concluída(s)')
     expect(texto).toContain('mat-12345.pdf')
     expect(texto).toContain('Risco alto')
     // Regra 1 também no índice: incompleta não recebe risco
-    expect(texto).toContain('Matrícula incompleta — parecer não emitido')
+    expect(texto).toContain('Matrícula incompleta — relatório não emitido')
     // A que falhou não some do índice — sumir faria o lote parecer completo
     expect(texto).toContain('ilegivel.pdf')
     expect(texto).toContain('Não concluída — falhou')
-    // E os dois pareceres saem por inteiro
+    // E os dois relatórios saem por inteiro
     expect(texto).toContain('Matrícula 12.345')
     expect(texto).toContain('Matrícula 98.765')
   })

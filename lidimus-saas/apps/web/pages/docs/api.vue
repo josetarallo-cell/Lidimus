@@ -19,7 +19,7 @@ useHead({
     {
       name: 'description',
       content:
-        'Envie matrículas para análise — uma ou até dez em lote — e receba o parecer estruturado ' +
+        'Envie matrículas para análise — uma ou até dez em lote — e receba o relatório técnico estruturado ' +
         'em JSON. Autenticação, endpoints, formato do resultado e códigos de erro da API v1 do Lidimus.',
     },
     // Documentação de integração não deve competir com a landing na busca.
@@ -60,7 +60,7 @@ async function copiar(e: MouseEvent, chave: string) {
 <template>
   <DocsPagina titulo="API do Lidimus" selo="API v1" :secoes="SECOES">
         <p class="doc-lide">
-          Envie uma matrícula em PDF e receba de volta o parecer completo em JSON: proprietários,
+          Envie uma matrícula em PDF e receba de volta o relatório técnico completo em JSON: proprietários,
           ônus, histórico de atos, riscos classificados e fundamentação legal — a mesma análise que
           o painel mostra, em formato que o seu sistema consegue ler.
         </p>
@@ -70,7 +70,7 @@ async function copiar(e: MouseEvent, chave: string) {
           <h2>Como funciona</h2>
           <p>
             A análise de uma matrícula leva alguns minutos: o documento passa por leitura óptica,
-            análise jurídica e montagem do parecer. Por isso a API é <strong>assíncrona</strong> —
+            análise jurídica e montagem do relatório. Por isso a API é <strong>assíncrona</strong> —
             ela não segura a sua conexão esperando ficar pronto.
           </p>
 
@@ -81,7 +81,7 @@ async function copiar(e: MouseEvent, chave: string) {
             </div>
             <div class="doc-passo">
               <span class="doc-passo-num">2</span>
-              <p><strong>Nós processamos.</strong> Leitura, análise jurídica e parecer.</p>
+              <p><strong>Nós processamos.</strong> Leitura, análise jurídica e relatório.</p>
             </div>
             <div class="doc-passo">
               <span class="doc-passo-num">3</span>
@@ -363,7 +363,7 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td>
                   Em andamento. O campo <code>etapa</code> mostra onde:
                   <code>ocr</code> (leitura), <code>juridico</code> (análise) ou
-                  <code>doc</code> (montagem do parecer).
+                  <code>doc</code> (montagem do relatório).
                 </td>
               </tr>
               <tr>
@@ -426,12 +426,12 @@ async function copiar(e: MouseEvent, chave: string) {
           <p>
             No campo <code>resultado</code> da consulta do item 3, e só quando
             <code>status</code> for <code>done</code>. Antes disso ele é <code>null</code>. Não há
-            outro lugar, outro endpoint ou outro download: o parecer inteiro está nessa resposta.
+            outro lugar, outro endpoint ou outro download: o relatório inteiro está nessa resposta.
           </p>
 
           <h3>O mapa da estrutura</h3>
           <p>
-            Por fora, um resumo de leitura rápida. Por dentro de <code>documento</code>, o parecer
+            Por fora, um resumo de leitura rápida. Por dentro de <code>documento</code>, o relatório
             completo:
           </p>
 
@@ -455,7 +455,7 @@ async function copiar(e: MouseEvent, chave: string) {
     ├── onus              ônus ATIVOS (o que ainda pesa sobre o imóvel)
     ├── historico_atos    todos os atos, inclusive os já cancelados
     ├── analise_juridica  riscos, conclusão, fundamentação legal
-    ├── parecer           texto corrido do parecer
+    ├── parecer           texto corrido da conclusão técnica
     ├── croqui            desenho do perímetro (quando solicitado)
     └── metadados         páginas lidas, avisos de validação</code></pre>
           </div>
@@ -463,7 +463,7 @@ async function copiar(e: MouseEvent, chave: string) {
           <h3>Resumo de leitura rápida</h3>
           <p>
             Os campos do primeiro nível respondem “devo me preocupar com este imóvel?” sem entrar no
-            parecer.
+            relatório.
           </p>
 
           <table class="tabela">
@@ -481,7 +481,7 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td>
                   <code>atualizada</code>, <code>desatualizada</code> ou
                   <code>nao_identificada</code>. Certidão de registro de imóveis tem validade curta
-                  — vale checar antes de usar o parecer em uma transação.
+                  — vale checar antes de usar o relatório em uma transação.
                 </td>
               </tr>
               <tr>
@@ -499,7 +499,7 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td>
                   <code>true</code> quando o documento enviado tem menos páginas do que a própria
                   certidão declara no rodapé, quando há salto na numeração dos atos, ou quando um
-                  ato é citado sem estar transcrito. Nesse caso não há parecer.
+                  ato é citado sem estar transcrito. Nesse caso não há conclusão técnica.
                 </td>
               </tr>
               <tr>
@@ -534,7 +534,7 @@ async function copiar(e: MouseEvent, chave: string) {
           <div class="nota">
             <p>
               <strong>Ramifique em <code>matricula_incompleta</code> antes de ler o risco.</strong>
-              Uma certidão que chegou pela metade não sustenta parecer: não dá para afirmar quem é o
+              Uma certidão que chegou pela metade não sustenta conclusão: não dá para afirmar quem é o
               dono sem ter lido o título aquisitivo, nem dizer que o imóvel está livre quando os
               gravames podem estar nas páginas ausentes. Nesse caso a API devolve os dados
               organizados — imóvel, atos legíveis, ônus visíveis — e nada de conclusão. A correção
@@ -668,7 +668,7 @@ async function copiar(e: MouseEvent, chave: string) {
 
           <h3>documento.analise_juridica</h3>
           <p>
-            O parecer propriamente dito. Fica em <code>analise_juridica.completa</code>, e os campos
+            O relatório técnico propriamente dito. Fica em <code>analise_juridica.completa</code>, e os campos
             abaixo são os que mais interessam a uma integração.
           </p>
 
@@ -692,7 +692,7 @@ async function copiar(e: MouseEvent, chave: string) {
 
           <h4><code>completa.resumo_executivo</code></h4>
           <p>
-            Três campos: <code>conclusao</code> (o parecer em um parágrafo),
+            Três campos: <code>conclusao</code> (a conclusão técnica em um parágrafo),
             <code>recomendacao</code> (o que fazer antes de transacionar) e
             <code>classificacao_risco</code>.
           </p>
@@ -746,7 +746,7 @@ async function copiar(e: MouseEvent, chave: string) {
               Espalhados pelo retorno há campos como <code>parecer.html</code>,
               <code>riscos_html</code> e <code>proprietarios.html</code>. Eles são
               <strong>o HTML pronto que o nosso painel usa para desenhar a tela</strong>, com estilos
-              embutidos. Servem se você quiser embutir o parecer rapidamente em uma página.
+              embutidos. Servem se você quiser embutir o relatório rapidamente em uma página.
             </p>
             <p>
               <strong>Não construa a sua integração em cima deles.</strong> São apresentação: a
@@ -818,7 +818,7 @@ async function copiar(e: MouseEvent, chave: string) {
             <code>lote</code>.
           </p>
           <p>
-            A listagem <strong>não traz o campo <code>resultado</code></strong> — o parecer completo
+            A listagem <strong>não traz o campo <code>resultado</code></strong> — o relatório completo
             de vinte matrículas seria uma resposta enorme. Para o conteúdo, peça a análise pelo id.
           </p>
 
@@ -962,7 +962,7 @@ async function copiar(e: MouseEvent, chave: string) {
         <!-- ── Exemplo ─────────────────────────────────────────────────── -->
         <section id="exemplo">
           <h2>9. Exemplo pronto</h2>
-          <p>Envia, espera ficar pronto e imprime o parecer. Precisa de <code>curl</code> e <code>jq</code>.</p>
+          <p>Envia, espera ficar pronto e imprime o relatório. Precisa de <code>curl</code> e <code>jq</code>.</p>
 
           <div class="bloco">
             <button type="button" class="copiar" @click="copiar($event, 'script')">
@@ -1027,7 +1027,7 @@ while :; do
   echo "$FALTAM ainda processando…"; sleep 20
 done
 
-# A listagem não traz o parecer — busque cada um pelo id
+# A listagem não traz o relatório — busque cada um pelo id
 jq -r '.itens[] | select(.status=="done") | .id' <<<"$R" | while read -r ID; do
   curl -sf "$BASE/api/v1/matriculas/$ID" -H "$CHAVE" \
     | jq -r '"\(.arquivo): matrícula \(.resultado.numero_matricula) — risco \(.resultado.classificacao_risco)"'

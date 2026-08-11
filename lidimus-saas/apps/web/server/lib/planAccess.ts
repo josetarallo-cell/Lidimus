@@ -155,7 +155,7 @@ export async function exigirDocx(db: Db, orgId: string): Promise<void> {
     statusCode: 403,
     statusMessage:
       'A exportação em Word está disponível a partir do plano Profissional. ' +
-      'O parecer continua acessível na tela e em PDF.',
+      'O relatório continua acessível na tela e em PDF.',
   })
 }
 

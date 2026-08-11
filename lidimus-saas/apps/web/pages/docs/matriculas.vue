@@ -7,7 +7,7 @@ useHead({
     {
       name: 'description',
       content:
-        'Parecer completo de matrícula imobiliária em cerca de três minutos: cadeia dominial, ' +
+        'Relatório técnico completo de matrícula imobiliária em cerca de três minutos: cadeia dominial, ' +
         'proprietários, ônus ativos, riscos classificados e fundamentação legal.',
     },
     { name: 'robots', content: 'noindex, follow' },
@@ -28,7 +28,7 @@ const SECOES = [
 <template>
   <DocsPagina titulo="Análise de matrícula" selo="Ferramenta" :secoes="SECOES">
     <p class="doc-lide">
-      Você envia o PDF da matrícula. Volta um parecer estruturado: quem é o dono, o que pesa sobre o
+      Você envia o PDF da matrícula. Volta um relatório técnico estruturado: quem é o dono, o que pesa sobre o
       imóvel, o que já aconteceu com ele, quais riscos existem e em que dispositivo legal cada
       conclusão se apoia.
     </p>
@@ -117,7 +117,7 @@ const SECOES = [
         </div>
         <div class="doc-passo">
           <span class="doc-passo-num">4</span>
-          <p><strong>Parecer.</strong> Conclusão, recomendação e a base legal de cada ponto.</p>
+          <p><strong>Relatório técnico.</strong> Conclusão, recomendação e a base legal de cada ponto.</p>
         </div>
       </div>
 
@@ -141,7 +141,7 @@ const SECOES = [
         </li>
         <li>
           <strong>Fundamentação legal</strong> — o dispositivo em que cada conclusão se apoia, para
-          o parecer poder ser conferido em vez de aceito.
+          o relatório poder ser conferido em vez de aceito.
         </li>
         <li>
           <strong>Situação da certidão</strong> — se o documento enviado está atualizado, e há
@@ -155,7 +155,7 @@ const SECOES = [
       <h2>Quanto tempo leva</h2>
       <p>
         Medido nas análises de matrícula já processadas em produção, ponta a ponta — do envio do PDF
-        até o parecer pronto:
+        até o relatório pronto:
       </p>
 
       <div class="doc-metricas">
@@ -207,7 +207,7 @@ const SECOES = [
       <h3>Pelo painel</h3>
       <p>
         Em <a href="/matriculas">Ferramentas → Matrículas</a>, envie o PDF. O acompanhamento é ao
-        vivo e o resultado abre na tela, com o parecer em texto e a opção de baixar em DOCX.
+        vivo e o resultado abre na tela, com o relatório em texto e a opção de baixar em DOCX.
       </p>
 
       <h3>Em lote — até 10 de uma vez</h3>
@@ -267,8 +267,8 @@ const SECOES = [
     <section id="o-que-recebe">
       <h2>O que você recebe</h2>
       <p>
-        No painel, o parecer montado em tela e o DOCX. Pela API, o mesmo conteúdo em JSON. Por fora,
-        um resumo de leitura rápida; por dentro de <code>documento</code>, o parecer completo:
+        No painel, o relatório montado em tela e o DOCX. Pela API, o mesmo conteúdo em JSON. Por fora,
+        um resumo de leitura rápida; por dentro de <code>documento</code>, o relatório completo:
       </p>
 
       <div class="bloco">
@@ -305,7 +305,7 @@ const SECOES = [
 
       <div class="aviso">
         <p>
-          <strong>Matrícula incompleta não recebe parecer.</strong> Quando o documento enviado tem
+          <strong>Matrícula incompleta não recebe relatório técnico.</strong> Quando o documento enviado tem
           menos páginas do que a certidão declara no rodapé, quando a numeração dos atos salta
           (R-02 direto para AV-08) ou quando um ato aparece citado sem estar transcrito, a análise
           devolve <code>matricula_incompleta: true</code> e organiza apenas os dados que constam das
@@ -358,7 +358,7 @@ const SECOES = [
       <ul class="lista">
         <li>
           <strong>A análise vale o documento que recebeu.</strong> Se você enviar uma ficha
-          incompleta ou uma imagem sem fé pública, o parecer aponta isso e limita as conclusões —
+          incompleta ou uma imagem sem fé pública, o relatório aponta isso e limita as conclusões —
           mas não inventa o que não está no papel.
         </li>
         <li>

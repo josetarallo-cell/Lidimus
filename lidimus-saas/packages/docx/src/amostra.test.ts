@@ -12,14 +12,14 @@ describe.skipIf(!destino)('amostras para inspeção', () => {
   it('grava os três arquivos', async () => {
     mkdirSync(destino!, { recursive: true })
     writeFileSync(
-      `${destino}/amostra-parecer-completo.docx`,
+      `${destino}/amostra-relatorio-completo.docx`,
       await pareceMatriculaDocx(documentoCompleto, {
         emitidoEm: '21/03/2024 15:04',
         arquivoOriginal: 'matricula-12345.pdf',
       }),
     )
     writeFileSync(
-      `${destino}/amostra-parecer-incompleto.docx`,
+      `${destino}/amostra-relatorio-incompleto.docx`,
       await pareceMatriculaDocx(documentoIncompleto, {
         emitidoEm: '02/08/2026 09:00',
         arquivoOriginal: 'matricula-98765.pdf',
