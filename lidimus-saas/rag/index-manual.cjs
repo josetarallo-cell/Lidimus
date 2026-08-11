@@ -8,9 +8,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+// Coleção alvo: a de produção por padrão, sobrescrevível por QDRANT_COLLECTION.
+// Reindexar a padrão exige --confirmar-producao — ver rag/guarda-producao.cjs.
+const { alvoQdrant, exigirConfirmacaoQdrant } = require('./guarda-producao.cjs');
+
 const RAG_DIR = __dirname;
 const SKILL_DIR = path.join(RAG_DIR, '..', '..', '.claude', 'skills', 'manual-pratico-registro-imoveis');
-const COLLECTION = 'manual_registro_imoveis';
+const COLLECTION = alvoQdrant();
 const VECTOR_SIZE = 1024;
 const EMBED_MODEL = 'mistral-embed';
 const EMBED_BATCH = 32;
@@ -219,6 +223,9 @@ async function main() {
     }
     return;
   }
+
+  // --dry-run já retornou acima; daqui para baixo tudo é escrita.
+  exigirConfirmacaoQdrant('reindexação completa do Manual', COLLECTION);
 
   const env = loadEnv();
   const qdrant = (p, opt = {}) => reqJson(`${env.QDRANT_URL}${p}`, {

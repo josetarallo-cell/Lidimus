@@ -4,7 +4,9 @@ Firewall, SSL, segredos e rotina de atualização para o Lidimus em produção.
 
 ## Superfície exposta
 
-Em `docker-compose.prod.yml`, **só a porta 3000 (`web`) é publicada**. Postgres e Redis não têm portas mapeadas para o host — só são acessíveis pela rede interna do Docker Compose. Isso já reduz bastante a superfície de ataque; o principal cuidado extra é:
+**Hoje** (produção rodando com `docker-compose.yml` nesta máquina): quem chega da internet chega pelo túnel Cloudflare, que entrega direto no container `web` — não há porta aberta no roteador, e o TLS termina na borda da Cloudflare. As portas 5432, 6379 e 3000 estão publicadas no host, mas só no `localhost` da máquina. O sandbox acrescenta 5433, 6380 e 3100, igualmente locais e sem túnel.
+
+**No desenho de VPS** (`docker-compose.prod.yml`), **só a porta 3000 (`web`) é publicada**. Postgres e Redis não têm portas mapeadas para o host — só são acessíveis pela rede interna do Docker Compose. Isso já reduz bastante a superfície de ataque; o principal cuidado extra é:
 
 - Colocar um reverse proxy (nginx / Caddy / Traefik) na frente da porta 3000, terminando TLS ali, e não expor a 3000 diretamente à internet.
 - Confirmar que o firewall da VPS bloqueia todas as portas exceto 80/443 (proxy) e a porta de SSH.
@@ -43,9 +45,15 @@ Não abra 5432, 6379 ou 3000 diretamente — tudo deve passar pelo proxy reverso
 
 Regras:
 
-- `.env` e `.env.prod` **nunca** são commitados (confira com `git status` antes de qualquer commit amplo — um `git add -A` acidental é o risco mais comum aqui).
-- Nunca reutilize o mesmo `BETTER_AUTH_SECRET` ou `N8N_CALLBACK_SECRET` entre ambiente local e produção.
+- `.env`, `.env.prod` e `.env.sandbox` **nunca** são commitados (confira com `git status` antes de qualquer commit amplo — um `git add -A` acidental é o risco mais comum aqui). Os `.env*.example` são os únicos versionados.
+- Nunca reutilize o mesmo `BETTER_AUTH_SECRET` ou `N8N_CALLBACK_SECRET` entre sandbox e produção. Não é higiene abstrata: com segredos distintos, sessão de produção não vale no sandbox, e um callback do n8n que aterrisse no ambiente errado é rejeitado com 401 em vez de escrever no job errado.
 - Segredos "change-me..." do `.env.example` **têm que** ser substituídos antes de qualquer deploy real — não é só recomendação, o `N8N_CALLBACK_SECRET` default tornaria o endpoint de callback previsível.
+
+### O que o `.env.sandbox` deixa vazio de propósito
+
+`RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `SENTRY_DSN`. São exatamente as chaves cujo código degrada de forma limpa quando faltam — e-mail vai para o console, billing devolve 503, o botão do Google some, o Sentry fica inativo. Preenchê-las "só para testar" devolve ao sandbox o poder de agir no mundo real; se precisar testar cobrança, use chaves de teste **próprias** e `stripe listen --forward-to localhost:3100/api/webhooks/stripe`.
+
+Duas coisas o sandbox compartilha com produção por decisão, não por descuido: a **service account do GCS** (o isolamento é por bucket — `lidimus-sandbox-files`) e o **n8n**, com suas credenciais de Document AI, Anthropic, Mistral e OpenAI. Ver [15-sandbox.md](15-sandbox.md).
 
 ## Como a autenticação funciona
 

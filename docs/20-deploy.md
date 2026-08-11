@@ -2,15 +2,22 @@
 
 Passo a passo para colocar (ou atualizar) o Lidimus em produção usando `docker-compose.prod.yml`.
 
-Diferenças em relação ao ambiente local:
+> **Estado atual: este caminho não está em uso.** A produção roda hoje na máquina de desenvolvimento, com o `docker-compose.yml` (que inclui o serviço `cloudflared` publicando o `web` em `https://lidimus.gvlar.com`). O `docker-compose.prod.yml` está escrito e pronto — PgBouncer, Redis com senha, réplicas, sem portas expostas —, mas nunca foi ativado. Leia este documento como "o plano para migrar para VPS", não como descrição do que está no ar.
 
-| | Local (`docker-compose.yml`) | Produção (`docker-compose.prod.yml`) |
-|---|---|---|
-| Imagens de `web`/`worker` | build local a cada `up --build` | imagens pré-construídas `lidimus-web:latest` / `lidimus-worker:latest` |
-| Arquivo de env | `.env` | `.env.prod` |
-| Redis | sem senha | `--requirepass ${REDIS_PASSWORD}` |
-| Portas expostas | postgres/redis/web/n8n | só `web` na 3000 |
-| n8n | serviço incluso | **não incluso** — usa o n8n externo definido em `N8N_BASE_URL` |
+## Os três composes
+
+| | `docker-compose.yml` — **produção hoje** | `docker-compose.sandbox.yml` — desenvolvimento | `docker-compose.prod.yml` — VPS (planejado) |
+|---|---|---|---|
+| Projeto Compose | `lidimus-saas` | `lidimus-sandbox` | `lidimus-saas` |
+| Env | `.env` | `.env.sandbox` | `.env.prod` |
+| Imagens de `web`/`worker` | build local a cada `up --build` | idem | pré-construídas `lidimus-web:latest` / `lidimus-worker:latest` |
+| Portas publicadas | pg 5432, redis 6379, web 3000 | pg 5433, redis 6380, web 3100 | só `web` na 3000 |
+| Exposição pública | `cloudflared` → `lidimus.gvlar.com` | **nenhuma** | reverse proxy + Let's Encrypt |
+| Redis | sem senha | sem senha | `--requirepass ${REDIS_PASSWORD}` |
+| PgBouncer | não | não | sim (modo transaction) |
+| `restart` | `unless-stopped` | `no` | `always` |
+
+Nenhum dos três inclui o n8n: ele é externo, apontado por `N8N_BASE_URL`. Ver [15-sandbox.md](15-sandbox.md) para o ambiente de desenvolvimento.
 
 ## 1. Preparar o servidor (primeira vez)
 
@@ -22,7 +29,7 @@ Diferenças em relação ao ambiente local:
   - `DATABASE_URL=postgresql://<POSTGRES_USER>:<POSTGRES_PASSWORD>@postgres:5432/<POSTGRES_DB>`
   - `REDIS_URL=redis://:<REDIS_PASSWORD>@redis:6379`
   - `BETTER_AUTH_URL` e `PUBLIC_BASE_URL` apontando para o domínio público real (ex.: `https://app.lidimus.com`) — o n8n usa `PUBLIC_BASE_URL` para baixar arquivos e enviar o callback, então precisa ser alcançável pela internet
-  - `N8N_BASE_URL` + os 5 `N8N_*_WEBHOOK_PATH` do n8n de produção
+  - `N8N_BASE_URL` + os **6** `N8N_*_WEBHOOK_PATH` do n8n de produção (ocr, juridico, doc, croqui, kml, injection) — o worker faz `throw` no boot se faltar qualquer um
   - `N8N_CALLBACK_SECRET` — deve ser **idêntico** ao configurado nos workflows do n8n
   - `GOOGLE_CLOUD_SA_KEY_JSON`, `GOOGLE_CLOUD_PROJECT_ID`, `GCS_BUCKET_NAME`
 - Configurar firewall e SSL — ver [50-seguranca.md](50-seguranca.md)
@@ -133,8 +140,23 @@ docker tag lidimus-worker:antes-do-deploy lidimus-worker:latest
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d web worker
 ```
 
+## Publicar no ambiente atual (produção nesta máquina)
+
+Enquanto a VPS não existe, "deploy" é rebuildar os containers do `docker-compose.yml`:
+
+```powershell
+cd lidimus-saas
+docker compose up -d --build web worker
+```
+
+⚠️ **Esse build usa a árvore de trabalho, não o último commit.** Qualquer arquivo salvo e não finalizado entra no ar junto. Antes de rebuildar, confirme com `git status` que só está no disco o que você quer publicar — desenvolver com o [sandbox](15-sandbox.md) evita o caso comum, mas não impede este.
+
+Depois do rebuild, valide como no checklist abaixo (a produção não tem staging: o teste é o próprio site).
+
 ## Checklist de deploy
 
+- [ ] `git status` limpo, ou com apenas as mudanças que devem ir ao ar
+- [ ] Mudança já exercitada no sandbox ([15-sandbox.md](15-sandbox.md)), incluindo o modo container (o `nuxt build` só falha lá)
 - [ ] `.env.prod` revisado (segredos não default, URLs de produção)
 - [ ] Imagem anterior taggeada para rollback
 - [ ] Build das novas imagens sem erros

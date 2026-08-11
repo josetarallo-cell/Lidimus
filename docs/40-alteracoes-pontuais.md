@@ -29,6 +29,12 @@ lidimus-saas/
 ├── packages/db/src/schema.ts      # schema Drizzle — única fonte de verdade do banco
 ├── packages/queue/src/index.ts    # nomes de filas e tipos de payload (compartilhado web/worker)
 ├── packages/workers/src/index.ts  # ponto de entrada dos workers, valida env vars obrigatórias
+├── docker-compose.yml             # PRODUÇÃO (inclui cloudflared → lidimus.gvlar.com)
+├── docker-compose.sandbox.yml     # sandbox de desenvolvimento — ver docs/15-sandbox.md
+├── scripts/sandbox-*.mjs          # up/migrate/seed do sandbox + validação do .env.sandbox
+├── scripts/dev-local.mjs          # hot reload contra PRODUÇÃO (hotfix); dev-sandbox.mjs é o isolado
+├── rag/                           # scripts de manutenção do RAG e dos workflows do n8n
+│   └── guarda-producao.cjs        # exige --confirmar-producao antes de escrever no n8n/Qdrant
 └── n8n (externo, fora do repo)    # workflows publicados no n8n; exports de referência em /n8n na raiz
 ```
 
@@ -42,20 +48,31 @@ lidimus-saas/
    - Job não avança/trava → `packages/workers/src/index.ts` e a fila correspondente em `packages/queue`.
    - Callback do n8n rejeitado → `apps/web/server/api/webhooks/n8n-callback.post.ts` (valida `N8N_CALLBACK_SECRET`).
 
-2. **Reproduza localmente** antes de mexer em produção — suba o ambiente local ([10-ambiente-local.md](10-ambiente-local.md)) e confirme o bug.
-
-3. **Edite e teste em modo dev** (`pnpm dev`, com `postgres`/`redis` do Docker já no ar) para hot-reload rápido.
-
-4. **Se mexeu no schema do banco**, gere e revise a migration antes de aplicar em qualquer lugar — ver [30-banco-de-dados.md](30-banco-de-dados.md).
-
-5. **Rebuilde a imagem afetada** antes de considerar o fix "aplicado" no Docker:
+2. **Reproduza no sandbox** ([15-sandbox.md](15-sandbox.md)) — banco, fila e bucket próprios, nada que você faça ali chega ao site no ar:
    ```powershell
    cd lidimus-saas
+   pnpm sandbox:up postgres redis worker
+   pnpm dev:sandbox                       # hot reload em http://localhost:3100
+   ```
+   `pnpm dev` e `pnpm dev:local` **não** servem para isso: os dois carregam o `.env` de produção.
+
+3. **Se o bug só aparece com dado real**, aí sim use `pnpm dev:local` (porta 3001, banco de produção) — para *observar*. Voltar a editar com ele no ar é como errar de banco sem perceber.
+
+4. **Se mexeu no schema do banco**, gere a migration, revise o SQL e aplique primeiro com `pnpm sandbox:migrate` — ver [30-banco-de-dados.md](30-banco-de-dados.md).
+
+5. **Valide no modo container do sandbox** antes de dar por pronto:
+   ```powershell
+   pnpm sandbox:up                        # web em container, porta 3100
+   ```
+   O Dockerfile roda `nuxt build`; erro de SSR, de tipo ou de variável só aparece aí — não no dev server.
+
+6. **Rebuilde a imagem de produção** para o fix valer no site:
+   ```powershell
    docker compose up -d --build web      # ou worker, ou ambos
    ```
-   Lembrete: as imagens não montam a pasta local — sem rebuild, o container continua rodando o código antigo mesmo após salvar o arquivo.
+   Dois lembretes: as imagens não montam a pasta local (sem rebuild o container segue com o código antigo), e o build usa a **árvore de trabalho** — confira o `git status` para não publicar junto o que ainda está pela metade.
 
-6. **Suba para produção** seguindo [20-deploy.md](20-deploy.md) — não pule o passo de taggear a imagem anterior para poder reverter.
+7. **Se e quando existir VPS**, siga [20-deploy.md](20-deploy.md) — não pule o passo de taggear a imagem anterior para poder reverter.
 
 ## Alterações comuns e onde mexer
 
@@ -65,7 +82,9 @@ lidimus-saas/
 | Mudar cor, fonte, espaçamento do sistema visual | `assets/css/lidimus.css` (tokens `--ld-*`) — **e** atualizar `DESIGN.md` se for uma decisão de design, não um ajuste isolado |
 | Adicionar um campo num relatório (parecer/memorial/laudo) | o `[id].vue` da ferramenta em questão, mais o schema JSON que o n8n retorna (`result`) |
 | Adicionar um novo tipo de análise | `packages/db/src/schema.ts` (`jobTypeEnum`), `packages/queue/src/index.ts` (nova fila + payload), `packages/workers/src/index.ts`, endpoint novo em `server/api/`, página de upload e de resultado |
-| Trocar o endpoint/URL de um workflow do n8n | variáveis `N8N_*_WEBHOOK_PATH` no `.env` / `.env.prod` — não precisa rebuild de imagem, só reiniciar o container com o novo env |
+| Trocar o endpoint/URL de um workflow do n8n | variáveis `N8N_*_WEBHOOK_PATH` no `.env` / `.env.prod` / `.env.sandbox` — não precisa rebuild de imagem, só reiniciar o container com o novo env |
+| Mudar uma variável de ambiente que o `web` lê | além do nome sem prefixo, acerte o par `NUXT_<CHAVE>` — no container o Nuxt é buildado e só o prefixado sobrescreve o `runtimeConfig` (em produção o remapeamento está no bloco `environment:` do compose; no sandbox, dentro do `.env.sandbox`) |
+| Alterar um workflow do n8n pelos scripts do `rag/` | eles agora exigem `--confirmar-producao`; para apontar a outro alvo, `N8N_HOST` / `N8N_WORKFLOW_ID` / `QDRANT_COLLECTION` |
 | Mudar regra de autenticação/sessão | `apps/web/server/lib/auth.ts`, `server/middleware/auth.ts` |
 | Investigar por que um job não conclui | `/admin/queues` no app, depois `docker logs lidimus-saas-worker-1`, depois a tabela `jobs` (`stage`, `error_message`) — ver [90-troubleshooting.md](90-troubleshooting.md) |
 
@@ -73,5 +92,6 @@ lidimus-saas/
 
 - Não editar uma migration já aplicada (crie uma nova).
 - Não editar diretamente o schema do banco via SQL manual em produção sem refletir a mudança em `packages/db/src/schema.ts` — a próxima migration vai tentar desfazer o que foi feito na mão.
-- Não commitar `.env` / `.env.prod` (já estão fora do controle de versão — confirme com `git status` antes de um commit amplo).
-- Não usar `docker compose down -v` em produção (apaga os volumes de dados).
+- Não commitar `.env` / `.env.prod` / `.env.sandbox` (já estão fora do controle de versão — confirme com `git status` antes de um commit amplo).
+- Não usar `docker compose down -v` no `docker-compose.yml`: **aquele é o compose de produção**, e o `-v` apaga `lidimus-saas_pgdata`. O equivalente descartável é `pnpm sandbox:reset`.
+- Não desenvolver com `pnpm dev` nem `pnpm dev:local`: ambos carregam o `.env` de produção — conta criada ali é conta no site, job enviado ali debita crédito de cliente. Use `pnpm dev:sandbox`.

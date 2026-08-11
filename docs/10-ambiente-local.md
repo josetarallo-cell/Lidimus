@@ -2,11 +2,13 @@
 
 Como subir o Lidimus do zero nesta máquina (Windows + Docker Desktop).
 
+> **Este documento descreve o ambiente de PRODUÇÃO.** O `docker-compose.yml` e o `.env` tratados aqui são os que servem `https://lidimus.gvlar.com` — o compose inclui o `cloudflared`, que publica o container `web` na internet. Para desenvolver sem tocar no site no ar, use o ambiente paralelo descrito em **[15-sandbox.md](15-sandbox.md)**.
+
 ## Pré-requisitos
 
 - Docker Desktop rodando
 - Node.js ≥ 20 e pnpm ≥ 9 (só necessário se for rodar o `web` fora do Docker, em modo dev)
-- Um n8n acessível com os 5 workflows publicados (externo — ver [00-arquitetura.md](00-arquitetura.md)), **ou** aceitar que os fluxos de análise não vão completar
+- Um n8n acessível com os 6 workflows publicados (externo — ver [00-arquitetura.md](00-arquitetura.md)), **ou** aceitar que os fluxos de análise não vão completar
 
 ## 1. Configurar variáveis de ambiente
 
@@ -92,7 +94,9 @@ As imagens de `web` e `worker` são **construídas** a partir de uma cópia do c
 docker compose up -d --build web worker
 ```
 
-## Modo de desenvolvimento com hot-reload (iterar em front-end)
+## Modo hot-reload contra produção (`dev:local`)
+
+> Para **desenvolver**, o modo certo é `pnpm dev:sandbox` ([15-sandbox.md](15-sandbox.md)): banco, fila e bucket próprios. O `dev:local` abaixo aponta para produção e existe para hotfix e diagnóstico — quando você precisa ver o dado real.
 
 Rebuildar a cada mudança de CSS/Vue é lento. Para iterar rápido:
 
@@ -113,7 +117,7 @@ O que o `scripts/dev-local.mjs` ajusta em cima do `.env` (o resto — segredos, 
 
 Funciona porque o c12 (carregador de `.env` do Nuxt) não sobrescreve variável que já existe no `process.env`.
 
-**O dev server compartilha o banco, o Redis e o GCS com a produção.** Não é um sandbox: conta criada ali é conta no site público, e job enviado ali é processado pelo mesmo `worker`. O n8n consegue baixar o arquivo e devolver o callback porque `PUBLIC_BASE_URL` continua apontando para o domínio.
+**O dev server compartilha o banco, o Redis e o GCS com a produção.** Não é um sandbox: conta criada ali é conta no site público, e job enviado ali é processado pelo mesmo `worker`. O n8n consegue baixar o arquivo e devolver o callback porque `PUBLIC_BASE_URL` continua apontando para o domínio. Um sandbox de verdade — banco, fila e bucket próprios, sem túnel — é o de [15-sandbox.md](15-sandbox.md).
 
 Duas coisas que só funcionam na 3000/domínio, porque o `baseURL` do Better Auth é o domínio público: **login com Google** (o redirect volta para o domínio) e o Nitro em modo produção. Login por e-mail/senha funciona normalmente na 3001.
 

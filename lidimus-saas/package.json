@@ -4,6 +4,13 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "dev:local": "node scripts/dev-local.mjs",
+    "dev:sandbox": "node scripts/dev-sandbox.mjs",
+    "sandbox:up": "node scripts/sandbox-up.mjs",
+    "sandbox:down": "docker compose -f docker-compose.sandbox.yml --env-file .env.sandbox down",
+    "sandbox:logs": "docker compose -f docker-compose.sandbox.yml --env-file .env.sandbox logs -f web worker",
+    "sandbox:reset": "docker compose -f docker-compose.sandbox.yml --env-file .env.sandbox down -v",
+    "sandbox:migrate": "node scripts/sandbox-migrate.mjs",
+    "sandbox:seed": "node scripts/sandbox-seed.mjs",
     "build": "pnpm --filter web build",
     "worker": "pnpm --filter workers start",
     "db:generate": "pnpm --filter db generate",

@@ -1,0 +1,99 @@
+# Ambiente de sandbox — isolado do site em produção.
+#
+# O docker-compose.yml deste mesmo diretório NÃO é um compose de dev: ele inclui
+# o serviço `cloudflared`, que publica o container `web` em lidimus.gvlar.com.
+# Este arquivo é o par de desenvolvimento: banco, Redis, worker e web próprios,
+# portas próprias, volumes próprios (via `name:`), e nenhum túnel.
+#
+# Nada aqui usa interpolação ${VAR}, de propósito. O Compose lê o `.env` do
+# diretório para resolver ${} — e esse `.env` é o de produção. Um ${DATABASE_URL}
+# esquecido apontaria o sandbox para o banco real, e o esquecimento seria
+# silencioso. Toda a configuração entra pelo `env_file: .env.sandbox`.
+#
+# Por isso o remapeamento NUXT_* que o compose de produção faz num bloco
+# `environment:` mora, aqui, dentro do próprio .env.sandbox — ele é necessário:
+# no Nuxt buildado só NUXT_<CHAVE> sobrescreve o runtimeConfig em runtime.
+# `pnpm sandbox:up` valida que os dois lados batem antes de subir.
+#
+# Comandos: pnpm sandbox:up | sandbox:down | sandbox:logs | sandbox:reset
+
+name: lidimus-sandbox
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    # `no` e não `unless-stopped`: sandbox não deve subir junto com a máquina
+    restart: "no"
+    environment:
+      POSTGRES_USER: lidimus
+      POSTGRES_PASSWORD: lidimus
+      POSTGRES_DB: lidimus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lidimus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: "no"
+    # 3100 no host. `pnpm dev:sandbox` usa a mesma porta, então os dois modos
+    # (container e hot reload) são intercambiáveis sem mexer no .env.sandbox —
+    # basta não subir este serviço quando for usar o dev server.
+    ports:
+      - "3100:3000"
+    env_file: .env.sandbox
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/workers/Dockerfile
+    restart: "no"
+    env_file: .env.sandbox
+    healthcheck:
+      test: ["CMD", "node", "packages/workers/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+# Sem serviço cloudflared: o sandbox não é publicado na internet.
+
+volumes:
+  pgdata:
+  redisdata:

@@ -11,9 +11,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const N8N_HOST = 'https://n8n.gvlar.com';
-const WORKFLOW_ID = 'XakDkY7aCjCYkyqt';
-const COLLECTION = 'manual_registro_imoveis';
+// Alvo: produção por padrão, sobrescrevível por N8N_HOST/N8N_WORKFLOW_ID/
+// QDRANT_COLLECTION. Escrever no padrão exige --confirmar-producao — ver
+// rag/guarda-producao.cjs.
+const { alvoN8n, alvoQdrant, exigirConfirmacao } = require('./guarda-producao.cjs');
+const { host: N8N_HOST, workflowId: WORKFLOW_ID } = alvoN8n();
+const COLLECTION = alvoQdrant();
 const CRED_CACHE = path.join(__dirname, '.credentials-created.json');
 const ALLOWED_SETTINGS = ['executionOrder', 'saveManualExecutions', 'saveDataErrorExecution',
   'saveDataSuccessExecution', 'saveExecutionProgress', 'executionTimeout', 'timezone',
@@ -204,6 +207,10 @@ const NOVO_JSONBODY = "content: 'Analise a matrícula abaixo e retorne JSON comp
 
 async function main() {
   const env = loadEnv();
+
+  // Antes de qualquer escrita: criar credenciais já altera o n8n.
+  exigirConfirmacao('credenciais + nós de RAG no workflow lidimus-Juridico',
+    { host: N8N_HOST, workflowId: WORKFLOW_ID, collection: COLLECTION });
 
   // 1. Credenciais
   const creds = await garantirCredenciais(env);

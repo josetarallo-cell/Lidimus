@@ -19,19 +19,23 @@ Fora do monorepo, na raiz do repositório:
 - `.claude/skills/` — skills de apoio ao desenvolvimento (não fazem parte do runtime)
 - `lidimus-saas/apps/web/DESIGN.md` e `PRODUCT.md` — design system "A Prancha Viva" e definição de produto (fonte normativa do front-end)
 
-## Containers e portas (desenvolvimento — `docker-compose.yml`)
+## Containers e portas (`docker-compose.yml`)
+
+Apesar do nome, **este compose é o que está servindo produção** nesta máquina: o serviço `cloudflared` publica o `web` em `https://lidimus.gvlar.com`. Para desenvolver isolado, ver [15-sandbox.md](15-sandbox.md).
 
 | Serviço | Imagem | Porta | Volume | Observações |
 |---|---|---|---|---|
 | `postgres` | postgres:16-alpine | 5432 | `pgdata` | user/senha/db: `lidimus` |
-| `redis` | redis:7-alpine | 6379 | `redisdata` | sem senha em dev |
+| `redis` | redis:7-alpine | 6379 | `redisdata` | sem senha |
 | `web` | build local (`apps/web/Dockerfile`) | **3000** | — | Nuxt em produção (`node .output/server/index.mjs`) |
 | `worker` | build local (`packages/workers/Dockerfile`) | — | — | consumidores BullMQ |
-| `n8n` | n8nio/n8n | 5678 | `n8ndata` | opcional — ver nota abaixo |
+| `cloudflared` | cloudflare/cloudflared | — | — | túnel que publica o `web` no domínio (`CLOUDFLARE_TUNNEL_TOKEN`) |
 
-**Nota sobre o n8n:** o compose define um serviço n8n, mas na prática o ambiente atual usa um **n8n externo** apontado por `N8N_BASE_URL` no `.env` (ex.: `https://n8n.gvlar.com`). Nesta máquina de desenvolvimento existem também containers `n8n` e `cloudflared` que pertencem a **outros projetos** (`PromptDetect` e `git\gvlar\n8n`) — não são gerenciados pelo compose do Lidimus.
+**Nota sobre o n8n:** ele **não** faz parte deste compose — é externo, apontado por `N8N_BASE_URL` no `.env` (`https://n8n.gvlar.com`). Nesta máquina existem também containers `n8n`, `cloudflared` (avulso) e `evolution-api` que pertencem a **outros projetos** — não são gerenciados pelo compose do Lidimus.
 
-Em produção (`docker-compose.prod.yml`): mesmos serviços, sem n8n, sem portas expostas para Postgres/Redis, Redis com senha, imagens pré-construídas `lidimus-web:latest` e `lidimus-worker:latest`, env em `.env.prod`. Ver [20-deploy.md](20-deploy.md).
+Sandbox (`docker-compose.sandbox.yml`, projeto `lidimus-sandbox`): mesmos serviços **sem** `cloudflared`, em 5433/6380/3100, volumes próprios, env em `.env.sandbox`. Ver [15-sandbox.md](15-sandbox.md).
+
+Em produção-VPS (`docker-compose.prod.yml`, planejado mas não em uso): mesmos serviços mais PgBouncer, sem portas expostas para Postgres/Redis, Redis com senha, imagens pré-construídas `lidimus-web:latest` e `lidimus-worker:latest`, env em `.env.prod`. Ver [20-deploy.md](20-deploy.md).
 
 ## Fluxo de dados de uma análise
 
@@ -60,7 +64,7 @@ Detalhes importantes:
 
 ## Filas BullMQ
 
-`matricula-ocr`, `matricula-juridico`, `matricula-doc`, `kml`, `injection`.
+`matricula-ocr`, `matricula-juridico`, `matricula-doc`, `croqui`, `kml`, `injection`.
 Configuração padrão: 3 tentativas, backoff exponencial de 5 s, guarda 100 concluídos / 50 falhos.
 Monitoramento: página `/admin/queues` no app web.
 
@@ -125,13 +129,13 @@ Duas decisões estruturais valem registrar aqui:
 
 ## Variáveis de ambiente (resumo)
 
-Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
+Ver `lidimus-saas/.env.example` (produção) e `.env.sandbox.example` (sandbox) para a lista completa. As críticas:
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL`, `REDIS_URL` | conexões (hostnames `postgres`/`redis` dentro do compose; `localhost` para dev fora do Docker) |
+| `DATABASE_URL`, `REDIS_URL` | conexões (hostnames `postgres`/`redis` dentro do compose; `127.0.0.1` nas portas publicadas para rodar fora do Docker) |
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | autenticação |
-| `N8N_BASE_URL` + `N8N_*_WEBHOOK_PATH` (5) | endereço dos workflows no n8n |
+| `N8N_BASE_URL` + `N8N_*_WEBHOOK_PATH` (6: ocr, juridico, doc, croqui, kml, injection) | endereço dos workflows no n8n; o worker faz `throw` no boot se faltar qualquer um |
 | `N8N_CALLBACK_SECRET` | segredo compartilhado web ↔ n8n |
 | `PUBLIC_BASE_URL` | URL pública do web (n8n usa para baixar arquivo e responder) |
 | `GOOGLE_CLOUD_SA_KEY_JSON`, `GCS_BUCKET_NAME` | armazenamento de arquivos |
@@ -143,6 +147,10 @@ Ver `lidimus-saas/.env.example` para a lista completa. As críticas:
 | `DB_DISABLE_PREPARE` | `true` quando atrás de PgBouncer em modo transaction |
 | `RESEND_API_KEY`, `EMAIL_FROM` | e-mail transacional (Fase 4 — recuperação de senha); sem chave, o link é logado no console |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | login com Google (Fase 4) — botão só aparece quando configurados |
+| `USD_BRL_RATE` (padrão 5.45) | câmbio do painel `/admin/costs` (custo de modelos é cobrado em USD) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | túnel que publica o `web` em `lidimus.gvlar.com` — **só no `.env` de produção**; o compose de sandbox não tem o serviço |
+
+**Prefixo `NUXT_`.** No container, o `web` roda o Nuxt buildado: os `process.env` do `runtimeConfig` já viraram valor fixo no build, e em runtime só `NUXT_<CHAVE>` sobrescreve. Por isso o `docker-compose.yml` tem o bloco `environment:` remapeando as críticas, e o `.env.sandbox` repete cada uma nas duas formas. O worker é o oposto — lê `process.env` direto, pelos nomes sem prefixo. Ver [90-troubleshooting.md](90-troubleshooting.md).
 
 ## Healthchecks
 

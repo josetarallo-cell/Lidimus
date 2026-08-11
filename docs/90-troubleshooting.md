@@ -2,6 +2,8 @@
 
 Erros já vistos neste projeto e como resolver. Adicione uma entrada nova sempre que resolver algo que valha a pena não re-investigar do zero.
 
+> Antes de diagnosticar, saiba em qual ambiente está: **3000 / 5432 / 6379 são produção**; 3100 / 5433 / 6380 são o sandbox ([15-sandbox.md](15-sandbox.md)). Containers `lidimus-saas-*` vs. `lidimus-sandbox-*`.
+
 ---
 
 ### `localhost:3000` não responde, mas o Docker parece normal
@@ -46,7 +48,48 @@ docker compose up -d --build web worker
 docker compose up -d --build web worker
 ```
 
-**Alternativa mais rápida ao iterar em front-end:** rode o Nuxt em modo dev fora do Docker (hot-reload) e só publique no container quando terminar — ver [10-ambiente-local.md](10-ambiente-local.md#modo-de-desenvolvimento-com-hot-reload-iterar-em-front-end).
+**Alternativa mais rápida ao iterar em front-end:** rode o Nuxt em modo dev fora do Docker (hot-reload) e só publique no container quando terminar — `pnpm dev:sandbox` ([15-sandbox.md](15-sandbox.md)) para desenvolver, `pnpm dev:local` ([10-ambiente-local.md](10-ambiente-local.md)) só quando precisar ver o dado de produção.
+
+---
+
+### Container `web` sobe, mas todo endpoint devolve 500 com `DATABASE_URL not configured`
+
+**Sintoma:** o container está `Up`, `docker exec ... env` mostra `DATABASE_URL` presente e correta, e mesmo assim o log repete `Error: DATABASE_URL not configured` (ou o app usa um valor antigo de outra variável).
+
+**Causa:** o container roda o Nuxt **buildado**. O `nuxt.config.ts` foi executado no build, e cada `process.env.X` do `runtimeConfig` já virou valor fixo dentro do bundle. Em runtime, só `NUXT_<CHAVE>` sobrescreve — o nome sem prefixo é simplesmente ignorado. É por isso que o `docker-compose.yml` tem um bloco `environment:` remapeando `NUXT_DATABASE_URL`, `NUXT_REDIS_URL`, `NUXT_BETTER_AUTH_SECRET` e companhia.
+
+**Solução:** garanta o par `NUXT_<CHAVE>` para toda variável que o `web` lê via `useRuntimeConfig()`. No sandbox esses pares moram no próprio `.env.sandbox`, e `pnpm sandbox:up` recusa subir se um deles divergir do valor sem prefixo.
+
+**Não vale para o worker:** ele lê `process.env` direto (`packages/workers/src/index.ts`), pelos nomes sem prefixo. Os dois formatos coexistem porque servem a consumidores diferentes.
+
+---
+
+### Upload responde "Server Error" e o log mostra `The specified bucket does not exist` (404)
+
+**Causa:** o `GCS_BUCKET_NAME` do ambiente aponta para um bucket que não existe. Visto em 07/08/2026 no sandbox, antes de `lidimus-sandbox-files` ser criado.
+
+**Diagnóstico:** o log do `web` traz a URL completa da chamada ao Google, com o nome do bucket. Compare com `GCS_BUCKET_NAME` no `.env` do ambiente correspondente.
+
+**Solução:** criar o bucket (a service account do `GOOGLE_CLOUD_SA_KEY_JSON` tem permissão), espelhando o de produção: multi-região `US`, `STANDARD`, acesso uniforme, lifecycle de 7 dias.
+
+**Sobre os créditos:** o débito acontece **antes** do upload (`server/api/injection/index.post.ts` e equivalentes: transação de crédito → `storeJobFile` → enfileira). Falhando o upload, o job fica `pending` com os créditos já consumidos. Não é perda definitiva: o watchdog varre `pending`/`queued`/`processing` e, passado `STUCK_JOB_TIMEOUT_MINUTES`, marca como erro e estorna (`packages/workers/src/watchdog.ts`). São 60 min em produção e 180 no sandbox — o crédito volta, só não na hora.
+
+---
+
+### `pnpm dev:sandbox` falha com `getaddrinfo ENOTFOUND postgres`
+
+**Causa:** alguma variável ainda carrega o hostname da rede do Docker (`postgres`, `redis`), que só resolve dentro do compose. Atenção ao par com prefixo: `NUXT_DATABASE_URL` vence `DATABASE_URL` no `runtimeConfig`, então traduzir só a versão sem prefixo não adianta.
+
+**Solução:** `scripts/sandbox-env.mjs` traduz `@postgres:5432` → `@127.0.0.1:5433` e `//redis:6379` → `//127.0.0.1:6380` em **todas** as chaves antes de repassar ao Nuxt. Se o erro voltar, é sinal de que uma variável nova escapou dessa tradução.
+
+---
+
+### Um script do `rag/` recusa rodar pedindo `--confirmar-producao`
+
+**Não é bug.** `push-workflow-rag.cjs`, `fix-analise-v2.cjs` e `index-manual.cjs` escrevem no workflow `lidimus-Juridico` ao vivo e na coleção Qdrant que ele consulta — a alteração vale na hora, inclusive para os jobs dos clientes. A trava está em `rag/guarda-producao.cjs`.
+
+**Se é isso mesmo:** repita com `--confirmar-producao`.
+**Se quer outro alvo:** `N8N_HOST`, `N8N_WORKFLOW_ID` ou `QDRANT_COLLECTION` — alvo diferente do padrão dispensa a confirmação. O `--dry-run` do `index-manual.cjs` continua passando sem nada disso (não escreve).
 
 ---
 
@@ -87,6 +130,23 @@ docker compose up -d --build web worker
 4. Se o job passou do worker para o n8n, o problema pode estar do lado do n8n (workflow desativado, erro na chamada externa) — confira o log de execuções do n8n para aquele webhook.
 
 **Causas comuns:** n8n indisponível ou workflow desativado; `PUBLIC_BASE_URL` incorreto/inacessível (o n8n não consegue baixar o arquivo nem enviar o callback de volta); `N8N_CALLBACK_SECRET` dessincronizado (ver item acima).
+
+---
+
+### `docker ps` e `docker inspect` travam, mas o site continua no ar
+
+**Sintoma:** qualquer comando sobre containers fica pendurado indefinidamente, enquanto `docker version` e `docker volume ls` respondem normal. Visto em 07/08/2026, logo após um `docker compose down -v` no projeto do sandbox (que remove a rede do projeto).
+
+**Não é queda do serviço.** Os containers seguem rodando — é a API de gerenciamento do daemon que emperra. Confirme por HTTP, que é a medida que importa:
+
+```powershell
+curl -s -o /dev/null -w "%{http_code}" https://lidimus.gvlar.com/
+curl -s http://localhost:3000/api/health     # consulta Postgres e Redis
+```
+
+Se ambos respondem (`200`, `{"status":"ok"}`), produção está inteira e não há urgência.
+
+**Solução:** normalmente destrava sozinho. O desempate é reiniciar o Docker Desktop — o que **reinicia também os containers de produção** (voltam sozinhos, têm `restart: unless-stopped`, com alguns segundos fora do ar). Decisão consciente, não reflexo.
 
 ---
 
