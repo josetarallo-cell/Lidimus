@@ -95,31 +95,38 @@ async function conceder() {
   }
 }
 
-// Plano de contrato: o Enterprise (e qualquer outro marcado como sobContrato)
-// não passa pelo checkout, então quem coloca o cliente nele é o admin daqui.
+// Aplicação manual de plano. Nasceu para o Enterprise — negociado caso a caso,
+// sem passar pelo checkout —, mas o endpoint sempre aceitou qualquer plano: ele
+// valida existência, teto de usuários e a ausência de assinatura no Stripe, não
+// o `sobContrato`. Filtrar aqui só escondia da tela o que o servidor já fazia,
+// e deixava o suporte sem como corrigir o plano de um cliente à mão.
 const { data: planos } = await useFetch('/api/billing/plans')
-const planosDeContrato = computed(() => (planos.value ?? []).filter((p) => p.features?.sobContrato))
+const planosAplicaveis = computed(() => planos.value ?? [])
 
 const aplicandoOrg = ref('')
 const planoEscolhido = ref('')
 const cicloEscolhido = ref<'mensal' | 'anual'>('mensal')
 
-function abrirPlano(orgId: string) {
-  aplicandoOrg.value = orgId
-  planoEscolhido.value = planosDeContrato.value[0]?.id ?? ''
+function abrirPlano(cliente: Cliente) {
+  aplicandoOrg.value = cliente.id
+  // Começa no plano atual do cliente: abrir já apontando para outro convida ao
+  // engano de aplicar o primeiro da lista sem querer.
+  const atual = planosAplicaveis.value.find((p) => p.name === cliente.plan_name)
+  planoEscolhido.value = atual?.id ?? planosAplicaveis.value[0]?.id ?? ''
   cicloEscolhido.value = 'mensal'
   acaoErro.value = ''
 }
 
 async function aplicarPlano() {
   if (!planoEscolhido.value) return
-  const plano = planosDeContrato.value.find((p) => p.id === planoEscolhido.value)
+  const plano = planosAplicaveis.value.find((p) => p.id === planoEscolhido.value)
   const meses = cicloEscolhido.value === 'anual' ? 12 : 1
   if (
     !confirm(
       `Colocar este cliente no plano ${plano?.name} (${cicloEscolhido.value}) e lançar ` +
         `${((plano?.creditsPerCycle ?? 0) * meses).toLocaleString('pt-BR')} créditos?\n\n` +
-        'Esta assinatura não passa pelo Stripe: os créditos do próximo ciclo terão de ser lançados à mão.',
+        'Esta assinatura não passa pelo Stripe: não há cobrança, e os créditos do ' +
+        'próximo ciclo terão de ser lançados à mão.',
     )
   )
     return
@@ -209,84 +216,101 @@ async function suspender(cliente: Cliente) {
               </td>
               <td class="celula-data">{{ dataFmt(cliente.last_job_at) }}</td>
               <td class="celula-acoes">
-                <form
-                  v-if="concedendoOrg === cliente.id"
-                  class="concessao"
-                  @submit.prevent="conceder"
-                >
-                  <input
-                    v-model.number="concessaoDelta"
-                    type="number"
-                    step="1"
-                    required
-                    placeholder="+créditos"
-                    class="concessao-input"
-                    :aria-label="`Créditos a conceder para ${cliente.name} (negativo retira)`"
-                  />
-                  <button type="submit" class="ld-btn ld-btn--primary ld-btn--sm" :disabled="salvando">
-                    OK
-                  </button>
-                  <button
-                    type="button"
-                    class="ld-btn ld-btn--ghost ld-btn--sm"
-                    @click="concedendoOrg = ''"
+                <div class="acoes-fila">
+                  <form
+                    v-if="concedendoOrg === cliente.id"
+                    class="concessao"
+                    @submit.prevent="conceder"
                   >
-                    Cancelar
-                  </button>
-                </form>
-                <form
-                  v-else-if="aplicandoOrg === cliente.id"
-                  class="concessao"
-                  @submit.prevent="aplicarPlano"
-                >
-                  <select v-model="planoEscolhido" class="concessao-input" aria-label="Plano de contrato">
-                    <option v-for="p in planosDeContrato" :key="p.id" :value="p.id">{{ p.name }}</option>
-                  </select>
-                  <select v-model="cicloEscolhido" class="concessao-input" aria-label="Ciclo">
-                    <option value="mensal">Mensal</option>
-                    <option value="anual">Anual</option>
-                  </select>
-                  <button type="submit" class="ld-btn ld-btn--primary ld-btn--sm" :disabled="salvando">
-                    OK
-                  </button>
-                  <button type="button" class="ld-btn ld-btn--ghost ld-btn--sm" @click="aplicandoOrg = ''">
-                    Cancelar
-                  </button>
-                </form>
-                <template v-else>
-                  <button
-                    type="button"
-                    class="ld-btn ld-btn--secondary ld-btn--sm"
-                    @click="abrirConcessao(cliente.id)"
+                    <input
+                      v-model.number="concessaoDelta"
+                      type="number"
+                      step="1"
+                      required
+                      placeholder="+créditos"
+                      class="concessao-input"
+                      :aria-label="`Créditos a conceder para ${cliente.name} (negativo retira)`"
+                    />
+                    <!-- OK segue primário: dentro de um formulário aberto ele é o
+                         compromisso, e igualá-lo ao Cancelar tiraria a única pista
+                         de qual dos dois conclui a ação. -->
+                    <button type="submit" class="ld-btn ld-btn--primary ld-btn--sm" :disabled="salvando">
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      class="ld-btn ld-btn--secondary ld-btn--sm"
+                      @click="concedendoOrg = ''"
+                    >
+                      Cancelar
+                    </button>
+                  </form>
+                  <form
+                    v-else-if="aplicandoOrg === cliente.id"
+                    class="concessao"
+                    @submit.prevent="aplicarPlano"
                   >
-                    Conceder créditos
-                  </button>
-                  <button
-                    type="button"
-                    class="ld-btn ld-btn--ghost ld-btn--sm"
-                    :disabled="salvando"
-                    @click="concederCortesia(cliente)"
-                  >
-                    + 1 cortesia
-                  </button>
-                  <!-- Só aparece se existir plano sob contrato cadastrado -->
-                  <button
-                    v-if="planosDeContrato.length"
-                    type="button"
-                    class="ld-btn ld-btn--ghost ld-btn--sm"
-                    @click="abrirPlano(cliente.id)"
-                  >
-                    Plano de contrato
-                  </button>
-                  <button
-                    v-if="cliente.subscription_status === 'active' || cliente.subscription_status === 'trialing' || cliente.subscription_status === 'past_due'"
-                    type="button"
-                    class="ld-btn ld-btn--ghost ld-btn--sm"
-                    @click="suspender(cliente)"
-                  >
-                    Suspender
-                  </button>
-                </template>
+                    <select
+                      v-model="planoEscolhido"
+                      class="concessao-input concessao-input--plano"
+                      aria-label="Plano"
+                    >
+                      <option v-for="p in planosAplicaveis" :key="p.id" :value="p.id">
+                        {{ p.name }}{{ p.features?.sobContrato ? ' (contrato)' : '' }}
+                      </option>
+                    </select>
+                    <select v-model="cicloEscolhido" class="concessao-input" aria-label="Ciclo">
+                      <option value="mensal">Mensal</option>
+                      <option value="anual">Anual</option>
+                    </select>
+                    <button type="submit" class="ld-btn ld-btn--primary ld-btn--sm" :disabled="salvando">
+                      OK
+                    </button>
+                    <button type="button" class="ld-btn ld-btn--secondary ld-btn--sm" @click="aplicandoOrg = ''">
+                      Cancelar
+                    </button>
+                  </form>
+                  <!-- Rótulos curtos e um só aspecto: são quatro ações por linha,
+                       e cada palavra a mais empurrava a tabela para a rolagem
+                       horizontal. O `title` carrega o nome por extenso. -->
+                  <template v-else>
+                    <button
+                      type="button"
+                      class="ld-btn ld-btn--secondary ld-btn--sm"
+                      title="Conceder ou retirar créditos"
+                      @click="abrirConcessao(cliente.id)"
+                    >
+                      + Créditos
+                    </button>
+                    <button
+                      type="button"
+                      class="ld-btn ld-btn--secondary ld-btn--sm"
+                      title="Conceder mais uma análise de matrícula de cortesia"
+                      :disabled="salvando"
+                      @click="concederCortesia(cliente)"
+                    >
+                      + 1 cortesia
+                    </button>
+                    <button
+                      v-if="planosAplicaveis.length"
+                      type="button"
+                      class="ld-btn ld-btn--secondary ld-btn--sm"
+                      title="Aplicar um plano à mão, sem passar pelo Stripe"
+                      @click="abrirPlano(cliente)"
+                    >
+                      Plano
+                    </button>
+                    <button
+                      v-if="cliente.subscription_status === 'active' || cliente.subscription_status === 'trialing' || cliente.subscription_status === 'past_due'"
+                      type="button"
+                      class="ld-btn ld-btn--secondary ld-btn--sm"
+                      title="Suspender a assinatura e cancelar a cobrança no Stripe"
+                      @click="suspender(cliente)"
+                    >
+                      Suspender
+                    </button>
+                  </template>
+                </div>
               </td>
             </tr>
             <tr v-if="!clientes?.length">
@@ -373,8 +397,27 @@ async function suspender(cliente: Cliente) {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.celula-acoes {
-  text-align: right;
+/* A fila de ações era `white-space: nowrap` numa célula sem largura própria:
+   os quatro botões empurravam a tabela além do quadro e o último ficava atrás
+   da rolagem horizontal. O que resolveu foi o quadro largo das telas de admin
+   (--ld-largura-quadro em layouts/default.vue) mais os rótulos curtos; daqui
+   até 1366px de viewport a tabela cabe inteira.
+
+   O `min-width` reserva a linha: sem ele, a largura mínima que o `flex-wrap`
+   informa ao cálculo da tabela é a do botão mais largo, e o layout automático
+   espreme a coluna até empilhar os quatro verticalmente mesmo sobrando espaço.
+   Abaixo de ~1200px a tabela volta a rolar na horizontal, como as demais
+   colunas sempre fizeram — o `flex-wrap` é rede de segurança para um quinto
+   botão, não o comportamento esperado nas larguras de hoje. */
+.acoes-fila {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--ld-space-xs);
+  min-width: 25rem;
+}
+.acoes-fila .ld-btn {
   white-space: nowrap;
 }
 .celula-vazia {
@@ -405,6 +448,12 @@ async function suspender(cliente: Cliente) {
 .concessao-input:focus-visible {
   outline: 2px solid var(--ld-verde);
   outline-offset: 1px;
+}
+/* Os 7rem do campo de créditos cortariam "Profissional (contrato)" no meio —
+   e num seletor de plano ler o nome inteiro é o que evita aplicar o errado. */
+.concessao-input--plano {
+  width: auto;
+  min-width: 9rem;
 }
 
 </style>

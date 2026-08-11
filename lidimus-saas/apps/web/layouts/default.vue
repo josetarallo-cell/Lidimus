@@ -26,6 +26,10 @@ const route = useRoute()
 const FERRAMENTAS_ROTAS = ['/matriculas', '/croqui', '/kml', '/injection']
 const ferramentasAtivo = computed(() => FERRAMENTAS_ROTAS.some((r) => route.path.startsWith(r)))
 
+// As telas de administração são tabelas largas de operação, não leitura corrida:
+// o quadro abre além dos 72rem do resto do app (ver .app-shell--largo).
+const quadroLargo = computed(() => route.path.startsWith('/admin'))
+
 const ferramentasAberto = ref(false)
 const ferramentasRef = ref<HTMLElement | null>(null)
 
@@ -51,7 +55,7 @@ watch(() => route.path, () => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'app-shell--largo': quadroLargo }">
     <a href="#conteudo" class="skip-link">Ir para o conteúdo</a>
 
     <header class="app-header">
@@ -157,6 +161,19 @@ watch(() => route.path, () => {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
+
+  /* Largura do quadro — cabeçalho, conteúdo e rodapé alinhados pela mesma
+     medida. É variável, e não três `max-width` soltos, porque alargar só o
+     conteúdo desencaixa o texto da régua do cabeçalho. */
+  --ld-largura-quadro: 72rem;
+}
+
+/* Telas de administração: tabelas de muitas colunas (cliente, plano, saldo,
+   cortesias, data e a fila de ações) não cabem em 72rem sem virar rolagem
+   horizontal. Aqui a leitura é de operação, não de leitura corrida, então a
+   medida ideal de linha não se aplica. */
+.app-shell--largo {
+  --ld-largura-quadro: 90rem;
 }
 
 .skip-link {
@@ -185,7 +202,7 @@ watch(() => route.path, () => {
 }
 
 .app-header-inner {
-  max-width: 72rem;
+  max-width: var(--ld-largura-quadro);
   margin: 0 auto;
   padding: 0 var(--ld-space-lg);
   height: 60px;
@@ -374,7 +391,7 @@ watch(() => route.path, () => {
 
 .app-main {
   flex: 1;
-  max-width: 72rem;
+  max-width: var(--ld-largura-quadro);
   margin: 0 auto;
   width: 100%;
   padding: var(--ld-space-xl) var(--ld-space-lg) var(--ld-space-2xl);
@@ -405,7 +422,7 @@ watch(() => route.path, () => {
   background: var(--color-surface);
 }
 .app-footer p {
-  max-width: 72rem;
+  max-width: var(--ld-largura-quadro);
   margin: 0 auto;
   padding: var(--ld-space-md) var(--ld-space-lg);
   font-size: 0.8125rem;
