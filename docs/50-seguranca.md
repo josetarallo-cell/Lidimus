@@ -116,6 +116,14 @@ Se o callback começar a falhar com 401 depois de um deploy, o `N8N_CALLBACK_SEC
 - **Dependências npm**: rode `pnpm audit` no monorepo periodicamente; atualizações de `better-auth`, `drizzle-orm` e `bullmq` merecem teste em ambiente local antes de ir para produção (não são simples troca de versão sem risco de breaking change).
 - **n8n externo**: como não está neste repositório, sua atualização e patch de segurança são responsabilidade de quem administra aquele servidor — confirme periodicamente que está atualizado.
 
+## Scripts de terceiros no navegador
+
+**Nenhum script de terceiro entra no `<head>` direto.** Todo rastreador, pixel, mapa de calor ou ferramenta de audiência carrega condicionado a `useConsentimento()` (`composables/useConsentimento.ts`), e só depois de `aceitou()` devolver `true` para a categoria dele.
+
+A regra não é só de privacidade: cada origem externa no `<head>` é superfície de ataque (um CDN comprometido executa no contexto da sessão do usuário) **e** um vazamento de IP do titular antes de qualquer consentimento. Foi assim que o `<link>` de Google Fonts mandou o IP de todo visitante anônimo da landing para os Estados Unidos até 07/08/2026 — as fontes agora são baixadas no build e servidas de `/_fonts`.
+
+Vale para fontes, ícones, iframes e widgets: se a requisição sai do navegador do titular para um domínio de terceiro, é tratamento de dado pessoal e precisa de base legal. Ver [55-privacidade-lgpd.md](55-privacidade-lgpd.md).
+
 ## Checklist de hardening antes de ir ao ar
 
 - [ ] Todos os segredos de `.env.prod` são valores reais, não os placeholders de `.env.example`
@@ -128,3 +136,5 @@ Se o callback começar a falhar com 401 depois de um deploy, o `N8N_CALLBACK_SEC
 - [ ] Domínio verificado no Resend e `EMAIL_FROM` apontando para ele
 - [ ] `REQUIRE_EMAIL_VERIFICATION=true` (depende do item acima)
 - [ ] `API_RATE_LIMIT_PER_HOUR` revisado para o volume real dos clientes de API (padrão 120)
+- [ ] Nenhuma requisição a domínio de terceiro na primeira carga (`DevTools > Network`, aba anônima) — ver [55-privacidade-lgpd.md](55-privacidade-lgpd.md)
+- [ ] `[RAZÃO SOCIAL]`, `[CNPJ]`, `[CIDADE/UF]` e `[E-MAIL DO ENCARREGADO]` preenchidos em `/termos` e `/privacidade` (LGPD, arts. 9º, I e 41)

@@ -132,6 +132,13 @@ watch(() => route.path, () => {
           fale com o suporte
         </a>.
       </p>
+      <!-- Quem já tem conta precisa conseguir reler o que aceitou: até aqui os
+           Termos só existiam dentro do modal do cadastro. -->
+      <p>
+        <NuxtLink to="/privacidade" class="app-footer-link">Privacidade</NuxtLink>
+        ·
+        <NuxtLink to="/termos" class="app-footer-link">Termos de Uso</NuxtLink>
+      </p>
     </footer>
   </div>
 </template>

@@ -8,17 +8,51 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'pt-BR' },
-      link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        {
-          rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=Archivo+Narrow:wght@400;500;600;700&family=Besley:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=Fragment+Mono&display=swap',
-        },
-      ],
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
   },
+
+  // Fontes baixadas no build e servidas de /_fonts, nunca do CDN do Google.
+  // Não é preferência de performance: o <link> para fonts.googleapis.com que
+  // existia aqui mandava o IP de todo visitante anônimo da landing para um
+  // servidor do Google nos EUA antes de qualquer clique — dado pessoal e
+  // transferência internacional sem base legal declarada (LGPD, arts. 33-36).
+  //
+  // `global: true` em cada família é o que garante o @font-face: o módulo o
+  // injeta independentemente de detectar uso. Sem isso o build emitia apenas
+  // 'Archivo' e 'Archivo Narrow' — o scanner enxerga `font-family` literal e
+  // variáveis `--font-*`, mas Besley, Hanken Grotesk e Fragment Mono moram em
+  // `--ld-font-serif/-sans/-mono` (assets/css/lidimus.css, tokens da identidade
+  // anterior ainda em uso em ~230 lugares), que ele não resolve. Apagar o
+  // <link> do Google sem isto derrubaria as três para o fallback do sistema.
+  //
+  // Os pesos são os mesmos que a querystring do Google pedia antes, para a
+  // renderização não mudar junto.
+  fonts: {
+    families: [
+      { name: 'Archivo', provider: 'google', global: true, weights: [400, 600, 700, 800] },
+      {
+        name: 'Archivo Narrow',
+        provider: 'google',
+        global: true,
+        weights: [400, 500, 600, 700],
+      },
+      { name: 'Besley', provider: 'google', global: true, weights: [500, 600, 700] },
+      {
+        name: 'Hanken Grotesk',
+        provider: 'google',
+        global: true,
+        weights: [400, 500, 600, 700],
+      },
+      { name: 'Fragment Mono', provider: 'google', global: true, weights: [400] },
+    ],
+  },
+
+  // O provider já é o servidor, mas o fallback deixava o navegador buscar
+  // ícone faltante em api.iconify.design — mais uma origem de terceiro
+  // disparando sem aviso. Ícone que não existir agora falha em silêncio, que é
+  // o comportamento correto para quem desenha os SVGs à mão.
+  icon: { fallbackToApi: false },
 
   runtimeConfig: {
     // Variáveis disponíveis apenas no servidor
