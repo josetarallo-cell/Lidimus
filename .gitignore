@@ -3,3 +3,11 @@
 
 # Rascunhos locais
 tmp/
+
+# Dumps do banco de produção gerados pelo Lidimus Update antes de cada deploy.
+# Contêm dados de clientes — nunca podem ir para o GitHub.
+backups/
+
+# Estado local do Lidimus Update (marcador de aprovação do sandbox).
+# É estado desta máquina, não do projeto.
+.lidimus/

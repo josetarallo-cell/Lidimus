@@ -7,8 +7,10 @@ node_modules/
 dist/
 *.local
 
-# Drizzle
-drizzle/meta/
+# Drizzle: os snapshots de `drizzle/meta/` são versionados de propósito.
+# A regra que os ignorava fazia o `db:generate` gravar snapshot fora do git
+# enquanto o `_journal.json` (já rastreado) entrava — foi assim que os
+# snapshots 0016, 0017, 0018 e 0020 se perderam.
 
 # Script efêmero do pnpm sandbox:seed (só sobrevive se a execução abortar)
 packages/db/src/.sandbox-seed-*.ts

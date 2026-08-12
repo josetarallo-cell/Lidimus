@@ -265,6 +265,14 @@ const matriculaLista = [
   'Alertas de risco',
 ]
 
+// Ferramenta 02 — duas vias inversas sobre a mesma poligonal:
+// croqui (matrícula → desenho) e memorial (desenho → texto).
+const croquiEtapas = [
+  'Upload da matrícula ou da certidão em PDF',
+  'Leitura dos pontos, rumos, azimutes e distâncias descritos',
+  'Croqui em KML e imagem, prontos para abrir no Google Earth',
+]
+
 const memorialEtapas = [
   'Upload do KML com a poligonal do terreno',
   'Cálculo de vértices, área, azimutes e rumos',
@@ -612,40 +620,140 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- ── Ferramenta 2: Memorial ── -->
+      <!-- ── Ferramenta 2: Croqui e Memorial — duas vias da mesma poligonal ── -->
       <section id="memorial" class="lp-ferramenta lp-ferramenta--bancada">
-        <div class="lp-ferramenta-inner">
-          <div data-reveal class="lp-ferramenta-visual lp-ferramenta-visual--divisa">
-            <div class="lp-mapa" aria-hidden="true">
-              <svg width="200" height="150" viewBox="0 0 160 120">
-                <polygon points="24,90 60,22 132,38 116,98" fill="rgba(236,48,19,0.16)" stroke="var(--color-accent)" stroke-width="2" />
-                <circle cx="24" cy="90" r="3.5" fill="var(--color-accent)" />
-                <circle cx="60" cy="22" r="3.5" fill="var(--color-accent)" />
-                <circle cx="132" cy="38" r="3.5" fill="var(--color-accent)" />
-                <circle cx="116" cy="98" r="3.5" fill="var(--color-accent)" />
-              </svg>
-              <span class="mono lp-mapa-arq">poligonal.kml</span>
+        <div class="lp-vias-inner">
+          <div class="lp-vias-cab">
+            <div data-reveal>
+              <p class="cond lp-ferramenta-nome">
+                <span class="lp-ferramenta-num">02</span> Croqui e Memorial Descritivo
+              </p>
+              <h3 class="lp-ferramenta-titulo">
+                Uma poligonal, duas vias: do texto ao desenho e do desenho ao texto.
+              </h3>
             </div>
-            <div class="mono lp-memorial-trecho">
-              <span class="lp-memorial-vertice">V1</span> 7.512.338,21 N · 412.880,07 E<br />
-              partindo de V1, com azimute de 31°14′ e<br />
-              distância de 86,40 m, confrontando com…
-            </div>
-          </div>
-          <div data-reveal data-reveal-delay="80" class="lp-ferramenta-texto">
-            <p class="cond lp-ferramenta-nome"><span class="lp-ferramenta-num">02</span> Memorial Descritivo</p>
-            <h3 class="lp-ferramenta-titulo">Do KML do Google Earth ao memorial técnico-jurídico.</h3>
-            <p class="lp-ferramenta-desc">
-              Envie o arquivo KML com o desenho do terreno e o Lidimus gera a descrição técnica e
-              jurídica pronta para incorporar à matrícula — vértices, azimutes, distâncias e
-              confrontações. Ideal também para a
-              <strong>correção de matrículas antigas</strong> com descrição imprecisa.
+            <p data-reveal data-reveal-delay="60" class="lp-vias-sub">
+              São caminhos inversos sobre o mesmo terreno. O <strong>Croqui</strong> lê a matrícula e
+              devolve o desenho; o <strong>Memorial Descritivo</strong> lê o desenho e devolve a
+              descrição técnica.
             </p>
-            <ol class="lp-etapas">
-              <li v-for="(step, i) in memorialEtapas" :key="i">
-                <span class="cond lp-etapa-num">{{ i + 1 }}</span>{{ step }}
-              </li>
-            </ol>
+          </div>
+
+          <div class="lp-vias">
+            <!-- Via A — Croqui: matrícula → KML -->
+            <article data-reveal class="lp-via">
+              <p class="cond lp-via-nome"><span class="lp-via-letra">A</span> Croqui</p>
+              <h4 class="lp-via-titulo">Da matrícula ao desenho do terreno.</h4>
+              <p class="lp-via-desc">
+                O Lidimus lê a descrição do imóvel na matrícula, interpreta os pontos — rumos,
+                azimutes, distâncias e confrontações — e devolve a poligonal desenhada: um KML para
+                abrir no Google Earth, acompanhado da imagem do croqui.
+              </p>
+
+              <div class="lp-via-io" aria-hidden="true">
+                <div class="lp-via-peca">
+                  <div class="lp-via-peca-cab">
+                    <span class="cond lp-via-peca-rotulo">Entra</span>
+                    <span class="mono lp-via-peca-arq">matricula_48221.pdf</span>
+                  </div>
+                  <p class="mono lp-via-peca-texto">
+                    …um terreno com <span class="lp-memorial-vertice">86,40 m</span> de frente,
+                    seguindo com <span class="lp-memorial-vertice">azimute de 31°14′</span>,
+                    confrontando com quem de direito…
+                  </p>
+                </div>
+
+                <svg class="lp-via-seta" width="14" height="24" viewBox="0 0 14 24">
+                  <path d="M7 1 V19 M1 13 l6 7 6-7" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+
+                <div class="lp-via-peca lp-via-peca--saida">
+                  <div class="lp-via-peca-cab">
+                    <span class="cond lp-via-peca-rotulo lp-via-peca-rotulo--saida">Sai</span>
+                    <span class="mono lp-via-peca-arq">croqui.kml · croqui.png</span>
+                  </div>
+                  <div class="lp-via-mapa lp-via-mapa--alto">
+                    <svg width="196" height="147" viewBox="0 0 160 120">
+                      <polygon points="24,90 60,22 132,38 116,98" fill="rgba(236,48,19,0.16)" stroke="var(--color-accent)" stroke-width="2" />
+                      <circle cx="24" cy="90" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="60" cy="22" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="132" cy="38" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="116" cy="98" r="3.5" fill="var(--color-accent)" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <ol class="lp-etapas">
+                <li v-for="(step, i) in croquiEtapas" :key="i">
+                  <span class="cond lp-etapa-num">{{ i + 1 }}</span>{{ step }}
+                </li>
+              </ol>
+
+              <p class="lp-via-nota lp-via-nota--alerta">
+                <strong>O croqui é apenas uma interpretação do documento enviado.</strong> Ele desenha
+                o que está escrito na matrícula — se a descrição for imprecisa, o traçado herda a
+                imprecisão. Não substitui levantamento topográfico, planta assinada nem peça
+                georreferenciada por profissional habilitado.
+              </p>
+            </article>
+
+            <!-- Via B — Memorial: KML → texto -->
+            <article data-reveal data-reveal-delay="80" class="lp-via">
+              <p class="cond lp-via-nome"><span class="lp-via-letra">B</span> Memorial Descritivo</p>
+              <h4 class="lp-via-titulo">Do KML do Google Earth ao memorial técnico-jurídico.</h4>
+              <p class="lp-via-desc">
+                O caminho inverso do croqui. Envie o arquivo KML com o desenho do terreno e o Lidimus
+                gera a descrição técnica e jurídica pronta para incorporar à matrícula — vértices,
+                azimutes, distâncias e confrontações. Ideal também para a
+                <strong>correção de matrículas antigas</strong> com descrição imprecisa.
+              </p>
+
+              <div class="lp-via-io" aria-hidden="true">
+                <div class="lp-via-peca">
+                  <div class="lp-via-peca-cab">
+                    <span class="cond lp-via-peca-rotulo">Entra</span>
+                    <span class="mono lp-via-peca-arq">poligonal.kml</span>
+                  </div>
+                  <div class="lp-via-mapa lp-via-mapa--baixo">
+                    <svg width="132" height="99" viewBox="0 0 160 120">
+                      <polygon points="24,90 60,22 132,38 116,98" fill="rgba(236,48,19,0.16)" stroke="var(--color-accent)" stroke-width="2" />
+                      <circle cx="24" cy="90" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="60" cy="22" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="132" cy="38" r="3.5" fill="var(--color-accent)" />
+                      <circle cx="116" cy="98" r="3.5" fill="var(--color-accent)" />
+                    </svg>
+                  </div>
+                </div>
+
+                <svg class="lp-via-seta" width="14" height="24" viewBox="0 0 14 24">
+                  <path d="M7 1 V19 M1 13 l6 7 6-7" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+
+                <div class="lp-via-peca lp-via-peca--saida">
+                  <div class="lp-via-peca-cab">
+                    <span class="cond lp-via-peca-rotulo lp-via-peca-rotulo--saida">Sai</span>
+                    <span class="mono lp-via-peca-arq">memorial.docx · planta.png</span>
+                  </div>
+                  <p class="mono lp-via-peca-texto">
+                    <span class="lp-memorial-vertice">V1</span> 7.512.338,21 N · 412.880,07 E<br />
+                    partindo de V1, com azimute de 31°14′ e<br />
+                    distância de 86,40 m, confrontando com…
+                  </p>
+                </div>
+              </div>
+
+              <ol class="lp-etapas">
+                <li v-for="(step, i) in memorialEtapas" :key="i">
+                  <span class="cond lp-etapa-num">{{ i + 1 }}</span>{{ step }}
+                </li>
+              </ol>
+
+              <p class="lp-via-nota">
+                Além do texto, o memorial sai acompanhado da imagem da poligonal — a mesma planta que
+                o croqui produz, agora partindo do desenho e não da matrícula.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -1535,15 +1643,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
 }
-.lp-ferramenta-visual--divisa {
-  align-self: stretch;
-  padding: 64px 48px 64px 0;
-  border-right: 2px solid var(--color-text);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  justify-content: center;
-}
 .lp-ferramenta-visual--divisa-clara {
   align-self: stretch;
   border-left: 2px solid color-mix(in srgb, var(--color-bg) 30%, transparent);
@@ -1691,32 +1790,179 @@ onBeforeUnmount(() => {
   font-size: 15px;
 }
 
-/* Visual do memorial */
-.lp-mapa {
-  position: relative;
-  background: var(--color-text);
-  min-height: 240px;
+/* ── Ferramenta 02: duas vias (croqui ⇄ memorial) ──
+   Mesma seção, duas colunas espelhadas: em A a poligonal é a saída, em B é a
+   entrada. Os blocos "entra/sai" carregam essa inversão sem texto extra. */
+.lp-vias-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.lp-vias-cab {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 56px;
+  align-items: end;
+  padding: 72px 0 36px;
+}
+.lp-vias-cab .lp-ferramenta-titulo {
+  margin-bottom: 0;
+  max-width: 20ch;
+}
+.lp-vias-sub {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+  text-wrap: pretty;
+}
+.lp-vias-sub strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+.lp-vias {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid var(--color-text);
+}
+.lp-via {
+  min-width: 0;
+  padding: 40px 48px 72px 0;
+  display: flex;
+  flex-direction: column;
+}
+.lp-via + .lp-via {
+  padding: 40px 0 72px 48px;
+  border-left: 2px solid var(--color-text);
+}
+.lp-via-nome {
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.lp-via-letra {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.lp-via-titulo {
+  margin: 0 0 14px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(1.25rem, 1.9vw, 1.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.lp-via-desc {
+  margin: 0 0 26px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+  text-wrap: pretty;
+}
+.lp-via-desc strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+/* Bloco entra → sai */
+.lp-via-io {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.lp-via-peca {
+  border: 1px solid var(--color-text);
+  background: #fff;
+}
+.lp-via-peca--saida {
+  border-width: 2px;
+}
+.lp-via-peca-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-bg);
+}
+.lp-via-peca-rotulo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.lp-via-peca-rotulo--saida {
+  color: var(--color-accent);
+}
+.lp-via-peca-arq {
+  font-size: 11px;
+  text-align: right;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+.lp-via-peca-texto {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+.lp-via-mapa {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--color-text);
+  padding: 16px 0;
+  background: var(--color-text);
   background-image: linear-gradient(rgba(243, 242, 242, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(243, 242, 242, 0.08) 1px, transparent 1px);
   background-size: 28px 28px;
 }
-.lp-mapa-arq {
-  position: absolute;
-  bottom: 12px;
-  left: 14px;
-  font-size: 11px;
-  color: var(--color-accent-300);
+.lp-via-mapa--alto {
+  min-height: 190px;
 }
-.lp-memorial-trecho {
-  background: #fff;
-  border: 1px solid var(--color-text);
-  padding: 14px 16px;
-  font-size: 0.75rem;
-  line-height: 1.7;
+.lp-via-mapa--baixo {
+  min-height: 128px;
+}
+.lp-via-seta {
+  align-self: center;
+  flex: none;
+  color: var(--color-accent);
+}
+.lp-via-nota {
+  margin: 24px 0 0;
+  max-width: 40rem;
+  padding-left: 14px;
+  border-left: 2px solid var(--color-divider);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  text-wrap: pretty;
+}
+.lp-via-nota--alerta {
+  border-left-color: var(--color-accent);
+}
+.lp-via-nota strong {
+  color: var(--color-text);
+  font-weight: 700;
 }
 .lp-memorial-vertice {
   color: var(--color-accent);
@@ -2347,10 +2593,30 @@ onBeforeUnmount(() => {
     border-top: 2px solid var(--color-text);
     padding: 40px 0;
   }
-  .lp-ferramenta-visual--divisa {
-    padding: 0 0 56px;
-    border-right: none;
-    order: 2;
+  .lp-vias-cab {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 56px 0 28px;
+  }
+  .lp-vias {
+    grid-template-columns: 1fr;
+  }
+  .lp-via {
+    padding: 36px 0 48px;
+  }
+  .lp-via + .lp-via {
+    padding: 36px 0 56px;
+    border-left: none;
+    border-top: 2px solid var(--color-text);
+  }
+  /* Em coluna única os blocos ocupariam a largura toda: o mapa vira uma faixa
+     larguíssima com a poligonal perdida no meio, e a descrição passa da medida
+     confortável de leitura. */
+  .lp-via-desc {
+    max-width: 38rem;
+  }
+  .lp-via-io {
+    max-width: 30rem;
   }
   .lp-ferramenta-visual--divisa-clara {
     border-left: none;
@@ -2394,6 +2660,7 @@ onBeforeUnmount(() => {
   .lp-hero-inner,
   .lp-intro-inner,
   .lp-ferramenta-inner,
+  .lp-vias-inner,
   .lp-detector-inner,
   .lp-imprensa-inner,
   .lp-faq-inner,

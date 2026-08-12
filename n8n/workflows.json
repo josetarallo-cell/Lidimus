@@ -1,0 +1,18 @@
+{
+  "_comentario": [
+    "Mapa dos workflows do n8n que pertencem ao Lidimus e são versionados aqui.",
+    "Delimita o escopo do `pnpm n8n:diff`: a instância n8n.gvlar.com é compartilhada",
+    "com outros projetos (DailyTasks, Gerar Estudo Onepage) que não entram no relatório.",
+    "Para versionar um workflow novo, acrescente a entrada e exporte o JSON."
+  ],
+  "workflows": [
+    { "id": "MPmlcKYyq4dcgJ9U", "arquivo": "lidimus-OCR.json", "webhook": "lidimus-ocr" },
+    { "id": "XakDkY7aCjCYkyqt", "arquivo": "lidimus-Juridico.json", "webhook": "lidimus-juridico" },
+    { "id": "yas9SAAZG25wrfAo", "arquivo": "lidimus-Doc.json", "webhook": "lidimus-doc" },
+    { "id": "DdM1aWpt0iAdQ4Pe", "arquivo": "lidimus-croqui.json", "webhook": "lidimus-croqui" },
+    { "id": "M8ehnr7BviJ9ShfP", "arquivo": "Descritor de Terreno KML.json", "webhook": "descritor-terreno-kml" },
+    { "id": "CbWKtOkOClimoL3d", "arquivo": "PDF Report Analyzer.json", "webhook": "pdf-report" },
+    { "id": "DWlUswTcDiXM9D1G", "arquivo": "Tradutor de Matrículas-public.json", "webhook": "tradutor-matriculas-public" },
+    { "id": "EMeS3q1rDBAIpWrM", "arquivo": "Lidimus Update.json", "webhook": null }
+  ]
+}

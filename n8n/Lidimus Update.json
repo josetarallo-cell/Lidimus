@@ -1,0 +1,168 @@
+{
+  "name": "Lidimus Update",
+  "nodes": [
+    {
+      "id": "lu-0001-trigger-diario",
+      "name": "Diario 5h SP",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 5 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "lu-0002-trigger-manual",
+      "name": "Rodar agora",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        220
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "lu-0003-executar",
+      "name": "Executar deploy no host",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8099/lidimus-update",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {} }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cJS5hRrVIxgLB7Fd",
+          "name": "Lidimus Update - agente do host"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "O container do n8n nao tem docker nem o codigo-fonte. Quem executa e o agente no host (scripts/update-agent.mjs), alcancado por host.docker.internal. Timeout de 15 min porque o build do Nuxt demora."
+    },
+    {
+      "id": "lu-0004-formatar",
+      "name": "Formatar relatorio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Transforma o relatorio JSON do agente numa mensagem de WhatsApp.\n//\n// Quem le isto as 8h da manha precisa decidir em 5 segundos se precisa agir.\n// Por isso a primeira linha ja diz o desfecho, e o resto e detalhe.\n\nconst DESTINO = '5511947250110'\n// $input.first(), nao $json: no modo padrao do no Code (uma vez para todos os\n// itens) o $json nao existe. Mesmo padrao do DailyTasks.\nconst r = $input.first()?.json || {}\n\nconst agora = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit',\n})\n\nconst linhas = ['*Lidimus Update - ' + agora + '*']\n\n// Sem campo `resultado` o agente nao respondeu: maquina desligada, agente fora\n// do ar, ou o wget morreu no meio. A producao nao foi tocada.\nif (!r.resultado) {\n  linhas.push('', '🚨 O agente do host nao respondeu.', '')\n  linhas.push('A producao NAO foi tocada.')\n  linhas.push('Confira se o `pnpm update:agente` esta rodando na maquina.')\n  const detalhe = r.error?.message || r.message || r.motivo\n  if (detalhe) linhas.push('', '_' + String(detalhe).slice(0, 300) + '_')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\nconst cabecalhos = {\n  'sucesso': '✅ Deploy concluido',\n  'nada-a-fazer': '💤 Nada aprovado para subir',\n  'abortado': '⛔ Deploy nao aconteceu (producao intacta)',\n  'rollback': '↩️ Deploy revertido para a versao anterior',\n  'intervencao-manual': '🚨 PRECISA DE INTERVENCAO MANUAL',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\nlinhas.push('', cabecalhos[r.resultado] || ('❓ ' + r.resultado))\n\nif (r.motivo) linhas.push('', r.motivo)\n\nif (r.aprovacao?.descricao) {\n  linhas.push('', '📋 Aprovado: _' + r.aprovacao.descricao + '_')\n}\n\nif (r.codigo?.commits?.length) {\n  linhas.push('', '📦 Codigo: ' + r.codigo.commits.length + ' commit(s)')\n  for (const c of r.codigo.commits.slice(0, 5)) linhas.push('   • ' + c)\n  if (r.codigo.commits.length > 5) linhas.push('   • ...e mais ' + (r.codigo.commits.length - 5))\n}\n\n// So fala de migrations e n8n se a fase correspondente rodou de verdade.\n// Um abort no preflight nao autoriza dizer 'nenhuma pendente'.\nif (r.migrations?.verificado) {\n  const p = r.migrations.pendentes || []\n  if (!p.length) linhas.push('', '🗄️ Migrations: nenhuma pendente')\n  else if (r.migrations.aplicadas) linhas.push('', '🗄️ Migrations aplicadas: ' + p.join(', '))\n  else linhas.push('', '🗄️ Migrations pendentes NAO aplicadas: ' + p.join(', '))\n}\n\nif (r.n8n?.verificado) {\n  const d = r.n8n.divergentes || []\n  if (d.length) {\n    linhas.push('', '🔄 n8n: ' + d.length + ' workflow(s) divergente(s) - revisar')\n    for (const w of d.slice(0, 5)) {\n      const nos = [...(w.nos?.alterados || []), ...(w.nos?.acrescentados || [])].slice(0, 3)\n      linhas.push('   • ' + w.arquivo + (nos.length ? ' (' + nos.join(', ') + ')' : ''))\n    }\n  } else {\n    linhas.push('', '🔄 n8n: em sincronia com o repositorio')\n  }\n  for (const e of (r.n8n.erros || [])) linhas.push('   ! ' + e)\n}\n\nif (r.smoke?.length) {\n  const passaram = r.smoke.filter((t) => t.ok).length\n  linhas.push('', '🧪 Smoke: ' + passaram + '/' + r.smoke.length + ' passaram')\n  for (const t of r.smoke.filter((t) => !t.ok)) linhas.push('   ✗ ' + t.nome)\n}\n\nif (r.deploy?.downtimeSegundos != null) {\n  linhas.push('', '⏱️ Indisponibilidade: ' + r.deploy.downtimeSegundos + 's')\n}\n\nif (r.github?.empurrado) {\n  linhas.push('🐙 GitHub: ' + (r.github.commit || 'push') + ' publicado')\n}\n\nif (r.disco?.livreGbDepois != null) {\n  linhas.push('💾 Disco: ' + r.disco.livreGbDepois + ' GB livres')\n}\n\n// O caminho do dump so aparece quando ele importa: alguem vai precisar dele.\nif (r.resultado === 'intervencao-manual' && r.deploy?.dump) {\n  linhas.push('', '💾 Backup do banco: ' + r.deploy.dump)\n}\n\n// O ultimo erro costuma ser o proprio motivo, ja impresso la em cima.\nconst ultimo = r.erros?.length ? String(r.erros[r.erros.length - 1]) : null\nif (ultimo && ultimo !== r.motivo && r.resultado !== 'nada-a-fazer') {\n  linhas.push('', '⚠️ ' + ultimo.slice(0, 400))\n}\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]"
+      }
+    },
+    {
+      "id": "lu-0005-whatsapp",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/message/sendText/daily-tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"text\": $json.texto } }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "59bXVFjKNOlU24oS",
+          "name": "Evolution API - apikey"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Diario 5h SP": {
+      "main": [
+        [
+          {
+            "node": "Executar deploy no host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rodar agora": {
+      "main": [
+        [
+          {
+            "node": "Executar deploy no host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar deploy no host": {
+      "main": [
+        [
+          {
+            "node": "Formatar relatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar relatorio": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "active": false
+}

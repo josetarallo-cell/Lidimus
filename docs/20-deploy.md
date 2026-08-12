@@ -2,6 +2,11 @@
 
 Passo a passo para colocar (ou atualizar) o Lidimus em produção usando `docker-compose.prod.yml`.
 
+> **O deploy do dia a dia é automático.** O que está descrito aqui é o
+> procedimento manual, útil para entender o mecanismo e para emergências. Na
+> prática você valida no sandbox, roda `pnpm sandbox:ok` e a automação sobe às
+> 5h da manhã sozinha — ver [25-lidimus-update.md](25-lidimus-update.md).
+
 > **Estado atual: este caminho não está em uso.** A produção roda hoje na máquina de desenvolvimento, com o `docker-compose.yml` (que inclui o serviço `cloudflared` publicando o `web` em `https://lidimus.gvlar.com`). O `docker-compose.prod.yml` está escrito e pronto — PgBouncer, Redis com senha, réplicas, sem portas expostas —, mas nunca foi ativado. Leia este documento como "o plano para migrar para VPS", não como descrição do que está no ar.
 
 ## Os três composes
