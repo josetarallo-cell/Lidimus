@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-03T14:23:36.194Z",
+  "updatedAt": "2026-08-12T19:06:32.000Z",
   "createdAt": "2026-07-01T17:06:01.857Z",
   "id": "MPmlcKYyq4dcgJ9U",
   "name": "lidimus-OCR",
@@ -8,61 +8,52 @@
   "isArchived": false,
   "nodes": [
     {
-      "id": "node-webhook",
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        0,
-        300
-      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "lidimus-ocr",
         "responseMode": "responseNode",
         "options": {}
       },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        304
+      ],
       "webhookId": "f03b43ff-d57c-4166-8bcf-c631b0c51a44",
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nreturn [{ json: {\n  jobId: body.jobId || '',\n  fileUrl: body.fileUrl || '',\n  callbackUrl: body.callbackUrl || '',\n  callbackSecret: body.callbackSecret || '',\n  params: body.params || {},\n} }];"
+      },
       "id": "node-preparar",
       "name": "Preparar Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nreturn [{ json: {\n  jobId: body.jobId || '',\n  fileUrl: body.fileUrl || '',\n  callbackUrl: body.callbackUrl || '',\n  callbackSecret: body.callbackSecret || '',\n  params: body.params || {},\n} }];"
-      }
+        224,
+        304
+      ]
     },
     {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({ status: 'processing', stage: 'ocr', jobId: $('Preparar Input').first().json.jobId }) }}",
+        "options": {}
+      },
       "id": "node-responder",
       "name": "Responder Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        440,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ ({ status: 'processing', stage: 'ocr', jobId: $('Preparar Input').first().json.jobId }) }}",
-        "options": {}
-      }
+        368,
+        304
+      ]
     },
     {
-      "id": "node-baixar",
-      "name": "Baixar PDF",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        660,
-        300
-      ],
-      "onError": "continueErrorOutput",
       "parameters": {
         "url": "={{ $('Preparar Input').first().json.fileUrl }}",
         "options": {
@@ -73,20 +64,20 @@
           }
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 3000
-    },
-    {
-      "id": "node-docai",
-      "name": "Google Document AI",
+      "id": "node-baixar",
+      "name": "Baixar PDF",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        880,
-        300
+        528,
+        304
       ],
-      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "https://us-documentai.googleapis.com/v1/projects/106018180847/locations/us/processors/a02f03278cbcdc35:process",
@@ -98,45 +89,44 @@
         "body": "={{ JSON.stringify({ rawDocument: { content: $json.pdfBase64, mimeType: 'application/pdf' }, imagelessMode: true }) }}",
         "options": {
           "response": {
-            "response": {
-              "fullResponse": false
-            }
+            "response": {}
           }
         }
       },
+      "id": "node-docai",
+      "name": "Google Document AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "credentials": {
         "googleApi": {
           "id": "cWFvav5uTN3bnhJO",
           "name": "Google Document AI - lidimus"
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000
+      "onError": "continueErrorOutput"
     },
     {
+      "parameters": {
+        "jsCode": "const doc = $input.first().json.document || {};\n// Homóglifos: o OCR devolve letra grega ou cirílica no lugar da latina, e o que\n// sai é texto que parece certo na tela e não casa em regex nenhuma.\n//\n// O mapa nasceu só com maiúsculas. Faltava justamente o ν minúsculo (U+03BD),\n// que é como o OCR lê o \"v\" datilografado: na matrícula 7.529 do 1º RI de São\n// Bernardo, \"Av. 2/7529\" virou \"Aν. 2/7529\" em quatro averbações. O parser\n// jurídico não reconheceu os cabeçalhos, viu salto na numeração e declarou\n// incompleta uma certidão inteira de 7 faces — com o agravante de mandar o\n// cliente pedir inteiro teor ao cartório para resolver um erro de leitura.\n//\n// Só entram caracteres sem uso legítimo em matrícula brasileira. O par\n// maiúscula/minúscula não é simétrico de propósito: Ν grego é N latino, mas ν\n// minúsculo é v — o critério é o desenho da letra, não o alfabeto.\nconst HOMOGLIFOS = {\n  'ν':'v','υ':'u','ο':'o','ρ':'p','α':'a','ι':'i','κ':'k','τ':'t','χ':'x','ε':'e','η':'n','μ':'u',\n  'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N','Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X',\n  'а':'a','е':'e','о':'o','р':'p','с':'c','у':'y','х':'x','з':'3','и':'u','л':'n','м':'m','п':'n',\n  'А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','Х':'X','У':'Y','Й':'N',\n};\nlet texto = String(doc.text || '');\ntexto = texto.replace(/[Ͱ-ϿЀ-ӿ]/g, ch => HOMOGLIFOS[ch] || ch);\nconst total_paginas = (doc.pages || []).length;\nif (!texto.trim()) throw new Error('OCR retornou texto vazio.');\nreturn [{ json: { texto_ocr: texto, total_paginas } }];\n"
+      },
       "id": "node-normalizar",
       "name": "Normalizar Texto",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
-        300
+        1104,
+        304
       ],
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "jsCode": "const doc = $input.first().json.document || {};\nconst HOMOGLIFOS = {'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N','Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X','А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','Х':'X','У':'Y','а':'a','е':'e','о':'o','р':'p','с':'c','у':'y','х':'x'};\nlet texto = String(doc.text || '');\ntexto = texto.replace(/[Ͱ-ϿЀ-ӿ]/g, ch => HOMOGLIFOS[ch] || ch);\nconst total_paginas = (doc.pages || []).length;\nif (!texto.trim()) throw new Error('OCR retornou texto vazio.');\nreturn [{ json: { texto_ocr: texto, total_paginas } }];"
-      }
+      "onError": "continueErrorOutput"
     },
     {
-      "id": "node-callback-ok",
-      "name": "Callback OCR",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1320,
-        300
-      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
@@ -157,30 +147,30 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', result: { texto_ocr: $json.texto_ocr, total_paginas: $json.total_paginas }, usage: { models: [{ workflow: 'lidimus-OCR', model: 'google-document-ai', promptTokens: 0, completionTokens: 0, totalTokens: 0, units: ($json.total_paginas || 0), unitLabel: 'páginas', costUsd: Number((($json.total_paginas || 0) * 0.0015).toFixed(6)) }] } }) }}",
         "options": {}
-      }
+      },
+      "id": "node-callback-ok",
+      "name": "Callback OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        304
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst err = (item.error && typeof item.error === 'object') ? item.error : {};\nconst partes = [];\nconst msg = err.message || item.error || item.message;\nif (msg) partes.push(String(typeof msg === 'object' ? JSON.stringify(msg) : msg));\nif (err.description && !partes.includes(String(err.description))) partes.push(String(err.description));\nconst texto = partes.join(' — ') || 'Falha no OCR';\nreturn [{ json: { errorMessage: texto.slice(0, 500) } }];"
+      },
       "id": "node-montar-erro",
       "name": "Montar Erro",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
-        540
-      ],
-      "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst err = (item.error && typeof item.error === 'object') ? item.error : {};\nconst partes = [];\nconst msg = err.message || item.error || item.message;\nif (msg) partes.push(String(typeof msg === 'object' ? JSON.stringify(msg) : msg));\nif (err.description && !partes.includes(String(err.description))) partes.push(String(err.description));\nconst texto = partes.join(' — ') || 'Falha no OCR';\nreturn [{ json: { errorMessage: texto.slice(0, 500) } }];"
-      }
+        1104,
+        544
+      ]
     },
     {
-      "id": "node-callback-erro",
-      "name": "Callback Erro",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1320,
-        540
-      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
@@ -201,20 +191,28 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', error: $json.errorMessage }) }}",
         "options": {}
-      }
+      },
+      "id": "node-callback-erro",
+      "name": "Callback Erro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        544
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// $binary.data.data traz só o placeholder 'filesystem-v2' quando o binário vai\n// para o filesystem — ler via helpers garante o conteúdo real em base64\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf || buf.length < 100) throw new Error('PDF vazio ou não baixado.');\nreturn [{ json: { ...$input.first().json, pdfBase64: buf.toString('base64') } }];"
+      },
       "id": "node-base64",
       "name": "Preparar Base64",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        770,
-        420
+        688,
+        208
       ],
-      "parameters": {
-        "jsCode": "// $binary.data.data traz só o placeholder 'filesystem-v2' quando o binário vai\n// para o filesystem — ler via helpers garante o conteúdo real em base64\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf || buf.length < 100) throw new Error('PDF vazio ou não baixado.');\nreturn [{ json: { ...$input.first().json, pdfBase64: buf.toString('base64') } }];"
-      },
       "onError": "continueErrorOutput"
     }
   ],
@@ -349,9 +347,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "05a75dab-8fba-40ba-b97d-172002b7b680",
-  "activeVersionId": "05a75dab-8fba-40ba-b97d-172002b7b680",
-  "versionCounter": 37,
+  "versionId": "17528650-e9c6-4e4c-8078-12bca62682f6",
+  "activeVersionId": "17528650-e9c6-4e4c-8078-12bca62682f6",
+  "versionCounter": 51,
   "triggerCount": 1,
   "shared": [
     {

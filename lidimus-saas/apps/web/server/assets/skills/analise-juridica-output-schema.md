@@ -22,6 +22,8 @@ Este documento descreve a estrutura esperada da resposta JSON para uso pelo work
     "paginas_lidas": 0,
     "paginas_declaradas": 0,
     "atos_faltantes": ["string"],
+    "cabecalhos_ilegiveis": ["string"],
+    "causa_provavel": "paginas_ausentes|falha_de_leitura|null",
     "fichas_faltantes": ["string"],
     "motivos": ["string"],
     "cadeia_anterior_nao_examinada": false

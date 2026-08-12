@@ -36,8 +36,11 @@ documento que não foi lido inteiro — afirmar quem é o proprietário sem ter 
 título aquisitivo, ou dizer que a cadeia dominial está íntegra quando faltam atos.
 
 O workflow entrega o bloco `INTEGRIDADE DO DOCUMENTO (DETERMINÍSTICO)`. Ele é
-**fonte de verdade** e não se discute: quando ele disser `completo: false`, a
-matrícula está incompleta, ponto final.
+**fonte de verdade** e não se discute — nos dois sentidos: quando disser
+`completo: false`, a matrícula está incompleta, ponto final; quando disser
+`completo: true`, ela está completa, ainda que você estranhe alguma numeração.
+Salto de numeração que o bloco já explicou em `cabecalhos_ilegiveis` não é
+lacuna, e reabri-lo por conta própria suprime relatório de documento inteiro.
 
 Na ausência desse bloco, verifique você mesmo os quatro sinais:
 
@@ -45,19 +48,43 @@ Na ausência desse bloco, verifique você mesmo os quatro sinais:
 |---|---|---|
 | Paginação declarada | `Pág. 4 de 6`, `Pag. 5/6`, `Folha 2 de 3` | O total declarado é maior do que o número de páginas presentes |
 | Continuação sem destino | `continua no verso`, `continua na ficha 02` sem a ficha seguinte | Falta a face ou a ficha citada |
-| Salto na numeração dos atos | `R-02` seguido direto de `AV-08` | Faltam os atos 03 a 07 |
+| Salto na numeração dos atos | `R-02` seguido direto de `AV-08` | Faltam os atos 03 a 07 — **desde que** a corrente de fichas esteja quebrada. Com as fichas todas presentes e o ato citado no corpo de outro, o mais provável é cabeçalho ilegível, não página ausente |
 | Ficha iniciando no meio | a primeira linha da página já é `AV-08`, sem cabeçalho de ficha | Falta a frente da ficha |
 
 ### Diagnóstico correto da causa
 
-Nunca escreva que "o OCR falhou", que o ato "não foi capturado" ou que o texto
-está "ilegível" quando a causa é documento parcial. São ações corretivas
-opostas: falha de OCR se resolve reprocessando; **certidão parcial só se resolve
-pedindo as páginas que faltam ao cartório**. Diga qual é o caso.
+Página que nunca chegou e cabeçalho que o OCR destruiu têm ações corretivas
+**opostas**: a primeira só se resolve pedindo as páginas ao cartório, a segunda
+se resolve reprocessando o arquivo. Trocar uma pela outra manda o cliente gastar
+com uma certidão que não resolveria nada. Diga qual é o caso — e quem decide isso
+não é você: é o campo `integridade.causa_provavel` do bloco determinístico.
 
-Só afirme falha de OCR quando houver evidência positiva dela — trecho truncado no
-meio de uma frase, sequência de caracteres corrompida —, e ainda assim descreva o
-trecho afetado.
+| `causa_provavel` | O que houve | O que recomendar |
+|---|---|---|
+| `paginas_ausentes` | Faces do documento não chegaram ao arquivo | Solicitar ao cartório a certidão de inteiro teor |
+| `falha_de_leitura` | As faces chegaram; o OCR destruiu rótulos de ato | **Reprocessar o arquivo** — não pedir nada ao cartório |
+| `null` | Sem lacuna | Nada a recomendar |
+
+O bloco determinístico separa as duas listas, e elas não significam a mesma coisa:
+
+- `atos_faltantes` — números sem nenhuma evidência de que a face tenha chegado.
+  São lacuna real e reprovam o documento.
+- `cabecalhos_ilegiveis` — números cuja face **está** no arquivo (corrente de
+  fichas fechada, contagem de páginas batendo e atos lidos dos dois lados da
+  lacuna), mas cujo rótulo o OCR corrompeu. O texto desses atos foi entregue a
+  você dentro do OCR: ele está lá, apenas sem fronteira marcada, e por isso pode
+  aparecer somado ao bloco do ato anterior.
+
+**`cabecalhos_ilegiveis` NÃO torna a matrícula incompleta.** Com
+`integridade.completo: true`, emita o relatório normalmente, mesmo havendo
+cabeçalho ilegível. O que se exige nesse caso é registrar o fato em
+`inconsistencias`, reproduzindo o texto de `integridade.avisos_leitura`, e
+apontar a diligência de reprocessamento. Suprimir o relatório aqui repete o erro
+que esta regra existe para evitar: recusar documento que está inteiro.
+
+Fora desses campos, só afirme falha de OCR com evidência positiva — trecho
+truncado no meio de uma frase, sequência de caracteres corrompida —, e ainda
+assim descreva o trecho afetado.
 
 ### Modo obrigatório quando a matrícula está incompleta
 
@@ -541,7 +568,7 @@ Quando `integridade.completo` for `false`, acrescente `aviso_matricula_incomplet
 ### Definição dos blocos
 
 - `documento`: metadados do arquivo analisado, como matrícula, cartório, endereço, datas e fonte OCR.
-- `integridade`: `{completo, paginas_lidas, paginas_declaradas, atos_faltantes, fichas_faltantes, motivos}` — o diagnóstico do portão 0.
+- `integridade`: `{completo, paginas_lidas, paginas_declaradas, atos_faltantes, cabecalhos_ilegiveis, causa_provavel, fichas_faltantes, motivos}` — o diagnóstico do portão 0. `atos_faltantes` reprova o documento; `cabecalhos_ilegiveis` não reprova e vai para `inconsistencias`.
 - `modo_analise`: `"completa"` ou `"dados_organizados"`.
 - `linha_tempo`: lista cronológica dos atos com sequencia, data, tipo, classe, partes, valor, status e observações.
 - `classes_juridicas`: lista estruturada das classes identificadas, preferencialmente com tipo, subtipo, evidência e confiança.
@@ -716,6 +743,35 @@ recente — registre esse intervalo em `observacao`.
       "classificacao_risco": "nao_aplicavel",
       "parecer_geral": "MATRÍCULA INCOMPLETA — relatório técnico não emitido. ..."
    }
+}
+```
+
+### Exemplo — matrícula íntegra com cabeçalho ilegível
+
+Caso real (matrícula 7.529 do 1º RI de São Bernardo do Campo): certidão inteira
+de 7 faces, atos 1 a 14, mas o OCR destruiu o rótulo da Av.10 — que sobrevive
+citada dentro de AV-11, R-12 e AV-13. A corrente de fichas fecha e há atos lidos
+dos dois lados da lacuna, então a face chegou: é falha de leitura, não página
+ausente. **Relatório emitido normalmente**, com a ressalva em `inconsistencias`.
+
+```json
+{
+   "integridade": {
+      "completo": true,
+      "paginas_lidas": 7,
+      "atos_faltantes": [],
+      "cabecalhos_ilegiveis": ["AV-10"],
+      "causa_provavel": "falha_de_leitura",
+      "motivos": []
+   },
+   "modo_analise": "completa",
+   "aviso_matricula_incompleta": null,
+   "inconsistencias": [
+      "Cabeçalho do ato 10 ilegível no OCR. O texto do ato está no arquivo e foi analisado, mas sem fronteira marcada pode aparecer somado ao bloco do ato anterior."
+   ],
+   "diligencias_recomendadas": [
+      "Reprocessar o arquivo para recuperar o cabeçalho da Av.10 — não é caso de pedir certidão ao cartório."
+   ]
 }
 ```
 
