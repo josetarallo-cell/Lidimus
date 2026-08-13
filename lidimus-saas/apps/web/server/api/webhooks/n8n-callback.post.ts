@@ -222,7 +222,7 @@ export default defineEventHandler(async (event) => {
         const applied = await transitionActiveJob(db, body.jobId, {
           status: 'error',
           stageData,
-          errorMessage: '[ocr] OCR retornou texto vazio.',
+          errorMessage: '[ocr] Erro de leitura do sistema: nenhum texto foi extraído do documento.',
           completedAt: new Date(),
         })
         if (!applied) {
@@ -326,7 +326,7 @@ export default defineEventHandler(async (event) => {
         const applied = await transitionActiveJob(db, body.jobId, {
           status: 'error',
           stageData,
-          errorMessage: '[ocr] OCR retornou texto vazio.',
+          errorMessage: '[ocr] Erro de leitura do sistema: nenhum texto foi extraído do documento.',
           completedAt: new Date(),
         })
         if (!applied) {

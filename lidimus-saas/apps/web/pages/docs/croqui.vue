@@ -181,7 +181,7 @@ const SECOES = [
       <h3>1. A partir de uma matrícula já analisada</h3>
       <p>
         Se você já rodou a <NuxtLink to="/docs/matriculas">análise de matrícula</NuxtLink>, o texto
-        do documento já foi lido. O croqui reaproveita essa leitura, sem OCR novo — é o caminho
+        do documento já foi lido. O croqui reaproveita essa leitura, sem lê-lo de novo — é o caminho
         rápido e de custo mínimo. No painel, o botão aparece na própria tela do resultado.
       </p>
 

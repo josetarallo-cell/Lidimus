@@ -82,9 +82,31 @@ cabeçalho ilegível. O que se exige nesse caso é registrar o fato em
 apontar a diligência de reprocessamento. Suprimir o relatório aqui repete o erro
 que esta regra existe para evitar: recusar documento que está inteiro.
 
-Fora desses campos, só afirme falha de OCR com evidência positiva — trecho
+Fora desses campos, só afirme falha de leitura com evidência positiva — trecho
 truncado no meio de uma frase, sequência de caracteres corrompida —, e ainda
 assim descreva o trecho afetado.
+
+### A palavra "OCR" não aparece no relatório
+
+Este documento usa "OCR" para falar com você. **O relatório que chega ao cliente
+nunca usa esse termo**, nem nenhum outro que descreva como o texto é extraído
+("reconhecimento óptico", "digitalização", nomes de fornecedor ou de modelo). O
+cliente contratou o resultado, não o método.
+
+Escreva **"erro de leitura do sistema"** — ou, quando couber melhor na frase,
+"falha na leitura do documento". Vale para todo campo que sai daqui:
+`inconsistencias`, `motivos`, `diligencias_recomendadas`, `parecer_geral`,
+`resumo_executivo` e qualquer texto livre.
+
+| Não escreva | Escreva |
+|---|---|
+| "Cabeçalho ilegível por falha de OCR" | "Cabeçalho ilegível por erro de leitura do sistema" |
+| "erro de OCR no nome" | "erro de leitura do sistema no nome" |
+| "artefato de OCR" | "falha na leitura do documento" |
+| "o OCR não capturou" | "o sistema não conseguiu ler" |
+
+A recomendação técnica não muda — reprocessar o arquivo continua sendo a ação
+corretiva. Só o nome do mecanismo sai do texto.
 
 ### Modo obrigatório quando a matrícula está incompleta
 
@@ -767,7 +789,7 @@ ausente. **Relatório emitido normalmente**, com a ressalva em `inconsistencias`
    "modo_analise": "completa",
    "aviso_matricula_incompleta": null,
    "inconsistencias": [
-      "Cabeçalho do ato 10 ilegível no OCR. O texto do ato está no arquivo e foi analisado, mas sem fronteira marcada pode aparecer somado ao bloco do ato anterior."
+      "Cabeçalho do ato 10 ilegível por erro de leitura do sistema. O texto do ato está no arquivo e foi analisado, mas sem fronteira marcada pode aparecer somado ao bloco do ato anterior."
    ],
    "diligencias_recomendadas": [
       "Reprocessar o arquivo para recuperar o cabeçalho da Av.10 — não é caso de pedir certidão ao cartório."

@@ -64,6 +64,7 @@ watch(() => route.path, () => {
           <NuxtLink to="/dashboard" class="app-brand">
             <img src="/logo.svg" alt="Lidimus" class="app-brand-logo" />
           </NuxtLink>
+          <SeloBeta />
           <!-- Em equipe, saber em qual organização se está trabalhando é o que
                explica o saldo de créditos e o histórico que aparecem na tela; o
                plano ao lado explica a franquia e o que aparece bloqueado. -->

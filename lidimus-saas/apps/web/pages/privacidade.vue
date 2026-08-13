@@ -143,8 +143,8 @@ const VIGENCIA = '7 de agosto de 2026'
           </tr>
           <tr>
             <td>Documentos e análises</td>
-            <td>Arquivo enviado, texto extraído por OCR e o relatório gerado — que podem conter
-              dados pessoais de terceiros</td>
+            <td>Arquivo enviado, texto extraído do documento e o relatório gerado — que podem
+              conter dados pessoais de terceiros</td>
             <td>Executar a análise solicitada. Aqui atuamos como <strong>operador</strong>: a
               base legal é definida por você</td>
           </tr>

@@ -282,7 +282,7 @@ const memorialEtapas = [
 const faq = [
   {
     q: 'Como funciona a cobrança avulsa da análise de matrícula?',
-    a: 'A análise de matrícula é comprada à parte, só quando você precisar. Assinante paga R$ 89 por análise (25% a menos que o preço público de R$ 119), cobrados apenas quando a análise é concluída: falha de OCR ou matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42% de desconto, e o saldo fica sempre visível no topo do app.',
+    a: 'A análise de matrícula é comprada à parte, só quando você precisar. Assinante paga R$ 89 por análise (25% a menos que o preço público de R$ 119), cobrados apenas quando a análise é concluída: erro de leitura do sistema ou matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42% de desconto, e o saldo fica sempre visível no topo do app.',
   },
   {
     q: 'Isso substitui o parecer de um profissional habilitado?',
@@ -414,6 +414,10 @@ onBeforeUnmount(() => {
     <!-- ── Barra ────────────────────────────────────────────── -->
     <header class="lp-barra">
       <div class="lp-barra-inner">
+        <!-- Marca e selo formam um bloco só: a barra distribui os filhos com
+             space-between, e o selo solto viraria um terceiro polo, empurrado
+             para o meio da barra em vez de ficar colado na marca. -->
+        <div class="lp-marca-bloco">
         <NuxtLink to="/" class="lp-marca">
           <svg viewBox="0 0 461.6 158.1" fill="var(--color-text)" class="lp-marca-logo" role="img" aria-label="Lidimus">
             <path d="M75,24.2l59.5,58.1-58.1,59.5-59.5-58.1,58.1-59.5ZM75,37.5l-44.8,46.2,46.2,44.8,44.8-46.2-46.2-44.8Z" />
@@ -430,6 +434,8 @@ onBeforeUnmount(() => {
             <polygon points="103 137.8 99.1 141.8 439.6 141.8 439.6 137.8 103 137.8" />
           </svg>
         </NuxtLink>
+          <SeloBeta />
+        </div>
         <nav class="lp-nav" aria-label="Principal">
           <a href="#ferramentas" class="cond lp-nav-link">Ferramentas</a>
           <a href="#planos" class="cond lp-nav-link">Planos</a>
@@ -1257,6 +1263,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+}
+.lp-marca-bloco {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .lp-marca {
   display: inline-flex;
