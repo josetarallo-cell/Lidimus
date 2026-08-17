@@ -97,6 +97,18 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d web worker
 DATABASE_URL=<url de produção> pnpm --filter db migrate
 ```
 
+**A ordem acima só vale quando a migration é compatível com o código antigo.**
+Quando ela *acrescenta* algo que o código novo passa a escrever — um valor de
+enum, uma coluna `NOT NULL`, uma tabela — inverta: **migre primeiro, suba
+depois**. Entre o `up -d` e o `migrate` o container novo já está atendendo, e
+uma escrita que o banco ainda não conhece não degrada: ela derruba o job do
+cliente (o Postgres recusa `invalid input value for enum`) e ele leva o
+estorno em vez do relatório.
+
+Foi o caso da `0024_corretor_leitura`, que acrescentou `revisao` ao `job_stage`
+e `awaiting_review` ao `job_status`. A regra prática: se a migration é aditiva,
+ela pode rodar antes do deploy sem quebrar o código velho — então rode.
+
 `postgres` e `redis` normalmente não precisam ser recriados num deploy — só `web`/`worker` mudam de imagem.
 
 ## 6. Escalar (Fase 3)
