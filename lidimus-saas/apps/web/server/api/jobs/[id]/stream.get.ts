@@ -37,27 +37,50 @@ export default defineEventHandler(async (event) => {
   // imagem idêntica de 15 em 15 segundos, por quinze minutos, não informa nada.
   let ultimoEnvio = ''
 
-  const push = async () => {
-    if (closed) return
+  // Devolve se chegou a transmitir algo — quem chama usa isso para decidir se
+  // precisa mandar um sinal de vida no lugar.
+  const push = async (): Promise<boolean> => {
+    if (closed) return false
     try {
       const job = await getJobForUser(db, jobId, user.id)
-      if (!job) return
+      if (!job) return false
       const payload = JSON.stringify(job)
-      if (payload === ultimoEnvio) return
+      if (payload === ultimoEnvio) return false
       ultimoEnvio = payload
       await eventStream.push(payload)
       // após o estado final não há mais o que transmitir — o cliente também
       // fecha do lado dele ao receber done/error (não vai reconectar)
       if (job.status === 'done' || job.status === 'error') await close()
+      return true
     } catch {
       // cliente desconectou no meio do push — encerrar sem derrubar o processo
       await close()
+      return false
     }
   }
 
   // Rede de segurança para transições que não publicam evento (ex.: worker
-  // marcando processing) — reconsulta esparsa, bem mais leve que polling de 3s
-  const safetyInterval = setInterval(push, 15_000)
+  // marcando processing) — reconsulta esparsa, bem mais leve que polling de 3s.
+  //
+  // Quando não há nada de novo, vai um sinal de vida no lugar do payload. Ele
+  // não é enfeite: antes de existir, a reconsulta reenviava o job inteiro a cada
+  // 15s e era isso, sem querer, que mantinha a conexão viva. Ao parar de repetir
+  // payload idêntico, o stream ficou minutos calado — e conexão calada atrás do
+  // túnel do Cloudflare é conexão encerrada, que chega ao navegador como 502.
+  //
+  // Vai como evento nomeado de propósito: o `onmessage` do EventSource só recebe
+  // eventos sem nome, então o ping atravessa sem passar perto do estado do job.
+  // Quem escuta é o vigia de silêncio do useJobPoller, para saber que o canal
+  // ainda está de pé.
+  const safetyInterval = setInterval(async () => {
+    const transmitiu = await push()
+    if (transmitiu || closed) return
+    try {
+      await eventStream.push({ event: 'ping', data: '1' })
+    } catch {
+      await close()
+    }
+  }, 15_000)
 
   eventStream.onClosed(close)
 
