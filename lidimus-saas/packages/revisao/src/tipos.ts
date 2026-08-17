@@ -92,9 +92,19 @@ export type Candidato = Suspeita & {
    */
   repeticoes: Ocorrencia[]
   /**
-   * Recorte da palavra na página, `data:image/png;base64,...`. Preenchido pelo
-   * worker de revisão; volta a `null` depois que a revisão fecha — imagem de
-   * documento alheio não fica guardada no banco por tempo indeterminado.
+   * Recorte da palavra na página. Preenchido pelo worker de revisão; volta a
+   * `null` depois que a revisão fecha — imagem de documento alheio não fica
+   * guardada no banco por tempo indeterminado.
+   *
+   * Tem duas formas, de propósito:
+   *   • no banco, o data URL (`data:image/png;base64,...`) que o worker gravou;
+   *   • no payload que vai para a tela, o *endereço* de onde buscá-la.
+   *
+   * A troca acontece em `getJobForUser`, e a tela não precisa saber de nada: as
+   * duas formas servem igualmente como origem de uma imagem no navegador.
+   * Ela existe porque a primeira versão mandava as imagens dentro do payload de
+   * status: oito recortes deram 256 KB, a mensagem do SSE não chegou ao
+   * navegador e a tela ficou parada na espera com o job já esperando resposta.
    */
   recorte?: string | null
 }

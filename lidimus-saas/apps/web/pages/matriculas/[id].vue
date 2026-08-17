@@ -19,6 +19,11 @@ const STAGES = [
 // enfeite genérico é a mesma espera, só que mentindo.
 const TITULOS_ESPERA: Record<string, string> = {
   ocr: 'Lendo o documento',
+  // A etapa de revisão normalmente não usa a tela de espera — ela tem a própria.
+  // Mas há segundos em que o job está em 'revisao' e os recortes ainda não
+  // ficaram prontos, e sem esta entrada o painel cai no rótulo genérico
+  // "Processando", que não conta nada a quem está olhando.
+  revisao: 'Conferindo a leitura',
   juridico: 'Analisando os atos',
   doc: 'Montando o relatório',
 }
@@ -29,6 +34,10 @@ const MENSAGENS_ESPERA: Record<string, string[]> = {
     'Reconhecendo o texto do cartório',
     'Recompondo a ordem dos atos',
     'Conferindo se falta alguma página',
+  ],
+  revisao: [
+    'Separando os trechos de leitura duvidosa',
+    'Recortando os pedaços da página',
   ],
   juridico: [
     'Identificando proprietários e transmissões',

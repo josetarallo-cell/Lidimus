@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
 import { jobs, organizations, orgMembers } from '@lidimus/db'
 import { limparJob } from './semTelemetria'
+import { trocarRecortesPorUrl } from './recortesDaRevisao'
 
 // Job visível para o usuário (via org de que participa) — usado pelo GET e pelo SSE
 export async function getJobForUser(db: Db, jobId: string, userId: string) {
@@ -34,5 +35,9 @@ export async function getJobForUser(db: Db, jobId: string, userId: string) {
 
   // Sai limpo do custo em dólar e dos modelos usados — ver semTelemetria.ts.
   // Limpar aqui, e não em cada rota, faz rota nova nascer segura.
-  return job ? limparJob(job) : null
+  // Os recortes do corretor de leitura saem daqui como endereço, não como
+  // imagem — 256 KB de base64 num payload de status estouravam o SSE. Ver
+  // recortesDaRevisao.ts. Aplicado no mesmo ponto que a limpeza de
+  // telemetria, pela mesma razão: rota nova já nasce leve.
+  return job ? trocarRecortesPorUrl(limparJob(job)) : null
 }

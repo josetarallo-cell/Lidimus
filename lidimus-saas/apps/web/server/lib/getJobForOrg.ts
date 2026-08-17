@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { Db, JobType } from '@lidimus/db'
 import { jobs } from '@lidimus/db'
 import { limparJob } from './semTelemetria'
+import { trocarRecortesPorUrl } from './recortesDaRevisao'
 
 // Job visível para uma organização — usado pela API pública.
 //
@@ -32,5 +33,9 @@ export async function getJobForOrg(db: Db, jobId: string, orgId: string, tipo?: 
     )
     .limit(1)
 
-  return job ? limparJob(job) : null
+  // Os recortes do corretor de leitura saem daqui como endereço, não como
+  // imagem — 256 KB de base64 num payload de status estouravam o SSE. Ver
+  // recortesDaRevisao.ts. Aplicado no mesmo ponto que a limpeza de
+  // telemetria, pela mesma razão: rota nova já nasce leve.
+  return job ? trocarRecortesPorUrl(limparJob(job)) : null
 }
