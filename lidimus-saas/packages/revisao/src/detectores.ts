@@ -527,7 +527,14 @@ export function detectarConfianca(
       grupo.pagina === t.p &&
       t.s - grupo.fim <= 2 &&
       grupo.n < MAX_TOKENS_GRUPO &&
-      t.e - grupo.inicio <= MAX_CHARS_GRUPO
+      t.e - grupo.inicio <= MAX_CHARS_GRUPO &&
+      // Quebra de linha encerra o grupo. Sem isto, "…ares" no fim de uma linha
+      // e "5,0" no começo da seguinte viram um candidato só: o recorte precisa
+      // de uma caixa alta o bastante para cobrir as duas linhas (e tudo que há
+      // entre elas), e o campo de texto, que é de uma linha, obrigaria o usuário
+      // a decidir sozinho o que fazer com a quebra. São duas perguntas
+      // diferentes; a tela faz as duas.
+      !texto.slice(grupo.fim, t.s).includes('\n')
 
     if (cabe && grupo) {
       grupo.fim = t.e

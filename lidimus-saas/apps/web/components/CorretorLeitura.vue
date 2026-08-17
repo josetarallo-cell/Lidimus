@@ -16,6 +16,13 @@
 //   • Campo já preenchido com o que foi lido. O trabalho vira conferir e emendar
 //     um caractere, não redigitar. Campo vazio faria a pessoa transcrever de
 //     novo o que o sistema já acertou em 90% dos casos.
+//
+//   • O campo aparece DENTRO da frase, entre o texto que vem antes e o que vem
+//     depois. Sem isso a pessoa não tem como saber o que exatamente está sendo
+//     trocado: num teste real, o recorte mostrava "nº 4" de um "nº 429.138" e a
+//     correção digitada foi o número inteiro — o que produziria "nº 429.138
+//     429.138" no documento, porque só o "nº" seria substituído. O erro não foi
+//     de quem digitou; foi da tela, que pedia uma decisão sem mostrar o escopo.
 import type { Candidato } from '@lidimus/revisao'
 
 const props = defineProps<{
@@ -27,7 +34,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  enviar: [correcoes: { id: string; texto: string }[]]
+  enviar: [correcoes: { id: string; texto: string; descartar: boolean }[]]
   pular: []
 }>()
 
@@ -36,19 +43,47 @@ const valores = reactive<Record<string, string>>(
   Object.fromEntries(props.candidatos.map((c) => [c.id, c.textoLido])),
 )
 
-const alterados = computed(
-  () => props.candidatos.filter((c) => valores[c.id]?.trim() !== c.textoLido).length,
-)
+// "Isto não é texto": o OCR transcreveu uma rubrica ou um carimbo como se fosse
+// palavra. Não há o que digitar — o trecho tem é que sair do documento.
+const descartados = reactive<Record<string, boolean>>({})
+
+function mudou(c: Candidato): boolean {
+  return descartados[c.id] === true || valores[c.id]?.trim() !== c.textoLido
+}
+
+const alterados = computed(() => props.candidatos.filter(mudou).length)
 
 function enviar() {
   emit(
     'enviar',
-    props.candidatos.map((c) => ({ id: c.id, texto: valores[c.id] ?? '' })),
+    props.candidatos.map((c) => ({
+      id: c.id,
+      texto: valores[c.id] ?? '',
+      descartar: descartados[c.id] === true,
+    })),
   )
 }
 
 function restaurar(c: Candidato) {
   valores[c.id] = c.textoLido
+  descartados[c.id] = false
+}
+
+function alternarDescarte(c: Candidato) {
+  descartados[c.id] = !descartados[c.id]
+}
+
+// Vizinhança do trecho, em uma linha, para caber ao lado do campo. O corte é
+// generoso o bastante para situar (a frase em volta) e curto o bastante para o
+// campo continuar sendo o que salta aos olhos.
+const LIMITE_CONTEXTO = 30
+
+function contexto(bruto: string, lado: 'antes' | 'depois'): string {
+  const limpo = bruto.replace(/\s+/g, ' ')
+  if (limpo.length <= LIMITE_CONTEXTO) return limpo
+  return lado === 'antes'
+    ? `…${limpo.slice(-LIMITE_CONTEXTO)}`
+    : `${limpo.slice(0, LIMITE_CONTEXTO)}…`
 }
 </script>
 
@@ -91,19 +126,44 @@ function restaurar(c: Candidato) {
 
         <div class="item-campo">
           <label class="ld-campo" :for="`corretor-${c.id}`">O que está escrito</label>
-          <div class="item-entrada">
+
+          <!-- O campo dentro da frase: o que fica de fora não é substituído. -->
+          <p class="item-frase" :class="{ 'item-frase--descartada': descartados[c.id] }">
+            <span class="item-vizinho mono">{{ contexto(c.ctxAntes, 'antes') }}</span>
             <input
               :id="`corretor-${c.id}`"
               v-model="valores[c.id]"
-              class="ld-input mono"
+              class="ld-input mono item-input"
               type="text"
               maxlength="120"
               autocomplete="off"
               spellcheck="false"
-              :disabled="enviando"
+              :disabled="enviando || descartados[c.id]"
+              :aria-describedby="`corretor-ajuda-${c.id}`"
             />
+            <span class="item-vizinho mono">{{ contexto(c.ctxDepois, 'depois') }}</span>
+          </p>
+
+          <p :id="`corretor-ajuda-${c.id}`" class="item-ajuda">
+            <template v-if="descartados[c.id]">
+              Este trecho vai sair do documento.
+            </template>
+            <template v-else>
+              Corrija só a parte no campo — o texto ao redor fica como está.
+            </template>
+          </p>
+
+          <div class="item-acoes">
             <button
-              v-if="valores[c.id] !== c.textoLido"
+              type="button"
+              class="ld-btn ld-btn--ghost ld-btn--sm"
+              :disabled="enviando"
+              @click="alternarDescarte(c)"
+            >
+              {{ descartados[c.id] ? 'Voltar a corrigir' : 'Não é texto (assinatura, carimbo)' }}
+            </button>
+            <button
+              v-if="mudou(c)"
               type="button"
               class="ld-btn ld-btn--ghost ld-btn--sm"
               :disabled="enviando"
@@ -252,15 +312,48 @@ function restaurar(c: Candidato) {
   margin-top: var(--space-sm);
 }
 
-.item-entrada {
+/* A frase com o campo dentro: o que está fora do campo é o texto que permanece,
+   e é essa vizinhança que diz onde a correção começa e termina. Os vizinhos são
+   apagados de propósito — eles situam, o campo é que age. */
+.item-frase {
   display: flex;
-  gap: var(--space-sm);
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-xs) 0 0;
 }
 
-.item-entrada .ld-input {
-  flex: 1 1 auto;
+.item-vizinho {
+  flex: 0 1 auto;
   min-width: 0;
+  font-size: 0.8125rem;
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.item-frase--descartada .item-input {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.item-ajuda {
+  margin: var(--space-xs) 0 0;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.item-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
 }
 
 .corretor-acoes {

@@ -107,10 +107,14 @@ export function aplicarCorrecoes(
       continue
     }
 
-    const para = sanear(correcao.texto)
+    // "Não é texto": o trecho sai do documento. Não passa pelo saneamento nem
+    // pela comparação com o lido — a intenção não é escrever nada, é remover.
+    const descartar = correcao.descartar === true
+    const para = descartar ? '' : sanear(correcao.texto)
+
     // Campo vazio ou igual ao que estava lá é confirmação, não correção: o
     // usuário olhou a imagem e disse que o OCR acertou. Nada a fazer no texto.
-    if (!para || para === candidato.textoLido) continue
+    if (!descartar && (!para || para === candidato.textoLido)) continue
 
     // Todas as posições onde o OCR leu a mesma coisa: o usuário digitou uma
     // correção e ela vale para cada uma delas.
@@ -160,7 +164,13 @@ export function aplicarCorrecoes(
   const contagem = new Map<string, CorrecaoAplicada & { primeira: number }>()
 
   for (const r of aceitos) {
-    saida = saida.slice(0, r.inicio) + r.para + saida.slice(r.fim)
+    let fim = r.fim
+    // Remover um trecho deixa os dois espaços que o cercavam colados um no
+    // outro. Come um — mas nunca a quebra de linha, que é o que separa os atos
+    // para o parser jurídico.
+    if (r.para === '' && saida[fim] === ' ' && /\s/.test(saida[r.inicio - 1] ?? '')) fim += 1
+
+    saida = saida.slice(0, r.inicio) + r.para + saida.slice(fim)
     const registro = contagem.get(r.candidato.id)
     if (registro) {
       registro.ocorrencias += 1

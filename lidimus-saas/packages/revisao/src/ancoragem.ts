@@ -11,6 +11,22 @@ import type { TokenOcr } from './tipos.ts'
 /** Caracteres de contexto guardados de cada lado, para re-ancorar a correção. */
 export const CTX = 36
 
+/**
+ * Teto de tamanho para a caixa de um trecho, em fração da página.
+ *
+ * O Document AI devolve como "token" coisas que não são palavra: a rubrica do
+ * escrevente vira um token com caixa do tamanho de meia página, e o texto
+ * associado é o que o motor achou que aquele rabisco parecia — numa certidão
+ * real saiu "20-Ma". Isso rendia um recorte gigante, ilegível, ocupando uma das
+ * oito vagas para perguntar sobre uma assinatura.
+ *
+ * Palavra de cartório não passa perto destes números: uma linha inteira de
+ * texto tem uns 2% da altura da página. O que estoura o teto não é texto, e o
+ * que não é texto não se corrige digitando.
+ */
+const ALTURA_MAXIMA = 0.05
+const LARGURA_MAXIMA = 0.85
+
 export type Ancora = {
   pagina: number
   caixa: [number, number, number, number]
@@ -79,6 +95,9 @@ export function ancorar(
   if (!melhor) return null
 
   const [x0, y0, x1, y1] = melhor.caixa
+
+  // Grande demais para ser palavra: assinatura, carimbo, moldura. Ver os tetos.
+  if (y1 - y0 > ALTURA_MAXIMA || x1 - x0 > LARGURA_MAXIMA) return null
   const altura = Math.max(y1 - y0, 0.004)
   const margemY = altura * folga
   // A folga horizontal usa a altura, e não a largura: proporcional à largura,

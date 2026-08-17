@@ -171,6 +171,41 @@ describe('aplicarCorrecoes', () => {
     expect([...r.texto].every((ch) => ch.codePointAt(0)! >= 0x20)).toBe(true)
   })
 
+  it('descarta o trecho quando o usuário diz que não é texto', () => {
+    // Caso real: a rubrica do escrevente virou "20-Ma" no meio da averbação.
+    // Não há o que digitar — o certo é que aquilo não vá para a análise.
+    const t = 'Averbação em 20-Ma julho de 2019, conforme inventário.'
+    const i = t.indexOf('20-Ma')
+    const c = candidato({
+      id: 'r1', motivo: 'confianca', peso: 25,
+      inicio: i, fim: i + 5, textoLido: '20-Ma',
+      ctxAntes: t.slice(0, i), ctxDepois: t.slice(i + 5, i + 25),
+    })
+
+    const r = aplicarCorrecoes(t, [c], [{ id: 'r1', texto: '', descartar: true }])
+    expect(r.texto).toBe('Averbação em julho de 2019, conforme inventário.')
+    expect(r.aplicadas).toEqual([
+      { id: 'r1', motivo: 'confianca', de: '20-Ma', para: '', ocorrencias: 1 },
+    ])
+  })
+
+  it('descartar não come a quebra de linha que separa os atos', () => {
+    const t = ['R.1/100 - COMPRA', '20-Ma', 'Av.2/100 - PENHORA'].join('\n')
+    const i = t.indexOf('20-Ma')
+    const c = candidato({
+      id: 'r1', inicio: i, fim: i + 5, textoLido: '20-Ma',
+      ctxAntes: t.slice(0, i), ctxDepois: t.slice(i + 5, i + 25),
+    })
+    const r = aplicarCorrecoes(t, [c], [{ id: 'r1', texto: '', descartar: true }])
+    expect(r.texto).toBe(['R.1/100 - COMPRA', '', 'Av.2/100 - PENHORA'].join('\n'))
+  })
+
+  it('campo vazio sem descartar continua sendo confirmação', () => {
+    const r = aplicarCorrecoes(texto, [alvo], [{ id: 'r1', texto: '', descartar: false }])
+    expect(r.texto).toBe(texto)
+    expect(r.aplicadas).toHaveLength(0)
+  })
+
   it('corta correção absurdamente longa', () => {
     const r = aplicarCorrecoes(texto, [alvo], [{ id: 'r1', texto: 'x'.repeat(500) }])
     expect(r.aplicadas[0].para).toHaveLength(120)

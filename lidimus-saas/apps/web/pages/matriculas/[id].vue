@@ -88,7 +88,9 @@ const prazoRevisao = Number(useRuntimeConfig().public.revisaoPrazoMinutos ?? 15)
 const enviandoRevisao = ref(false)
 const erroRevisao = ref<string | null>(null)
 
-async function responderRevisao(correcoes: { id: string; texto: string }[]) {
+async function responderRevisao(
+  correcoes: { id: string; texto: string; descartar?: boolean }[],
+) {
   if (enviandoRevisao.value) return
   enviandoRevisao.value = true
   erroRevisao.value = null

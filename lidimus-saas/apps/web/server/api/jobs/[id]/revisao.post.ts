@@ -20,7 +20,15 @@ import { publishJobEvent } from '../../../lib/jobEvents'
 
 const bodySchema = z.object({
   correcoes: z
-    .array(z.object({ id: z.string().max(16), texto: z.string().max(500) }))
+    .array(
+      z.object({
+        id: z.string().max(16),
+        texto: z.string().max(500),
+        // "Não é texto": o trecho sai do documento em vez de ser corrigido —
+        // rubrica e carimbo que o OCR transcreveu como se fossem palavras.
+        descartar: z.boolean().optional(),
+      }),
+    )
     .max(32)
     .default([]),
 })

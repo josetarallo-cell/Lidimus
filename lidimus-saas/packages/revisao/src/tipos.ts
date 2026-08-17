@@ -109,11 +109,25 @@ export type Candidato = Suspeita & {
   recorte?: string | null
 }
 
-/** O que o usuário digitou para um candidato. */
+/** O que o usuário decidiu sobre um candidato. */
 export type Correcao = {
   id: string
   /** Texto correto. Vazio ou igual ao lido = o usuário confirmou o que estava lá. */
   texto: string
+  /**
+   * "Isto não é texto" — o trecho sai do documento em vez de ser corrigido.
+   *
+   * Existe porque o OCR não lê só letras: ele transcreve rubrica, carimbo e
+   * borda de moldura como se fossem palavras. Numa certidão real a assinatura do
+   * escrevente virou "20-Ma", e não há o que digitar ali — o certo é que aquilo
+   * não esteja no texto que vai para a análise.
+   *
+   * É deliberadamente um campo à parte, e não "campo vazio significa apagar":
+   * apagar o que está escrito e apagar o que nunca foi escrito são intenções
+   * diferentes, e a segunda precisa ser dita, não deduzida de um campo em branco
+   * que também acontece por engano.
+   */
+  descartar?: boolean
 }
 
 /** Registro do que a correção fez com o texto, para auditoria no stageData. */
