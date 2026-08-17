@@ -37,7 +37,9 @@ export type {
 export { aplicarCorrecoes } from './aplicar.ts'
 export { FAMILIA, LIMITE_CONFIANCA, PESOS, cnpjValido, cpfValido } from './detectores.ts'
 export { reconciliarOffsets } from './offsets.ts'
-export { LIMITE_GIRO, semTextoGirado } from './giro.ts'
+export { LIMITE_GIRO, baseDasPaginas, estaGirado, semTextoGirado } from './giro.ts'
+export { removerCarimbo } from './carimbo.ts'
+export type { TextoSemCarimbo } from './carimbo.ts'
 
 /**
  * Quantos trechos a tela pede para conferir, no máximo.

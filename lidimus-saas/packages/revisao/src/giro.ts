@@ -50,20 +50,36 @@ function mediana(valores: number[]): number {
  * antigo, que não emitia o campo. Sem o dado, a decisão honesta é não filtrar
  * nada — pior que não ter o filtro seria descartar texto por achismo.
  */
-export function semTextoGirado(tokens: TokenOcr[], limite = LIMITE_GIRO): TokenOcr[] {
+/**
+ * Ângulo do corpo de cada página — a régua contra a qual "girado" é medido.
+ *
+ * Página com poucos tokens não tem mediana confiável: nela o carimbo poderia ser
+ * a maioria e virar a referência, invertendo o filtro. Nesse caso a régua é a
+ * horizontal, que é o padrão do documento.
+ */
+export function baseDasPaginas(tokens: TokenOcr[]): Map<number, number> {
+  const base = new Map<number, number>()
   const comAngulo = tokens.filter((t) => typeof t.a === 'number')
-  if (comAngulo.length === 0) return tokens
 
-  const baseDaPagina = new Map<number, number>()
   for (const pagina of new Set(comAngulo.map((t) => t.p))) {
     const angulos = comAngulo.filter((t) => t.p === pagina).map((t) => t.a as number)
-    // Página com poucos tokens não tem mediana confiável — nela o carimbo
-    // poderia ser a maioria. Cai para a horizontal, que é o padrão do documento.
-    baseDaPagina.set(pagina, angulos.length >= MINIMO_PARA_MEDIANA ? mediana(angulos) : 0)
+    base.set(pagina, angulos.length >= MINIMO_PARA_MEDIANA ? mediana(angulos) : 0)
   }
+  return base
+}
 
-  return tokens.filter((t) => {
-    if (typeof t.a !== 'number') return true
-    return Math.abs(t.a - (baseDaPagina.get(t.p) ?? 0)) <= limite
-  })
+/** O token corre em direção diferente do corpo da página? */
+export function estaGirado(
+  t: TokenOcr,
+  base: Map<number, number>,
+  limite = LIMITE_GIRO,
+): boolean {
+  if (typeof t.a !== 'number') return false
+  return Math.abs(t.a - (base.get(t.p) ?? 0)) > limite
+}
+
+export function semTextoGirado(tokens: TokenOcr[], limite = LIMITE_GIRO): TokenOcr[] {
+  if (!tokens.some((t) => typeof t.a === 'number')) return tokens
+  const base = baseDasPaginas(tokens)
+  return tokens.filter((t) => !estaGirado(t, base, limite))
 }

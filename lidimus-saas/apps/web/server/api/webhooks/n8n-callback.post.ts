@@ -4,7 +4,7 @@ import type { Db } from '@lidimus/db'
 import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
-import { candidatosParaRevisao } from '../../lib/revisaoDaLeitura'
+import { prepararLeitura } from '../../lib/revisaoDaLeitura'
 import { jobs, refundJobCredits } from '@lidimus/db'
 import { publishJobEvent } from '../../lib/jobEvents'
 import { createHmac, timingSafeEqual } from 'crypto'
@@ -255,19 +255,32 @@ export default defineEventHandler(async (event) => {
         return { ok: true }
       }
 
-      // Corretor de leitura: os trechos que valem conferência humana são
-      // levantados aqui, onde o índice de tokens chega. Quando há algum, o job
-      // desvia para a etapa de revisão — e o PDF sobrevive mais alguns segundos,
-      // até o worker recortar dele as imagens e apagá-lo.
-      const candidatos = candidatosParaRevisao({
+      // Aqui é onde o índice de tokens chega, e é a única etapa que o tem em
+      // mãos. Duas coisas acontecem com ele:
+      //
+      //   • o carimbo diagonal da certidão eletrônica sai do texto — ele vinha
+      //     intercalado no conteúdo e chegava despedaçado à análise;
+      //   • os trechos que valem conferência humana são levantados.
+      //
+      // O texto que segue para o jurídico é o limpo; o original fica ao lado,
+      // porque é ele que prova o que o cartório mandou.
+      const leitura = prepararLeitura({
         textoOcr,
         tokens: body.tokens,
         inputMeta: job.inputMeta as Record<string, unknown> | null,
       })
 
-      if (candidatos.length > 0) {
+      const ocrLimpo = {
+        ...result,
+        texto_ocr: leitura.textoOcr,
+        ...(leitura.textoBruto ? { texto_ocr_bruto: leitura.textoBruto } : {}),
+        ...(leitura.carimboRemovido ? { carimbo_removido: leitura.carimboRemovido } : {}),
+      }
+      const stageDataDaLeitura = { ...stageData, ocr: ocrLimpo }
+
+      if (leitura.candidatos.length > 0) {
         const desviado = await transitionActiveJob(db, body.jobId, {
-          stageData,
+          stageData: stageDataDaLeitura,
           status: 'queued',
           stage: 'revisao',
         })
@@ -277,7 +290,10 @@ export default defineEventHandler(async (event) => {
         }
 
         const { matriculaRevisaoQueue } = useQueues()
-        await matriculaRevisaoQueue.add('process', { jobId: body.jobId, candidatos })
+        await matriculaRevisaoQueue.add('process', {
+          jobId: body.jobId,
+          candidatos: leitura.candidatos,
+        })
         await publishJobEvent(useQueues().connection, body.jobId)
         return { ok: true }
       }
@@ -286,7 +302,7 @@ export default defineEventHandler(async (event) => {
       await softDeleteJobFile(db, body.jobId)
 
       const applied = await transitionActiveJob(db, body.jobId, {
-        stageData,
+        stageData: stageDataDaLeitura,
         status: 'queued',
         stage: 'juridico',
       })
@@ -299,7 +315,7 @@ export default defineEventHandler(async (event) => {
       await matriculaJuridicoQueue.add('process', {
         jobId: body.jobId,
         callbackUrl,
-        textoOcr,
+        textoOcr: leitura.textoOcr,
         totalPaginas: typeof result.total_paginas === 'number' ? result.total_paginas : undefined,
         params,
       })
