@@ -56,9 +56,52 @@ const textoOcr = computed(() => {
   return stageData?.ocr?.texto_ocr ?? null
 })
 
-const processando = computed(
-  () => !job.value || (job.value.status !== 'done' && job.value.status !== 'error'),
+// ─── Corretor de leitura (OCR → CORRETOR → Jurídico) ─────────────────────────
+// Quando o filtro encontra trechos que valem conferência humana, o pipeline para
+// aqui e a tela de espera dá lugar ao corretor. É a única pausa deliberada do
+// fluxo — e ela tem prazo: passado o tempo, a análise segue com a leitura atual.
+const candidatosRevisao = computed(() => {
+  const stageData = job.value?.stageData as Record<string, any> | undefined
+  const lista = stageData?.revisao?.candidatos
+  return Array.isArray(lista) ? lista : []
+})
+
+// Os trechos fazem parte da condição, e não só o status: `awaiting_review` sem
+// candidato nenhum não deveria existir (o worker só para o job aí depois de ter
+// recorte), mas se existisse a tela cairia entre dois `v-else-if` e o usuário
+// veria a página em branco. Assim ela continua sendo a tela de espera, que é a
+// leitura honesta do que está acontecendo — e o watchdog destrava em minutos.
+const emRevisao = computed(
+  () => job.value?.status === 'awaiting_review' && candidatosRevisao.value.length > 0,
 )
+
+const prazoRevisao = Number(useRuntimeConfig().public.revisaoPrazoMinutos ?? 15)
+const enviandoRevisao = ref(false)
+const erroRevisao = ref<string | null>(null)
+
+async function responderRevisao(correcoes: { id: string; texto: string }[]) {
+  if (enviandoRevisao.value) return
+  enviandoRevisao.value = true
+  erroRevisao.value = null
+  try {
+    await $fetch(`/api/jobs/${jobId.value}/revisao`, { method: 'POST', body: { correcoes } })
+  } catch (err: any) {
+    // 409 é o caso legítimo de corrida (prazo estourou enquanto digitava): a
+    // análise já seguiu e o SSE vai trazer o novo estado sozinho.
+    erroRevisao.value =
+      err?.statusMessage ?? 'Não foi possível enviar as correções. Tente novamente.'
+    enviandoRevisao.value = false
+    return
+  }
+  // O estado novo chega pelo SSE; o botão fica travado até lá para não haver
+  // duas submissões da mesma revisão.
+}
+
+const processando = computed(() => {
+  if (!job.value) return true
+  if (job.value.status === 'done' || job.value.status === 'error') return false
+  return !emRevisao.value
+})
 
 // O guilhoché de segurança forra o corpo da página (ver lidimus.css); a folha do
 // parecer repousa limpa sobre ele. Durante o processamento não há folha alguma —
@@ -66,7 +109,9 @@ const processando = computed(
 // Modernista. Entra junto com o laudo.
 useHead({
   title: 'Relatório técnico de matrícula — Lidimus',
-  bodyAttrs: { class: computed(() => (processando.value ? '' : 'ld-pagina-certidao')) },
+  bodyAttrs: {
+    class: computed(() => (processando.value || emRevisao.value ? '' : 'ld-pagina-certidao')),
+  },
 })
 
 // Classificação de risco → selo (A Regra do Carimbo: vermelho só em risco real).
@@ -285,6 +330,27 @@ async function gerarCroquiDaMatricula() {
       :limite-atraso="420"
       rotulo="Etapas da análise"
     />
+
+    <!-- ── Corretor de leitura: a pausa entre a leitura e a análise ─────── -->
+    <!-- Fora da CenaLeitura de propósito: o palco dela é absoluto sobre uma
+         folha de altura fixa, e a lista de trechos cresce até oito itens. -->
+    <div v-else-if="emRevisao" class="revisao print-hidden">
+      <EtapasPipeline
+        class="revisao-etapas"
+        :etapas="STAGES"
+        :indice="0"
+        :carimbando="null"
+        rotulo="Etapas da análise"
+      />
+      <CorretorLeitura
+        :candidatos="candidatosRevisao"
+        :enviando="enviandoRevisao"
+        :erro="erroRevisao"
+        :prazo-minutos="prazoRevisao"
+        @enviar="responderRevisao"
+        @pular="responderRevisao([])"
+      />
+    </div>
 
     <!-- ── Erro ──────────────────────────────────────────────────────────── -->
     <PranchaFalha
@@ -651,6 +717,13 @@ async function gerarCroquiDaMatricula() {
 
 /* A tela de espera vive em EstadoProcessando.vue — as quatro ferramentas
    compartilham a mesma, e a régua de etapas não é mais copiada por página. */
+
+/* ── Corretor de leitura ────────────────────────────────── */
+/* A régua de etapas continua na tela durante a conferência: o usuário precisa
+   ver que não saiu do fluxo, só que o fluxo pediu uma coisa a ele. */
+.revisao-etapas {
+  margin-bottom: var(--space-md);
+}
 
 /* ── A prancha ──────────────────────────────────────────── */
 /* A folha do parecer repousa sobre o papel de segurança da página: sombra

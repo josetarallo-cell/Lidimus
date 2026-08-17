@@ -18,6 +18,12 @@ const jobs = computed<JobListado[]>(() => (data.value?.items ?? []) as JobListad
 const total = computed(() => jobs.value.length)
 const concluidos = computed(() => jobs.value.filter((j) => !jobEmAndamento(j)).length)
 const comFalha = computed(() => jobs.value.filter((j) => j.status === 'error').length)
+// Num lote, o corretor de leitura é o que faz o acompanhamento parecer travado:
+// três análises esperando resposta e nenhuma pista de que a bola está com quem
+// olha a tela. O resumo diz quantas, e a coluna de status diz quais.
+const aguardando = computed(
+  () => jobs.value.filter((j) => j.status === 'awaiting_review').length,
+)
 const terminou = computed(() => total.value > 0 && concluidos.value === total.value)
 
 // O envio é o mesmo para todos, então a data do primeiro job serve de data do lote
@@ -25,7 +31,13 @@ const enviadoEm = computed(() => (jobs.value.length ? dataFmt(jobs.value[0].crea
 
 const resumo = computed(() => {
   if (!total.value) return ''
-  if (!terminou.value) return `${concluidos.value} de ${total.value} concluídas`
+  if (!terminou.value) {
+    const base = `${concluidos.value} de ${total.value} concluídas`
+    if (!aguardando.value) return base
+    return `${base} · ${aguardando.value} ${
+      aguardando.value === 1 ? 'aguarda' : 'aguardam'
+    } sua conferência`
+  }
   if (comFalha.value === 0) return `${total.value} análises concluídas`
   return `${total.value - comFalha.value} de ${total.value} concluídas · ${comFalha.value} com falha`
 })

@@ -19,6 +19,7 @@ const SECOES = [
   { id: 'o-que-faz', rotulo: 'O que a análise faz' },
   { id: 'tempo', rotulo: 'Quanto tempo leva' },
   { id: 'como-usar', rotulo: 'Como usar (e em lote)' },
+  { id: 'conferencia', rotulo: 'Conferência da leitura' },
   { id: 'o-que-recebe', rotulo: 'O que você recebe' },
   { id: 'custo', rotulo: 'Custo' },
   { id: 'limites', rotulo: 'Limites' },
@@ -261,6 +262,34 @@ const SECOES = [
           </tr>
         </tbody>
       </table>
+    </section>
+
+    <!-- ── Conferência da leitura ──────────────────────────────────────── -->
+    <section id="conferencia">
+      <h2>Conferência da leitura</h2>
+      <p>
+        Certidão digitalizada torta, carimbo por cima do texto, datilografia dos anos 80: às vezes
+        um trecho sai da leitura sem certeza — e um dígito trocado num CPF ou num ano muda a
+        análise inteira.
+      </p>
+      <p>
+        Quando isso acontece, a análise <strong>pausa e pergunta</strong>. A tela mostra o recorte
+        da própria página, com a dúvida dentro, e um campo já preenchido com o que foi lido. Você
+        compara, corrige o que estiver diferente e a análise segue com o texto corrigido. São no
+        máximo oito trechos, e a maioria dos documentos não gera nenhum.
+      </p>
+      <p>
+        O que faz um trecho aparecer aqui não é palpite: CPF ou CNPJ cujo dígito verificador não
+        fecha, data que não existe no calendário, ato numerado fora da sequência da matrícula,
+        valor com pontuação impossível, letra de outro alfabeto no meio de uma palavra. Só depois
+        disso entram os trechos que o sistema simplesmente leu com pouca confiança.
+      </p>
+      <p>
+        <strong>Você não fica preso a isso.</strong> Se ninguém responder em 15 minutos, a análise
+        segue sozinha com a leitura original — nenhum crédito se perde e o relatório sai do mesmo
+        jeito. Análises enviadas pela API nunca pausam, pelo mesmo motivo: não há ninguém na tela
+        para responder.
+      </p>
     </section>
 
     <!-- ── O que recebe ────────────────────────────────────────────────── -->

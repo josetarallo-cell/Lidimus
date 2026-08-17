@@ -31,12 +31,21 @@ export default defineEventHandler(async (event) => {
     await eventStream.close().catch(() => {})
   }
 
+  // Último payload enviado. A reconsulta de segurança dispara a cada 15s mesmo
+  // sem nada ter mudado, e desde o corretor de leitura o job carrega os recortes
+  // em base64 enquanto espera resposta — reenviar centenas de kilobytes de
+  // imagem idêntica de 15 em 15 segundos, por quinze minutos, não informa nada.
+  let ultimoEnvio = ''
+
   const push = async () => {
     if (closed) return
     try {
       const job = await getJobForUser(db, jobId, user.id)
       if (!job) return
-      await eventStream.push(JSON.stringify(job))
+      const payload = JSON.stringify(job)
+      if (payload === ultimoEnvio) return
+      ultimoEnvio = payload
+      await eventStream.push(payload)
       // após o estado final não há mais o que transmitir — o cliente também
       // fecha do lado dele ao receber done/error (não vai reconectar)
       if (job.status === 'done' || job.status === 'error') await close()

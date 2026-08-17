@@ -22,17 +22,25 @@ export const orgRoleEnum = pgEnum('org_role', ['owner', 'member', 'reader'])
 
 export const jobTypeEnum = pgEnum('job_type', ['matricula', 'kml', 'injection', 'croqui'])
 
+// `awaiting_review` é o único estado em que o pipeline para por vontade própria:
+// o corretor de leitura encontrou trechos que precisam de olho humano e espera a
+// resposta. Não é terminal (o job volta a 'queued' quando a revisão fecha) e não
+// é ativo (o watchdog de jobs presos não deve expirá-lo, porque a demora aqui é
+// do usuário, não do sistema) — daí precisar de valor próprio.
 export const jobStatusEnum = pgEnum('job_status', [
   'pending',
   'queued',
   'processing',
+  'awaiting_review',
   'done',
   'error',
 ])
 
-// Etapas dos pipelines de matrícula (ocr → juridico → doc) e de croqui
-// (ocr → croqui; jobs de croqui reaproveitando OCR pulam direto para 'croqui')
-export const jobStageEnum = pgEnum('job_stage', ['ocr', 'juridico', 'doc', 'croqui'])
+// Etapas dos pipelines de matrícula (ocr → revisao → juridico → doc) e de croqui
+// (ocr → croqui; jobs de croqui reaproveitando OCR pulam direto para 'croqui').
+// A etapa 'revisao' só existe quando o corretor tem o que perguntar; sem
+// candidatos, o OCR emenda direto no jurídico como sempre fez.
+export const jobStageEnum = pgEnum('job_stage', ['ocr', 'revisao', 'juridico', 'doc', 'croqui'])
 
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'trialing',

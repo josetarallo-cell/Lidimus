@@ -14,6 +14,7 @@
     "@lidimus/db": "workspace:*",
     "@lidimus/docx": "workspace:*",
     "@lidimus/queue": "workspace:*",
+    "@lidimus/revisao": "workspace:*",
     "@nuxt/ui": "^3.0.0",
     "@sentry/node": "^10.63.0",
     "better-auth": "^1.2.0",

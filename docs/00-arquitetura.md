@@ -58,13 +58,14 @@ Usuário                Web (Nuxt)                 GCS          Postgres      Re
 
 Detalhes importantes:
 
-- **Arquivos**: o binário vai para o bucket GCS (`GCS_BUCKET_NAME`, padrão `lidimus-job-files`). O n8n baixa via `PUBLIC_BASE_URL/api/jobs/:id/file?token=<accessToken>` — por isso o `PUBLIC_BASE_URL` precisa ser alcançável pelo n8n. Após o uso o arquivo é soft-deletado (`job_files.deleted_at`).
-- **Matrícula é um pipeline de 3 etapas encadeadas** — `ocr` → `juridico` → `doc`. Cada callback do n8n conclui uma etapa e o sistema enfileira a próxima; o progresso fica em `jobs.stage` / `jobs.stage_data`.
+- **Arquivos**: o binário vai para o bucket GCS (`GCS_BUCKET_NAME`, padrão `lidimus-job-files`). O n8n baixa via `PUBLIC_BASE_URL/api/jobs/:id/file?token=<accessToken>` — por isso o `PUBLIC_BASE_URL` precisa ser alcançável pelo n8n. Após o uso o arquivo é soft-deletado (`job_files.deleted_at`). Quem apaga é o callback do OCR — exceto quando o job entra no corretor de leitura, e aí quem apaga é o worker `matricula-revisao`, logo depois de recortar as imagens (poucos segundos mais tarde, ainda dentro da mesma etapa).
+- **Matrícula é um pipeline de etapas encadeadas** — `ocr` → (`revisao`) → `juridico` → `doc`. Cada callback do n8n conclui uma etapa e o sistema enfileira a próxima; o progresso fica em `jobs.stage` / `jobs.stage_data`.
+- **Corretor de leitura (`revisao`)**: etapa condicional entre a leitura e a análise. O `lidimus-OCR` passou a mandar, junto do texto, um índice compacto dos tokens do Document AI (caixa + confiança + posição). O callback roda os detectores de `packages/revisao` sobre esse índice e, se algum trecho merece conferência humana (no máximo 8), desvia o job para a fila `matricula-revisao`: o worker recorta da página a imagem de cada trecho, apaga o PDF e deixa o job em `awaiting_review`. A tela mostra recorte + campo de texto; a resposta é encaixada no `texto_ocr` e só então a análise jurídica sai. Sem resposta em `REVISAO_PRAZO_MINUTOS`, o watchdog manda o job adiante com a leitura original — a etapa aumenta a precisão, nunca bloqueia a entrega. Análise vinda da API pública não passa por aqui (não há tela para responder).
 - **Callback autenticado**: o n8n envia `X-Lidimus-Secret` (ou `X-Lidimus-Signature` HMAC-SHA256) validado contra `N8N_CALLBACK_SECRET`.
 
 ## Filas BullMQ
 
-`matricula-ocr`, `matricula-juridico`, `matricula-doc`, `croqui`, `kml`, `injection`.
+`matricula-ocr`, `matricula-revisao`, `matricula-juridico`, `matricula-doc`, `croqui`, `kml`, `injection`.
 Configuração padrão: 3 tentativas, backoff exponencial de 5 s, guarda 100 concluídos / 50 falhos.
 Monitoramento: página `/admin/queues` no app web.
 

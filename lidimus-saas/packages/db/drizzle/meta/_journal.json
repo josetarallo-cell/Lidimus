@@ -169,6 +169,13 @@
       "when": 1786042963628,
       "tag": "0023_aceite_termos",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786979684467,
+      "tag": "0024_corretor_leitura",
+      "breakpoints": true
     }
   ]
 }

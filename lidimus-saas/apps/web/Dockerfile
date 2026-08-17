@@ -8,6 +8,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
 COPY packages/queue/package.json ./packages/queue/
+COPY packages/revisao/package.json ./packages/revisao/
 COPY packages/croqui/package.json ./packages/croqui/
 COPY packages/docx/package.json ./packages/docx/
 
@@ -17,6 +18,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
 COPY packages/db ./packages/db
 COPY packages/queue ./packages/queue
+COPY packages/revisao ./packages/revisao
 COPY packages/croqui ./packages/croqui
 COPY packages/docx ./packages/docx
 

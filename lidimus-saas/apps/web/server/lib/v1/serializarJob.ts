@@ -15,8 +15,8 @@ import { limparErro, limparTelemetria } from '../semTelemetria'
 
 type JobDoBanco = {
   id: string
-  status: 'pending' | 'queued' | 'processing' | 'done' | 'error'
-  stage: 'ocr' | 'juridico' | 'doc' | 'croqui' | null
+  status: 'pending' | 'queued' | 'processing' | 'awaiting_review' | 'done' | 'error'
+  stage: 'ocr' | 'revisao' | 'juridico' | 'doc' | 'croqui' | null
   inputMeta: Record<string, unknown> | null
   // Ausente na listagem, que não carrega o conteúdo da análise.
   result?: Record<string, unknown> | null
@@ -30,8 +30,17 @@ export type StatusPublico = 'queued' | 'processing' | 'done' | 'error'
 // `pending` existe por instantes, entre o débito do crédito e o enfileiramento.
 // Para quem consome de fora é fila — não vale expor um estado que só existe
 // dentro de uma transação nossa.
+//
+// `awaiting_review` sai como `processing` pela razão oposta: análise pedida pela
+// API nunca entra no corretor de leitura (não há tela para responder), então
+// quem chega aqui nesse estado é um job enviado pelo painel e consultado pela
+// integração. Para ela, o job está em andamento — e está: alguém do outro lado
+// vai responder, ou o prazo vai correr. A etapa `revisao` conta a história
+// completa a quem quiser olhar.
 function statusPublico(status: JobDoBanco['status']): StatusPublico {
-  return status === 'pending' ? 'queued' : status
+  if (status === 'pending') return 'queued'
+  if (status === 'awaiting_review') return 'processing'
+  return status
 }
 
 // A limpeza de telemetria mora em lib/semTelemetria.ts e já foi aplicada no

@@ -1,5 +1,6 @@
 import { Queue, QueueEvents } from 'bullmq'
 import IORedis from 'ioredis'
+import type { Candidato } from '@lidimus/revisao'
 
 // ─── Tipos de payload por fila ────────────────────────────────────────────────
 
@@ -15,6 +16,22 @@ export type MatriculaOcrJobPayload = {
   fileAccessToken: string
   callbackUrl: string
   fileUrl: string
+  params: MatriculaParams
+}
+
+// Etapa 1.5: corretor de leitura — só existe quando o filtro encontrou trechos
+// que valem conferência humana. O worker recorta da página a imagem de cada
+// trecho, apaga o PDF e deixa o job em `awaiting_review` esperando o usuário.
+//
+// Os candidatos já vêm prontos (o levantamento roda no callback, onde o índice
+// de tokens chega): o que trafega aqui são no máximo oito itens, e não o índice
+// inteiro do documento.
+export type MatriculaRevisaoJobPayload = {
+  jobId: string
+  callbackUrl: string
+  candidatos: Candidato[]
+  textoOcr: string
+  totalPaginas?: number
   params: MatriculaParams
 }
 
@@ -69,6 +86,7 @@ export type InjectionJobPayload = {
 
 export const QUEUE_NAMES = {
   MATRICULA_OCR: 'matricula-ocr',
+  MATRICULA_REVISAO: 'matricula-revisao',
   MATRICULA_JURIDICO: 'matricula-juridico',
   MATRICULA_DOC: 'matricula-doc',
   CROQUI: 'croqui',
@@ -113,6 +131,10 @@ export function createQueues(redisUrl: string) {
   return {
     connection,
     matriculaOcrQueue: new Queue<MatriculaOcrJobPayload>(QUEUE_NAMES.MATRICULA_OCR, {
+      connection,
+      defaultJobOptions,
+    }),
+    matriculaRevisaoQueue: new Queue<MatriculaRevisaoJobPayload>(QUEUE_NAMES.MATRICULA_REVISAO, {
       connection,
       defaultJobOptions,
     }),

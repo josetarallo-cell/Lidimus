@@ -21,6 +21,7 @@ export type Selo = { classe: string; texto: string }
 // Etapas em linguagem de ofício — nunca jargão de máquina na UI
 export const ETAPA_ROTULO: Record<string, string> = {
   ocr: 'Leitura do documento',
+  revisao: 'Conferência da leitura',
   juridico: 'Análise jurídica',
   doc: 'Montagem do relatório',
   croqui: 'Desenho do croqui',
@@ -49,6 +50,12 @@ export function numeroDocumento(job: JobListado): string | null {
 export function statusSelo(job: JobListado): Selo {
   if (job.status === 'done') return { classe: 'ld-selo--verde', texto: 'Concluído' }
   if (job.status === 'error') return { classe: 'ld-selo--carimbo', texto: 'Falhou' }
+  // O corretor de leitura é o único estado em que a bola está com o cliente. Na
+  // listagem isso precisa saltar — num lote de dez, saber quais três esperam
+  // resposta é a diferença entre agir e achar que o sistema travou.
+  if (job.status === 'awaiting_review') {
+    return { classe: 'ld-selo--ocre', texto: 'Aguardando sua conferência' }
+  }
   const etapa = job.stage ? ETAPA_ROTULO[job.stage] ?? null : null
   return { classe: 'ld-selo--neutro', texto: etapa ? `Processando · ${etapa}` : 'Processando' }
 }

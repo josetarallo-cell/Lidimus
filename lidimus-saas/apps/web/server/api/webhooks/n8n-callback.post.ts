@@ -4,14 +4,33 @@ import type { Db } from '@lidimus/db'
 import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
+import { candidatosParaRevisao } from '../../lib/revisaoDaLeitura'
 import { jobs, refundJobCredits } from '@lidimus/db'
 import { publishJobEvent } from '../../lib/jobEvents'
 import { createHmac, timingSafeEqual } from 'crypto'
 
+// Índice compacto dos tokens do OCR, com caixa e confiança por palavra. Vem
+// fora de `result` de propósito: `result` é gravado inteiro em `stage_data`, e
+// este índice não é para guardar — ele existe só o tempo de levantar os trechos
+// que valem conferência humana e morre no fim desta requisição.
+const tokensSchema = z
+  .array(
+    z.object({
+      p: z.number().int().positive(),
+      b: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+      c: z.number(),
+      s: z.number().int().nonnegative(),
+      e: z.number().int().nonnegative(),
+    }),
+  )
+  .max(30000)
+  .optional()
+
 const bodySchema = z.object({
   jobId: z.string().uuid(),
-  stage: z.enum(['ocr', 'juridico', 'doc', 'croqui']).optional(),
+  stage: z.enum(['ocr', 'revisao', 'juridico', 'doc', 'croqui']).optional(),
   result: z.record(z.unknown()).optional(),
+  tokens: tokensSchema,
   error: z.string().optional(),
   // Uso real dos modelos, se o workflow do n8n reportar. Serve para medir a
   // margem real (créditos cobrados vs. custo de tokens) e alimentar o painel de
@@ -214,11 +233,9 @@ export default defineEventHandler(async (event) => {
     const params = ((job.inputMeta as Record<string, unknown>)?.params ?? {}) as Record<string, unknown>
 
     if (body.stage === 'ocr') {
-      // O PDF já foi lido — o binário não é mais necessário nas próximas etapas
-      await softDeleteJobFile(db, body.jobId)
-
       const textoOcr = String(result.texto_ocr ?? '')
       if (!textoOcr.trim()) {
+        await softDeleteJobFile(db, body.jobId)
         const applied = await transitionActiveJob(db, body.jobId, {
           status: 'error',
           stageData,
@@ -233,6 +250,36 @@ export default defineEventHandler(async (event) => {
         await publishJobEvent(useQueues().connection, body.jobId)
         return { ok: true }
       }
+
+      // Corretor de leitura: os trechos que valem conferência humana são
+      // levantados aqui, onde o índice de tokens chega. Quando há algum, o job
+      // desvia para a etapa de revisão — e o PDF sobrevive mais alguns segundos,
+      // até o worker recortar dele as imagens e apagá-lo.
+      const candidatos = candidatosParaRevisao({
+        textoOcr,
+        tokens: body.tokens,
+        inputMeta: job.inputMeta as Record<string, unknown> | null,
+      })
+
+      if (candidatos.length > 0) {
+        const desviado = await transitionActiveJob(db, body.jobId, {
+          stageData,
+          status: 'queued',
+          stage: 'revisao',
+        })
+        if (!desviado) {
+          console.warn(`[n8n-callback] ignorado: job ${body.jobId} já não estava ativo`)
+          return { ok: true }
+        }
+
+        const { matriculaRevisaoQueue } = useQueues()
+        await matriculaRevisaoQueue.add('process', { jobId: body.jobId, candidatos })
+        await publishJobEvent(useQueues().connection, body.jobId)
+        return { ok: true }
+      }
+
+      // Sem nada a conferir, o binário já não serve para mais nada
+      await softDeleteJobFile(db, body.jobId)
 
       const applied = await transitionActiveJob(db, body.jobId, {
         stageData,

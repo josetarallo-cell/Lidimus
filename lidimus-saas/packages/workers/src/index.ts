@@ -1,14 +1,16 @@
 import { writeFileSync } from 'node:fs'
 import * as Sentry from '@sentry/node'
 import { createDb } from '@lidimus/db'
-import { createRedisConnection } from '@lidimus/queue'
+import { createQueues, createRedisConnection } from '@lidimus/queue'
+import type { MatriculaJuridicoJobPayload } from '@lidimus/queue'
 import { startMatriculaOcrWorker } from './matricula-ocr.worker.ts'
+import { startMatriculaRevisaoWorker } from './matricula-revisao.worker.ts'
 import { startMatriculaJuridicoWorker } from './matricula-juridico.worker.ts'
 import { startMatriculaDocWorker } from './matricula-doc.worker.ts'
 import { startCroquiWorker } from './croqui.worker.ts'
 import { startKmlWorker } from './kml.worker.ts'
 import { startInjectionWorker } from './injection.worker.ts'
-import { startStuckJobWatchdog } from './watchdog.ts'
+import { startRevisaoWatchdog, startStuckJobWatchdog } from './watchdog.ts'
 
 const DATABASE_URL = process.env.DATABASE_URL!
 const REDIS_URL = process.env.REDIS_URL!
@@ -49,8 +51,17 @@ const db = createDb(DATABASE_URL)
 // de falha dos workers e pelo watchdog
 const publisher = createRedisConnection(REDIS_URL)
 
+// O corretor de leitura é a única etapa que enfileira a seguinte sem passar
+// pelo callback do n8n: quando a revisão fecha (respondida, expirada ou sem
+// recorte), é daqui que a análise jurídica sai.
+const filas = createQueues(REDIS_URL)
+const CALLBACK_URL = `${PUBLIC_BASE_URL}/api/webhooks/n8n-callback`
+const enfileirarJuridico = (payload: MatriculaJuridicoJobPayload) =>
+  filas.matriculaJuridicoQueue.add('process', payload)
+
 const workers = [
   startMatriculaOcrWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_OCR_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
+  startMatriculaRevisaoWorker(db, REDIS_URL, enfileirarJuridico, CALLBACK_URL, publisher),
   startMatriculaJuridicoWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_JURIDICO_WEBHOOK_PATH, N8N_CALLBACK_SECRET, PUBLIC_BASE_URL, publisher),
   startMatriculaDocWorker(db, REDIS_URL, N8N_BASE_URL + N8N_MATRICULA_DOC_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
   startCroquiWorker(db, REDIS_URL, N8N_BASE_URL + N8N_CROQUI_WEBHOOK_PATH, N8N_CALLBACK_SECRET, PUBLIC_BASE_URL, publisher),
@@ -61,6 +72,11 @@ const workers = [
 // Expira jobs presos (callback do n8n que nunca chegou) e estorna os créditos
 const watchdog = startStuckJobWatchdog(db, publisher, {
   timeoutMinutes: Number(process.env.STUCK_JOB_TIMEOUT_MINUTES ?? 60),
+})
+
+// Revisão sem resposta segue sozinha depois do prazo — ver startRevisaoWatchdog
+const watchdogRevisao = startRevisaoWatchdog(db, enfileirarJuridico, publisher, CALLBACK_URL, {
+  prazoMinutos: Number(process.env.REVISAO_PRAZO_MINUTOS ?? 15),
 })
 
 // Falha de job (retries esgotados) e erro de infraestrutura (ex.: Redis fora)
@@ -75,7 +91,7 @@ if (SENTRY_DSN) {
   }
 }
 
-console.log('Workers started: matricula-ocr, matricula-juridico, matricula-doc, croqui, kml, injection')
+console.log('Workers started: matricula-ocr, matricula-revisao, matricula-juridico, matricula-doc, croqui, kml, injection')
 
 // Heartbeat lido por healthcheck.js (Docker HEALTHCHECK) — sem porta HTTP exposta pelo worker
 const HEARTBEAT_PATH = process.env.WORKER_HEARTBEAT_PATH || '/tmp/worker-heartbeat'
@@ -89,6 +105,7 @@ async function shutdown() {
   console.log('Shutting down workers...')
   clearInterval(heartbeatInterval)
   watchdog.stop()
+  watchdogRevisao.stop()
   await Promise.all(workers.map((w) => w.close()))
   publisher.disconnect()
   process.exit(0)

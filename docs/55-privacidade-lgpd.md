@@ -127,7 +127,7 @@ Não existe endpoint (art. 18, §3º). Pior: `api_keys.created_by` é `ON DELETE
 
 ### 3. Retenção indefinida de dado pessoal de terceiros 🔴
 
-`jobs.stage_data` (texto OCR bruto) e `jobs.result` guardam nome, CPF, estado civil, endereço e ônus dos titulares das matrículas **sem prazo de expurgo**. O binário sai do GCS logo após o OCR (`softDeleteJobFile`), com lifecycle de 7 dias como rede de segurança — mas o texto extraído fica para sempre. Arts. 15 e 16 exigem término do tratamento quando a finalidade se exaure.
+`jobs.stage_data` (texto OCR bruto) e `jobs.result` guardam nome, CPF, estado civil, endereço e ônus dos titulares das matrículas **sem prazo de expurgo**. O binário sai do GCS logo após a leitura (`softDeleteJobFile` no callback, ou o worker `matricula-revisao` logo depois de recortar as imagens do corretor de leitura — segundos mais tarde, nunca esperando a resposta do usuário), com lifecycle de 7 dias como rede de segurança — mas o texto extraído fica para sempre. Arts. 15 e 16 exigem término do tratamento quando a finalidade se exaure.
 
 ### 4. Tokens OAuth do Google em texto claro 🟠
 

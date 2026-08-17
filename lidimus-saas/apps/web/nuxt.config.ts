@@ -92,6 +92,10 @@ export default defineNuxtConfig({
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {
       appName: 'Lidimus',
+      // Prazo do corretor de leitura, em minutos. A tela promete este número ao
+      // usuário e quem o cumpre é o watchdog do worker (REVISAO_PRAZO_MINUTOS) —
+      // mudar um sem o outro faz a tela mentir sobre quanto tempo ele tem.
+      revisaoPrazoMinutos: Number(process.env.REVISAO_PRAZO_MINUTOS || 15),
     },
   },
 
