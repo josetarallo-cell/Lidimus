@@ -13,10 +13,12 @@ export type OpcoesTokenizar = {
   porBytes?: boolean
   /** Quantas palavras por página, para exercitar trechos que cruzam a virada */
   palavrasPorPagina?: number
+  /** Desvio da horizontal, em graus — o carimbo diagonal fica em ~45 */
+  angulo?: number
 }
 
 export function tokenizar(texto: string, opcoes: OpcoesTokenizar = {}): TokenOcr[] {
-  const { confianca = 0.99, porBytes = false, palavrasPorPagina = 1000 } = opcoes
+  const { confianca = 0.99, porBytes = false, palavrasPorPagina = 1000, angulo = 0 } = opcoes
   const tokens: TokenOcr[] = []
   let n = 0
 
@@ -33,6 +35,7 @@ export function tokenizar(texto: string, opcoes: OpcoesTokenizar = {}): TokenOcr
         0.07 + (Math.floor(naPagina / 10) % 40) * 0.02,
       ],
       c: confianca,
+      a: angulo,
       s: porBytes ? Buffer.byteLength(texto.slice(0, inicio), 'utf8') : inicio,
       e: porBytes ? Buffer.byteLength(texto.slice(0, fim), 'utf8') : fim,
     })

@@ -19,6 +19,10 @@ const tokensSchema = z
       p: z.number().int().positive(),
       b: z.tuple([z.number(), z.number(), z.number(), z.number()]),
       c: z.number(),
+      // Desvio da horizontal em graus — separa o texto do cartório do carimbo
+      // diagonal da certidão eletrônica. Opcional: o workflow de OCR anterior
+      // não emitia o campo, e sem ele nada é filtrado.
+      a: z.number().optional(),
       s: z.number().int().nonnegative(),
       e: z.number().int().nonnegative(),
     }),

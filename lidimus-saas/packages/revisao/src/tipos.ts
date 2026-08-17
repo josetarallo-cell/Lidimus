@@ -18,6 +18,14 @@ export type TokenOcr = {
   b: [number, number, number, number]
   /** Confiança da leitura, 0..1 */
   c: number
+  /**
+   * Desvio da linha do token em relação à horizontal, em graus (0..90).
+   *
+   * É o que separa o texto do cartório do carimbo diagonal da certidão
+   * eletrônica — ver giro.ts. Opcional porque o workflow de OCR antigo não
+   * emitia o campo; sem ele, nada é filtrado.
+   */
+  a?: number
   /** Offset inicial no texto, como o Document AI reportou — ver offsets.ts */
   s: number
   /** Offset final, meio-aberto */

@@ -21,6 +21,7 @@ import {
   detectarHomoglifos,
   detectarValores,
 } from './detectores.ts'
+import { semTextoGirado } from './giro.ts'
 import { reconciliarOffsets } from './offsets.ts'
 import type { Candidato, Suspeita, TokenOcr } from './tipos.ts'
 
@@ -36,6 +37,7 @@ export type {
 export { aplicarCorrecoes } from './aplicar.ts'
 export { FAMILIA, LIMITE_CONFIANCA, PESOS, cnpjValido, cpfValido } from './detectores.ts'
 export { reconciliarOffsets } from './offsets.ts'
+export { LIMITE_GIRO, semTextoGirado } from './giro.ts'
 
 /**
  * Quantos trechos a tela pede para conferir, no máximo.
@@ -108,7 +110,11 @@ export function levantarCandidatos(
   if (!texto.trim() || tokensBrutos.length === 0) return []
 
   const max = opcoes.maxCandidatos ?? MAX_CANDIDATOS
-  const tokens = reconciliarOffsets(texto, tokensBrutos)
+
+  // O carimbo diagonal da certidão eletrônica sai do índice antes de tudo: ele
+  // não é texto do cartório, e deixá-lo entrar faz seus pedaços concorrerem
+  // pelas oito vagas da tela e sujarem o recorte dos trechos vizinhos.
+  const tokens = semTextoGirado(reconciliarOffsets(texto, tokensBrutos))
   if (tokens.length === 0) return []
 
   const suspeitas: Suspeita[] = [
