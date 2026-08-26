@@ -30,6 +30,12 @@ const MENSAGENS_ESPERA: Record<string, string[]> = {
 
 const protocolo = computed(() => String(jobId.value ?? '').slice(0, 8).toUpperCase())
 
+const arquivo = computed(() => {
+  const meta = job.value?.inputMeta as Record<string, any> | undefined
+  const nome = meta?.originalName
+  return typeof nome === 'string' && nome.trim() ? nome : undefined
+})
+
 const emitidoEm = computed(() => {
   const ts = job.value?.completedAt as string | undefined
   return ts
@@ -48,6 +54,14 @@ const risco = computed(() => {
 })
 
 const temAchados = computed(() => (result.value?.findings?.length ?? 0) > 0)
+
+// Alguns achados citam o trecho oculto entre aspas. Quando esse trecho está em
+// tags Unicode (sem glifo), a citação crua renderiza como um par de aspas vazio
+// — o achado anuncia a fraude sem mostrá-la. Revelar aqui, na exibição, também
+// conserta os laudos já gravados, sem reprocessar job nenhum.
+const achados = computed(() =>
+  ((result.value?.findings ?? []) as string[]).map((f) => revelarTextoOculto(f)),
+)
 
 // Evidências: cada bloco só aparece quando a análise correspondente encontrou
 // material para demonstrar — o laudo mostra a fraude, não apenas a anuncia
@@ -128,6 +142,7 @@ function exportarPdf() {
         analise="Verificação de integridade"
         documento-label="Protocolo"
         :documento="protocolo"
+        :arquivo="arquivo"
         :emitido="emitidoEm"
       >
         <span class="ld-carimbo" :class="risco.classe">{{ risco.texto }}</span>
@@ -147,7 +162,7 @@ function exportarPdf() {
         </h2>
         <p v-if="veredito" class="veredito">{{ veredito }}</p>
         <ul v-if="temAchados" class="achados">
-          <li v-for="(f, i) in result.findings" :key="i" class="achado">{{ f }}</li>
+          <li v-for="(f, i) in achados" :key="i" class="achado">{{ f }}</li>
         </ul>
         <p v-else>
           <span class="ld-selo ld-selo--verde">Nenhum conteúdo oculto identificado</span>

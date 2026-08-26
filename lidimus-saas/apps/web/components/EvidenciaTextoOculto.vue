@@ -15,6 +15,11 @@ interface ItemOculto {
 
 const itens = computed(() => (props.analysis?.hiddenItems ?? []) as ItemOculto[])
 
+// O trecho oculto por tags Unicode não tem glifo: exibi-lo cru pinta uma caixa
+// vazia. `revelarTextoOculto` traz os pontos de código de volta ao ASCII — ver
+// utils/textoOculto.ts.
+const algumItemComTags = computed(() => itens.value.some((it) => temTagsUnicode(it.text)))
+
 function tecnica(it: ItemOculto): string {
   const partes: string[] = []
   if (it.hiddenByColor) {
@@ -26,6 +31,7 @@ function tecnica(it: ItemOculto): string {
   }
   if (it.invisibleRender) partes.push('modo de renderização invisível do PDF')
   if (it.tinyFont) partes.push(`fonte de ${String(it.fontSize).replace('.', ',')} pt — ilegível a olho nu`)
+  if (temTagsUnicode(it.text)) partes.push('caracteres Unicode sem glifo (tags U+E0000–U+E007F)')
   return partes.join(' + ')
 }
 
@@ -49,6 +55,15 @@ function estiloInvisivel(it: ItemOculto) {
       escondida: quem assina ou aceita o documento não a vê; a máquina que o processa, sim.
     </p>
 
+    <p v-if="algumItemComTags" class="evidencia-explica">
+      Parte do conteúdo oculto deste arquivo usa uma técnica mais fina: os caracteres foram
+      deslocados para uma faixa do Unicode reservada a marcações (U+E0000–U+E007F), que nenhuma
+      fonte comum desenha. Aqui a invisibilidade não vem da cor nem do tamanho — vem do próprio
+      código do caractere, e resiste a copiar, colar e imprimir. O trecho chega íntegro, letra por
+      letra, a qualquer sistema que leia o texto do arquivo. O quadro revelado traz esses códigos
+      de volta ao alfabeto.
+    </p>
+
     <div v-for="(it, i) in itens" :key="i" class="par">
       <p class="par-tecnica">
         Trecho {{ i + 1 }}<template v-if="it.pageHint"> · página {{ it.pageHint }}</template> —
@@ -63,9 +78,11 @@ function estiloInvisivel(it: ItemOculto) {
         </figure>
         <figure class="quadro">
           <div class="quadro-folha quadro-folha--revelado">
-            <span>{{ it.text }}</span>
+            <span>{{ revelarTextoOculto(it.text) }}</span>
           </div>
-          <figcaption>O mesmo trecho, revelado</figcaption>
+          <figcaption>
+            O mesmo trecho, revelado<template v-if="temTagsUnicode(it.text)"> — decodificado de volta ao alfabeto</template>
+          </figcaption>
         </figure>
       </div>
     </div>
