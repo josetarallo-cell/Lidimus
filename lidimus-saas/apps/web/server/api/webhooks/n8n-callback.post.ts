@@ -5,6 +5,7 @@ import { useDb } from '../../lib/db'
 import { useQueues } from '../../lib/queue'
 import { softDeleteJobFile } from '../../lib/jobFile'
 import { prepararLeitura } from '../../lib/revisaoDaLeitura'
+import { computarAutenticidadeFinal } from '../../lib/autenticidadeFinal'
 import { jobs, refundJobCredits } from '@lidimus/db'
 import { publishJobEvent } from '../../lib/jobEvents'
 import { createHmac, timingSafeEqual } from 'crypto'
@@ -324,8 +325,25 @@ export default defineEventHandler(async (event) => {
     }
 
     if (body.stage === 'juridico') {
+      // Cartório e número da matrícula só existem a partir daqui — é o que
+      // habilita os cruzamentos mais fortes do verificador de autenticidade
+      // (ver autenticidadeFinal.ts). Nunca bloqueia: falha aqui vira null e o
+      // job segue com stageData inalterado.
+      const autenticidadeFinal = await computarAutenticidadeFinal(stageData, result, {
+        onrHabilitado: config.autenticidadeOnrEnabled,
+      })
+      const stageDataFinal = autenticidadeFinal
+        ? {
+            ...stageData,
+            autenticidade: {
+              ...((stageData.autenticidade as Record<string, unknown>) ?? {}),
+              resultado: autenticidadeFinal,
+            },
+          }
+        : stageData
+
       const applied = await transitionActiveJob(db, body.jobId, {
-        stageData,
+        stageData: stageDataFinal,
         status: 'queued',
         stage: 'doc',
       })
@@ -334,7 +352,7 @@ export default defineEventHandler(async (event) => {
         return { ok: true }
       }
 
-      const ocr = stageData.ocr as Record<string, unknown> | undefined
+      const ocr = stageDataFinal.ocr as Record<string, unknown> | undefined
 
       const { matriculaDocQueue } = useQueues()
       await matriculaDocQueue.add('process', {

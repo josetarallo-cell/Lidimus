@@ -48,7 +48,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {} }}",
+        "jsonBody": "={{ { \"dryRun\": $json.dryRun === true } }}",
         "options": {
           "timeout": 900000,
           "response": {
@@ -77,7 +77,7 @@
         100
       ],
       "parameters": {
-        "jsCode": "// Transforma o relatorio JSON do agente numa mensagem de WhatsApp.\n//\n// Quem le isto as 8h da manha precisa decidir em 5 segundos se precisa agir.\n// Por isso a primeira linha ja diz o desfecho, e o resto e detalhe.\n\nconst DESTINO = '5511947250110'\n// $input.first(), nao $json: no modo padrao do no Code (uma vez para todos os\n// itens) o $json nao existe. Mesmo padrao do DailyTasks.\nconst r = $input.first()?.json || {}\n\nconst agora = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit',\n})\n\nconst linhas = ['*Lidimus Update - ' + agora + '*']\n\n// Sem campo `resultado` o agente nao respondeu: maquina desligada, agente fora\n// do ar, ou o wget morreu no meio. A producao nao foi tocada.\nif (!r.resultado) {\n  linhas.push('', '🚨 O agente do host nao respondeu.', '')\n  linhas.push('A producao NAO foi tocada.')\n  linhas.push('Confira se o `pnpm update:agente` esta rodando na maquina.')\n  const detalhe = r.error?.message || r.message || r.motivo\n  if (detalhe) linhas.push('', '_' + String(detalhe).slice(0, 300) + '_')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\nconst cabecalhos = {\n  'sucesso': '✅ Deploy concluido',\n  'nada-a-fazer': '💤 Nada aprovado para subir',\n  'abortado': '⛔ Deploy nao aconteceu (producao intacta)',\n  'rollback': '↩️ Deploy revertido para a versao anterior',\n  'intervencao-manual': '🚨 PRECISA DE INTERVENCAO MANUAL',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\nlinhas.push('', cabecalhos[r.resultado] || ('❓ ' + r.resultado))\n\nif (r.motivo) linhas.push('', r.motivo)\n\nif (r.aprovacao?.descricao) {\n  linhas.push('', '📋 Aprovado: _' + r.aprovacao.descricao + '_')\n}\n\nif (r.codigo?.commits?.length) {\n  linhas.push('', '📦 Codigo: ' + r.codigo.commits.length + ' commit(s)')\n  for (const c of r.codigo.commits.slice(0, 5)) linhas.push('   • ' + c)\n  if (r.codigo.commits.length > 5) linhas.push('   • ...e mais ' + (r.codigo.commits.length - 5))\n}\n\n// So fala de migrations e n8n se a fase correspondente rodou de verdade.\n// Um abort no preflight nao autoriza dizer 'nenhuma pendente'.\nif (r.migrations?.verificado) {\n  const p = r.migrations.pendentes || []\n  if (!p.length) linhas.push('', '🗄️ Migrations: nenhuma pendente')\n  else if (r.migrations.aplicadas) linhas.push('', '🗄️ Migrations aplicadas: ' + p.join(', '))\n  else linhas.push('', '🗄️ Migrations pendentes NAO aplicadas: ' + p.join(', '))\n}\n\nif (r.n8n?.verificado) {\n  const d = r.n8n.divergentes || []\n  if (d.length) {\n    linhas.push('', '🔄 n8n: ' + d.length + ' workflow(s) divergente(s) - revisar')\n    for (const w of d.slice(0, 5)) {\n      const nos = [...(w.nos?.alterados || []), ...(w.nos?.acrescentados || [])].slice(0, 3)\n      linhas.push('   • ' + w.arquivo + (nos.length ? ' (' + nos.join(', ') + ')' : ''))\n    }\n  } else {\n    linhas.push('', '🔄 n8n: em sincronia com o repositorio')\n  }\n  for (const e of (r.n8n.erros || [])) linhas.push('   ! ' + e)\n}\n\nif (r.smoke?.length) {\n  const passaram = r.smoke.filter((t) => t.ok).length\n  linhas.push('', '🧪 Smoke: ' + passaram + '/' + r.smoke.length + ' passaram')\n  for (const t of r.smoke.filter((t) => !t.ok)) linhas.push('   ✗ ' + t.nome)\n}\n\nif (r.deploy?.downtimeSegundos != null) {\n  linhas.push('', '⏱️ Indisponibilidade: ' + r.deploy.downtimeSegundos + 's')\n}\n\nif (r.github?.empurrado) {\n  linhas.push('🐙 GitHub: ' + (r.github.commit || 'push') + ' publicado')\n}\n\nif (r.disco?.livreGbDepois != null) {\n  linhas.push('💾 Disco: ' + r.disco.livreGbDepois + ' GB livres')\n}\n\n// O caminho do dump so aparece quando ele importa: alguem vai precisar dele.\nif (r.resultado === 'intervencao-manual' && r.deploy?.dump) {\n  linhas.push('', '💾 Backup do banco: ' + r.deploy.dump)\n}\n\n// O ultimo erro costuma ser o proprio motivo, ja impresso la em cima.\nconst ultimo = r.erros?.length ? String(r.erros[r.erros.length - 1]) : null\nif (ultimo && ultimo !== r.motivo && r.resultado !== 'nada-a-fazer') {\n  linhas.push('', '⚠️ ' + ultimo.slice(0, 400))\n}\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]"
+        "jsCode": "// Transforma o relatorio JSON do agente numa mensagem de WhatsApp.\n//\n// Quem le isto as 8h da manha precisa decidir em 5 segundos se precisa agir.\n// Por isso a primeira linha ja diz o desfecho, e o resto e detalhe.\n\nconst DESTINO = '5511947250110'\n// $input.first(), nao $json: no modo padrao do no Code (uma vez para todos os\n// itens) o $json nao existe. Mesmo padrao do DailyTasks.\nconst r = $input.first()?.json || {}\n\nconst agora = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit',\n})\n\nconst linhas = ['*Lidimus Update - ' + agora + '*']\n\n// Sem campo `resultado` o agente nao respondeu: maquina desligada, agente fora\n// do ar, ou o wget morreu no meio. A producao nao foi tocada.\nif (!r.resultado) {\n  linhas.push('', '🚨 O agente do host nao respondeu.', '')\n  linhas.push('A producao NAO foi tocada.')\n  linhas.push('Confira se o `pnpm update:agente` esta rodando na maquina.')\n  const detalhe = r.error?.message || r.message || r.motivo\n  if (detalhe) linhas.push('', '_' + String(detalhe).slice(0, 300) + '_')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\nconst cabecalhos = {\n  'sucesso': '✅ Deploy concluido',\n  'nada-a-fazer': '💤 Nada aprovado para subir',\n  'abortado': '⛔ Deploy nao aconteceu (producao intacta)',\n  'rollback': '↩️ Deploy revertido para a versao anterior',\n  'intervencao-manual': '🚨 PRECISA DE INTERVENCAO MANUAL',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\nlinhas.push('', cabecalhos[r.resultado] || ('❓ ' + r.resultado))\n\nif (r.motivo) linhas.push('', r.motivo)\n\nif (r.aprovacao?.descricao) {\n  // De onde veio o aceite deixa o historico auditavel: aprovar pelo celular e\n  // aprovar no teclado tem o mesmo peso, mas nao a mesma trilha.\n  const via = r.aprovacao.aprovadoPor === 'whatsapp' ? ' (pelo WhatsApp)' : ''\n  linhas.push('', '📋 Aprovado' + via + ': _' + r.aprovacao.descricao + '_')\n}\n\n// Nada aprovado quase nunca e decisao — e esquecimento. Listar o que ficou\n// parado e oferecer o link de aceite e o que torna este aviso acionavel sem\n// precisar chegar na maquina. So aparece quando ha mesmo algo esperando.\nif (r.pendencia) {\n  const p = r.pendencia\n  linhas.push('', '📝 Esperando aprovacao (' + String(p.commit || '').slice(0, 7) + '):')\n  if (p.arquivos?.length) {\n    linhas.push('   ' + p.arquivos.length + ' arquivo(s) alterado(s)')\n    for (const a of p.arquivos.slice(0, 3)) linhas.push('   • ' + a)\n    if (p.arquivos.length > 3) linhas.push('   • ...e mais ' + (p.arquivos.length - 3))\n  }\n  if (p.commitsAFrente) linhas.push('   ' + p.commitsAFrente + ' commit(s) ainda nao publicado(s)')\n  if (p.url) {\n    linhas.push('', '👉 Aprovar e subir agora:', p.url)\n    linhas.push('_o link vale ate ' + p.validoAteTexto + '_')\n  }\n}\n\nif (r.codigo?.commits?.length) {\n  linhas.push('', '📦 Codigo: ' + r.codigo.commits.length + ' commit(s)')\n  for (const c of r.codigo.commits.slice(0, 5)) linhas.push('   • ' + c)\n  if (r.codigo.commits.length > 5) linhas.push('   • ...e mais ' + (r.codigo.commits.length - 5))\n}\n\n// So fala de migrations e n8n se a fase correspondente rodou de verdade.\n// Um abort no preflight nao autoriza dizer 'nenhuma pendente'.\nif (r.migrations?.verificado) {\n  const p = r.migrations.pendentes || []\n  if (!p.length) linhas.push('', '🗄️ Migrations: nenhuma pendente')\n  else if (r.migrations.aplicadas) linhas.push('', '🗄️ Migrations aplicadas: ' + p.join(', '))\n  else linhas.push('', '🗄️ Migrations pendentes NAO aplicadas: ' + p.join(', '))\n}\n\nif (r.n8n?.verificado) {\n  const d = r.n8n.divergentes || []\n  if (d.length) {\n    linhas.push('', '🔄 n8n: ' + d.length + ' workflow(s) divergente(s) - revisar')\n    for (const w of d.slice(0, 5)) {\n      const nos = [...(w.nos?.alterados || []), ...(w.nos?.acrescentados || [])].slice(0, 3)\n      linhas.push('   • ' + w.arquivo + (nos.length ? ' (' + nos.join(', ') + ')' : ''))\n    }\n  } else {\n    linhas.push('', '🔄 n8n: em sincronia com o repositorio')\n  }\n  for (const e of (r.n8n.erros || [])) linhas.push('   ! ' + e)\n}\n\nif (r.smoke?.length) {\n  const passaram = r.smoke.filter((t) => t.ok).length\n  linhas.push('', '🧪 Smoke: ' + passaram + '/' + r.smoke.length + ' passaram')\n  for (const t of r.smoke.filter((t) => !t.ok)) linhas.push('   ✗ ' + t.nome)\n}\n\nif (r.deploy?.downtimeSegundos != null) {\n  linhas.push('', '⏱️ Indisponibilidade: ' + r.deploy.downtimeSegundos + 's')\n}\n\nif (r.github?.empurrado) {\n  linhas.push('🐙 GitHub: ' + (r.github.commit || 'push') + ' publicado')\n}\n\nif (r.disco?.livreGbDepois != null) {\n  linhas.push('💾 Disco: ' + r.disco.livreGbDepois + ' GB livres')\n}\n\n// O caminho do dump so aparece quando ele importa: alguem vai precisar dele.\nif (r.resultado === 'intervencao-manual' && r.deploy?.dump) {\n  linhas.push('', '💾 Backup do banco: ' + r.deploy.dump)\n}\n\n// O ultimo erro costuma ser o proprio motivo, ja impresso la em cima.\nconst ultimo = r.erros?.length ? String(r.erros[r.erros.length - 1]) : null\nif (ultimo && ultimo !== r.motivo && r.resultado !== 'nada-a-fazer') {\n  linhas.push('', '⚠️ ' + ultimo.slice(0, 400))\n}\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]"
       }
     },
     {
@@ -109,6 +109,20 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
+    },
+    {
+      "id": "lu-0006-trigger-aprovacao",
+      "name": "Aprovado pelo WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        440
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "notes": "Chamado pelo workflow \"Lidimus Aprovar\" quando o aceite chega do celular. O marcador ja foi gravado pelo agente; daqui para baixo o caminho e identico ao das 5h — mesmos gates, mesmo relatorio."
     }
   ],
   "connections": {
@@ -150,6 +164,17 @@
         [
           {
             "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aprovado pelo WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Executar deploy no host",
             "type": "main",
             "index": 0
           }

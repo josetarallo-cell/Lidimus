@@ -315,6 +315,13 @@ export const jobFiles = pgTable('job_files', {
   accessToken: text('access_token').notNull().unique(),
   deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // Verificador de autenticidade (@lidimus/autenticidade): sha256 do arquivo
+  // inteiro habilita detectar o mesmo PDF reenviado sob outra matrícula; o
+  // tamanho em bytes é conferido contra o `originalFile.length` que a ONR
+  // devolve. Preenchidos no upload (criarAnaliseMatricula.ts), sobrevivem ao
+  // soft-delete do binário — são só um resumo, não o arquivo.
+  sha256: text('sha256'),
+  sizeBytes: integer('size_bytes'),
 })
 
 // ─── Planos, assinaturas e créditos ───────────────────────────────────────────

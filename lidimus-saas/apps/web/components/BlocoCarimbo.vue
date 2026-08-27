@@ -7,6 +7,9 @@ defineProps<{
   documentoLabel: string
   documento: string
   emitido: string
+  // Nome do PDF original enviado — opcional porque nem todo laudo parte de um
+  // arquivo único identificável (ver arquivoNome em useJobApresentacao.ts).
+  arquivo?: string
   // Data em que o cartório expediu a certidão analisada — só os laudos que
   // partem de um documento datado a informam. `certidaoAlerta` marca a data em
   // ocre quando ela não foi identificada ou está fora do prazo usual.
@@ -27,6 +30,10 @@ defineProps<{
     <div class="carimbo-cell">
       <span class="carimbo-label">{{ documentoLabel }}</span>
       <span class="carimbo-id">{{ documento }}</span>
+    </div>
+    <div v-if="arquivo" class="carimbo-cell">
+      <span class="carimbo-label">Arquivo</span>
+      <span class="carimbo-arquivo" :title="arquivo">{{ arquivo }}</span>
     </div>
     <div v-if="certidao" class="carimbo-cell">
       <span class="carimbo-label">Certidão</span>
@@ -78,6 +85,12 @@ defineProps<{
 }
 .carimbo-id {
   font-family: var(--ld-font-mono);
+}
+.carimbo-arquivo {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .carimbo-alerta {
   color: var(--ld-ocre);

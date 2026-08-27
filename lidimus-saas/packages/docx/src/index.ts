@@ -101,6 +101,7 @@ export type ItemDoLote = {
   arquivoOriginal?: string | null
   emitidoEm?: string | null
   documento?: Documento | null
+  autenticidade?: MetaParecer['autenticidade']
 }
 
 export type MetaLote = {
@@ -155,6 +156,7 @@ export async function loteMatriculasDocx(itens: ItemDoLote[], meta: MetaLote): P
       children: corpoDoParecer(item.documento!, {
         emitidoEm: item.emitidoEm,
         arquivoOriginal: item.arquivoOriginal,
+        autenticidade: item.autenticidade,
       }),
       headers: {
         default: cabecalhoCorrido(`Relatório técnico de matrícula${numero ? ` · MAT ${numero}` : ''}`),

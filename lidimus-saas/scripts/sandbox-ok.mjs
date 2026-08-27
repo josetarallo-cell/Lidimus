@@ -9,11 +9,11 @@
 // O marcador NÃO guarda o ID da imagem do sandbox: produção builda a própria
 // imagem, com outro nome (lidimus-saas-web vs lidimus-sandbox-web), então esse
 // campo não provaria nada. O que vale é o hash do que está no disco.
+//
+// Este arquivo é só a porta do teclado. A outra porta é o aceite pelo WhatsApp
+// (docs/25-lidimus-update.md); as duas passam pelo mesmo aprovarSandbox().
 
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { CAMINHO_MARCADOR, hashArvore } from './lidimus-update-comum.mjs'
-import { PORTA_WEB } from './sandbox-env.mjs'
+import { aprovarSandbox } from './lidimus-update-comum.mjs'
 
 const descricao = process.argv.slice(2).join(' ').trim()
 
@@ -27,42 +27,17 @@ if (!descricao) {
   process.exit(1)
 }
 
-// Aprovar um sandbox que não está de pé é quase sempre engano: ou o container
-// caiu, ou o que foi testado foi o `nuxt dev` no host, que não passa pelo build
-// do container — justamente onde os erros de build aparecem.
-const url = `http://127.0.0.1:${PORTA_WEB}/api/health`
-let saude
+let marcador
 try {
-  const resposta = await fetch(url, { signal: AbortSignal.timeout(5000) })
-  saude = await resposta.json()
+  marcador = await aprovarSandbox(descricao)
 } catch (e) {
-  console.error(`O sandbox não respondeu em ${url} (${e.message}).\n` +
-    'Suba com `pnpm sandbox:up` e valide lá antes de aprovar.')
+  console.error(e.message)
   process.exit(1)
 }
-
-if (saude?.status !== 'ok') {
-  console.error(`O sandbox respondeu, mas não está saudável: ${JSON.stringify(saude)}`)
-  process.exit(1)
-}
-
-const { commit, hash, arquivos } = await hashArvore()
-
-const marcador = {
-  descricao,
-  commit,
-  hashArvore: hash,
-  arquivos,
-  aprovadoEm: new Date().toISOString(),
-  aprovadoPor: process.env.USERNAME || process.env.USER || 'desconhecido',
-}
-
-mkdirSync(dirname(CAMINHO_MARCADOR), { recursive: true })
-writeFileSync(CAMINHO_MARCADOR, JSON.stringify(marcador, null, 2) + '\n', 'utf8')
 
 console.log('Sandbox aprovado para promoção.\n')
-console.log(`  descrição: ${descricao}`)
-console.log(`  commit:    ${commit.slice(0, 7)}`)
-console.log(`  árvore:    ${hash.slice(0, 12)}`)
+console.log(`  descrição: ${marcador.descricao}`)
+console.log(`  commit:    ${marcador.commit.slice(0, 7)}`)
+console.log(`  árvore:    ${marcador.hashArvore.slice(0, 12)}`)
 console.log(`\nO Lidimus Update das 5h vai promover exatamente este estado.`)
 console.log('Qualquer edição daqui até lá invalida a aprovação (e o deploy é adiado).')

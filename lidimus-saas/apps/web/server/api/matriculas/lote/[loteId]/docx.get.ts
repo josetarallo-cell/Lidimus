@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
       arquivoOriginal: (job.inputMeta as Record<string, any> | null)?.originalName ?? null,
       emitidoEm: dataDeEmissao(job.completedAt),
       documento: (job.result as Record<string, any> | null)?.documento ?? null,
+      autenticidade: (job.stageData as Record<string, any> | null)?.autenticidade?.resultado ?? null,
     })),
     { loteId: loteId.data, enviadoEm },
   )

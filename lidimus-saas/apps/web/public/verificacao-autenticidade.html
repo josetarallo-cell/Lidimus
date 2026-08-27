@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Como saber se aquela certidão é de verdade? — Lidimus</title>
+<meta name="description" content="Como o Lidimus confere, em cinco camadas, se uma certidão de matrícula é genuína — explicado em linguagem simples, com o detalhe técnico de cada camada para quem quiser ir mais fundo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #eff1ef;
+    --paper-raised: #f8f9f7;
+    --ink: #1b1f1d;
+    --ink-soft: #52564f;
+    --ink-faint: #82867e;
+    --seal: #9a2b2b;
+    --seal-deep: #6e1e1e;
+    --seal-wash: #f3e6e2;
+    --gold: #8c6d2f;
+    --line: #d3d6d0;
+    --good: #2f6b45;
+    --good-wash: #e3ede3;
+    --warn: #8c6d2f;
+    --warn-wash: #f1e9d8;
+    --bad: #9a2b2b;
+    --bad-wash: #f3e6e2;
+
+    --font-display: 'Archivo', 'Arial Black', sans-serif;
+    --font-body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15181a;
+      --paper-raised: #1c2022;
+      --ink: #eceae4;
+      --ink-soft: #b3b7ae;
+      --ink-faint: #767b73;
+      --seal: #d97070;
+      --seal-deep: #e8908f;
+      --seal-wash: #2c1c1c;
+      --gold: #cba75c;
+      --line: #2c302e;
+      --good: #7dbf92;
+      --good-wash: #1c2b20;
+      --warn: #cba75c;
+      --warn-wash: #2b2519;
+      --bad: #d97070;
+      --bad-wash: #2c1c1c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #15181a;
+    --paper-raised: #1c2022;
+    --ink: #eceae4;
+    --ink-soft: #b3b7ae;
+    --ink-faint: #767b73;
+    --seal: #d97070;
+    --seal-deep: #e8908f;
+    --seal-wash: #2c1c1c;
+    --gold: #cba75c;
+    --line: #2c302e;
+    --good: #7dbf92;
+    --good-wash: #1c2b20;
+    --warn: #cba75c;
+    --warn-wash: #2b2519;
+    --bad: #d97070;
+    --bad-wash: #2c1c1c;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--seal); color: var(--paper-raised); }
+
+  a { color: var(--seal-deep); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible, details:focus-visible summary {
+    outline: 2px solid var(--seal);
+    outline-offset: 3px;
+  }
+
+  .pagina {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: clamp(28px, 6vw, 64px) 24px clamp(60px, 10vw, 110px);
+  }
+
+  /* ── Marca / cabeçalho ─────────────────────────────────────────────── */
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: clamp(40px, 8vw, 72px);
+  }
+  .marca-selo {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--seal);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .marca-selo::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--seal);
+  }
+
+  /* ── Hero ──────────────────────────────────────────────────────────── */
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--seal-deep);
+    margin: 0 0 14px;
+  }
+  h1.hero-titulo {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(2.3rem, 6.5vw, 3.6rem);
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+    margin: 0 0 22px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  .hero-titulo em {
+    font-style: normal;
+    color: var(--seal-deep);
+  }
+  .hero-lead {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 58ch;
+    margin: 0 0 8px;
+    text-wrap: pretty;
+  }
+  .hero-nota {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin: 22px 0 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--line);
+  }
+
+  /* ── Analogia de abertura ─────────────────────────────────────────── */
+  .analogia {
+    margin: clamp(48px, 8vw, 76px) 0;
+    padding: clamp(22px, 4vw, 32px) clamp(22px, 5vw, 36px);
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+  }
+  .analogia::before {
+    content: "“";
+    position: absolute;
+    top: -0.35em;
+    left: 20px;
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    color: var(--line);
+    line-height: 1;
+    user-select: none;
+  }
+  .analogia p {
+    margin: 0;
+    font-size: 1.08rem;
+    color: var(--ink);
+  }
+  .analogia p + p { margin-top: 12px; color: var(--ink-soft); font-size: 0.98rem; }
+
+  /* ── Seção "camadas" ───────────────────────────────────────────────── */
+  .secao-titulo {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 6px;
+  }
+  h2.secao-h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.5rem, 3.6vw, 1.9rem);
+    letter-spacing: -0.005em;
+    margin: 0 0 clamp(28px, 5vw, 44px);
+    text-wrap: balance;
+  }
+
+  .camadas {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .camada {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 20px;
+    padding: 30px 0;
+    border-top: 1px solid var(--line);
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .camada.em-vista { opacity: 1; transform: none; }
+  .camadas .camada:last-child { border-bottom: 1px solid var(--line); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .camada { opacity: 1; transform: none; transition: none; }
+  }
+
+  .camada-marca {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1.5px dashed var(--seal);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .camada-numero {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--seal-deep);
+  }
+
+  .camada-cabecalho {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 2px 0 10px;
+  }
+  .camada-corpo h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.18rem;
+    margin: 0;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  /* ── Botão de detalhe técnico ─────────────────────────────────────── */
+  .info-botao {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1.5px solid var(--ink-faint);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    padding: 4px 11px 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    transform: translateY(2px);
+  }
+  .info-botao:hover, .info-botao:focus-visible {
+    border-color: var(--seal-deep);
+    color: var(--seal-deep);
+    background: var(--seal-wash);
+  }
+  .info-botao svg { width: 15px; height: 15px; flex: none; }
+  .info-botao circle { fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .info-botao .ponto { fill: currentColor; stroke: none; }
+  .info-botao .haste { stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+  @media (max-width: 480px) {
+    .info-botao span.info-rotulo { display: none; }
+    .info-botao { padding: 5px; }
+  }
+  .camada-corpo p {
+    margin: 0 0 10px;
+    color: var(--ink-soft);
+    max-width: 60ch;
+  }
+  .camada-corpo p:last-child { margin-bottom: 0; }
+  .camada-corpo .camada-quando {
+    font-size: 0.86rem;
+    color: var(--ink-faint);
+    font-family: var(--font-body);
+    font-style: italic;
+  }
+
+  @media (max-width: 480px) {
+    .camada { grid-template-columns: 44px 1fr; gap: 14px; }
+    .camada-marca { width: 44px; height: 44px; }
+    .camada-numero { font-size: 0.92rem; }
+  }
+
+  /* ── Honestidade / ressalva ───────────────────────────────────────── */
+  .ressalva {
+    margin: clamp(56px, 9vw, 88px) 0;
+    padding: clamp(24px, 5vw, 34px);
+    background: var(--seal-wash);
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--seal) 30%, var(--line));
+  }
+  .ressalva-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0 0 12px;
+    color: var(--seal-deep);
+  }
+  .ressalva-titulo .marca-selo { border-color: var(--seal-deep); }
+  .ressalva-titulo .marca-selo::after { background: var(--seal-deep); }
+  .ressalva p {
+    margin: 0 0 10px;
+    color: var(--ink);
+    max-width: 62ch;
+  }
+  .ressalva p:last-child { margin-bottom: 0; }
+  .ressalva strong { color: var(--seal-deep); }
+
+  /* ── Legenda: o que aparece no relatório ──────────────────────────── */
+  .legenda-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .legenda-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .legenda-item:last-child { border-bottom: none; }
+  .pilula {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    width: fit-content;
+    max-width: 100%;
+  }
+  .pilula--bom { background: var(--good-wash); color: var(--good); }
+  .pilula--atencao { background: var(--warn-wash); color: var(--warn); }
+  .pilula--alerta { background: var(--bad-wash); color: var(--bad); }
+  .legenda-item p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; max-width: 60ch; }
+
+  @media (min-width: 561px) {
+    .legenda-item { flex-direction: row; align-items: baseline; }
+    .pilula { flex: none; min-width: 190px; }
+  }
+
+  /* ── Modal de detalhe técnico ─────────────────────────────────────── */
+  dialog.modal {
+    max-width: min(560px, calc(100vw - 40px));
+    width: 100%;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper-raised);
+    color: var(--ink);
+    box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.35);
+  }
+  dialog.modal::backdrop {
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
+    backdrop-filter: blur(1px);
+  }
+  .modal-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-topo-rotulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--seal-deep);
+  }
+  .modal-topo-rotulo .camada-numero {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--seal-deep);
+    font-size: 0.72rem;
+  }
+  .modal-fechar {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--ink-soft);
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  .modal-fechar:hover, .modal-fechar:focus-visible { border-color: var(--seal-deep); color: var(--seal-deep); }
+  .modal-corpo {
+    padding: 22px 22px 26px;
+    max-height: 68vh;
+    overflow-y: auto;
+  }
+  .modal-corpo h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .modal-corpo p {
+    margin: 0 0 14px;
+    color: var(--ink-soft);
+    font-size: 0.96rem;
+    line-height: 1.6;
+  }
+  .modal-corpo p:last-child { margin-bottom: 0; }
+  .modal-corpo code, .modal-corpo .termo {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--seal-wash);
+    color: var(--seal-deep);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .modal-corpo ul {
+    margin: 0 0 14px;
+    padding-left: 1.2em;
+    color: var(--ink-soft);
+    font-size: 0.94rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .modal-corpo strong { color: var(--ink); }
+
+  /* ── Rodapé ────────────────────────────────────────────────────────── */
+  .rodape {
+    margin-top: clamp(64px, 10vw, 96px);
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+
+<div class="pagina">
+
+  <div class="marca"><span class="marca-selo" aria-hidden="true"></span> Lidimus · verificação de autenticidade</div>
+
+  <p class="hero-eyebrow">Antes de confiar num documento</p>
+  <h1 class="hero-titulo">Como saber se aquela<br><em>certidão é de verdade?</em></h1>
+  <p class="hero-lead">
+    Toda certidão que passa pelo Lidimus é conferida por cinco ângulos diferentes antes de o
+    relatório ficar pronto — sem que você precise fazer nada. Aqui está o que cada um deles
+    verifica — e, para quem quiser ir mais fundo, cada camada tem um botão com os detalhes
+    técnicos.
+  </p>
+  <p class="hero-nota">Nenhuma dessas checagens impede a leitura do documento. Elas só somam informação ao relatório.</p>
+
+  <div class="analogia">
+    <p>
+      Pense em como você confere se uma nota de dinheiro é falsa: olha a marca d'água contra a
+      luz, passa o dedo na textura do papel, confere o número de série. Nenhum desses sinais
+      sozinho prova nada — mas quanto mais eles combinam, mais confiança você tem.
+    </p>
+    <p>É essa mesma lógica que aplicamos a uma certidão de matrícula, só que em cinco camadas.</p>
+  </div>
+
+  <p class="secao-titulo">As cinco camadas</p>
+  <h2 class="secao-h2">O que a gente pergunta ao documento</h2>
+
+  <div class="camadas">
+
+    <article class="camada">
+      <div class="camada-marca"><span class="camada-numero">1</span></div>
+      <div class="camada-corpo">
+        <div class="camada-cabecalho">
+          <h3>Este arquivo tem cara de mexido?</h3>
+          <button class="info-botao" type="button" data-abre-modal="modal-1" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle class="ponto" cx="12" cy="7.6" r="1.35"/><line class="haste" x1="12" y1="11" x2="12" y2="16.6"/></svg>
+            <span class="info-rotulo">Como funciona</span>
+          </button>
+        </div>
+        <p>
+          Todo arquivo digital guarda, nos bastidores, quando foi criado e qual programa o
+          gerou — mesmo sem aparecer na tela. É como checar o lacre de um produto: se alguém
+          abriu o arquivo num editor de fotos ou de PDF depois de pronto, essa marca fica, mesmo
+          que o conteúdo visível pareça idêntico.
+        </p>
+        <p class="camada-quando">Vale para qualquer arquivo enviado — é o primeiro exame, e o mais rápido.</p>
+      </div>
+    </article>
+
+    <article class="camada">
+      <div class="camada-marca"><span class="camada-numero">2</span></div>
+      <div class="camada-corpo">
+        <div class="camada-cabecalho">
+          <h3>O carimbo oficial "fecha a conta"?</h3>
+          <button class="info-botao" type="button" data-abre-modal="modal-2" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle class="ponto" cx="12" cy="7.6" r="1.35"/><line class="haste" x1="12" y1="11" x2="12" y2="16.6"/></svg>
+            <span class="info-rotulo">Como funciona</span>
+          </button>
+        </div>
+        <p>
+          Certidões de cartório trazem dois códigos oficiais impressos: um selo digital e um
+          número de registro. Cada um deles esconde, dentro da própria sequência de números e
+          letras, uma espécie de conta que só fecha se o código for genuíno — parecido com o
+          dígito verificador de um CPF. Um código inventado ou copiado de outro papel tem uma
+          chance mínima de fechar essa conta por acaso.
+        </p>
+        <p class="camada-quando">Vale quando o documento traz esses códigos impressos — a maioria das certidões oficiais traz.</p>
+      </div>
+    </article>
+
+    <article class="camada">
+      <div class="camada-marca"><span class="camada-numero">3</span></div>
+      <div class="camada-corpo">
+        <div class="camada-cabecalho">
+          <h3>Dá para escanear e confirmar direto?</h3>
+          <button class="info-botao" type="button" data-abre-modal="modal-3" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle class="ponto" cx="12" cy="7.6" r="1.35"/><line class="haste" x1="12" y1="11" x2="12" y2="16.6"/></svg>
+            <span class="info-rotulo">Como funciona</span>
+          </button>
+        </div>
+        <p>
+          Quando o documento traz um código de barras quadrado (QR Code) junto do selo, a gente
+          lê ele diretamente — sem depender de decifrar cada letrinha numa foto ou digitalização,
+          que é onde a leitura mais costuma escorregar.
+        </p>
+        <p class="camada-quando">Vale quando o QR Code está legível na página — reforça a camada anterior, não a substitui.</p>
+      </div>
+    </article>
+
+    <article class="camada">
+      <div class="camada-marca"><span class="camada-numero">4</span></div>
+      <div class="camada-corpo">
+        <div class="camada-cabecalho">
+          <h3>A fonte oficial confirma?</h3>
+          <button class="info-botao" type="button" data-abre-modal="modal-4" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle class="ponto" cx="12" cy="7.6" r="1.35"/><line class="haste" x1="12" y1="11" x2="12" y2="16.6"/></svg>
+            <span class="info-rotulo">Como funciona</span>
+          </button>
+        </div>
+        <p>
+          Algumas certidões trazem o link de uma assinatura eletrônica registrada no sistema
+          nacional de cartórios. Quando isso aparece, consultamos essa fonte diretamente — ela
+          confirma qual cartório assinou, quando, e se a certidão ainda está no prazo, sem
+          depender de nada que esteja escrito no próprio arquivo enviado.
+        </p>
+        <p class="camada-quando">É a checagem mais forte das cinco, por vir de fora do arquivo — mas só existe quando o link está presente.</p>
+      </div>
+    </article>
+
+    <article class="camada">
+      <div class="camada-marca"><span class="camada-numero">5</span></div>
+      <div class="camada-corpo">
+        <div class="camada-cabecalho">
+          <h3>Juntando tudo, o que dá para concluir?</h3>
+          <button class="info-botao" type="button" data-abre-modal="modal-5" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle class="ponto" cx="12" cy="7.6" r="1.35"/><line class="haste" x1="12" y1="11" x2="12" y2="16.6"/></svg>
+            <span class="info-rotulo">Como funciona</span>
+          </button>
+        </div>
+        <p>
+          Cada pergunta acima devolve uma pista, não um veredito sozinha. O relatório final soma
+          as pistas disponíveis — pode ser que só a primeira camada tenha achado algo, ou que
+          todas as cinco concordem entre si. Quanto mais camadas confirmam a mesma história,
+          maior a confiança que o resultado carrega.
+        </p>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="ressalva">
+    <p class="ressalva-titulo"><span class="marca-selo" aria-hidden="true"></span> O que isso não quer dizer</p>
+    <p>
+      <strong>Não encontrar nenhum sinal de problema não é a mesma coisa que ter certeza
+      absoluta.</strong> É a ausência dos sinais que sabemos procurar — não uma prova
+      matemática de que o documento é genuíno do início ao fim.
+    </p>
+    <p>
+      Por isso, esta verificação é um apoio à sua análise, e nunca substitui a conferência do
+      documento original diretamente no cartório quando a decisão exigir esse nível de certeza.
+    </p>
+  </div>
+
+  <p class="secao-titulo">No seu relatório</p>
+  <h2 class="secao-h2">O que você vai ver, em palavras simples</h2>
+
+  <ul class="legenda-lista">
+    <li class="legenda-item">
+      <span class="pilula pilula--bom">assinatura íntegra</span>
+      <p>O arquivo ainda carrega a assinatura eletrônica original, sem sinal de ter sido mexido depois.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--bom">cópia confirmada</span>
+      <p>Não é o arquivo assinado original, mas um código oficial confirma que corresponde a um documento genuíno.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--atencao">reimpressão sem alarme</span>
+      <p>O arquivo foi reimpresso ou digitalizado de novo — comum e esperado — sem nenhum sinal de alteração de conteúdo.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--atencao">sem código para conferir</span>
+      <p>É uma digitalização comum, sem nenhum dos códigos que permitiriam checar a procedência por fora.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--alerta">indício de edição</span>
+      <p>O arquivo mostra sinais de ter passado por um editor de PDF depois de pronto.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--alerta">indício de adulteração</span>
+      <p>Encontramos inconsistências que um documento genuíno normalmente não tem.</p>
+    </li>
+    <li class="legenda-item">
+      <span class="pilula pilula--alerta">arquivo danificado</span>
+      <p>O arquivo chegou incompleto ou corrompido — não foi possível conferir a procedência.</p>
+    </li>
+  </ul>
+
+  <div class="rodape">
+    <span>Lidimus — verificação de autenticidade de documento</span>
+    <span>não bloqueia a leitura · só documenta</span>
+  </div>
+
+</div>
+
+<dialog class="modal" id="modal-1" aria-labelledby="modal-1-titulo">
+  <div class="modal-topo">
+    <span class="modal-topo-rotulo"><span class="camada-numero">1</span> Detalhe técnico</span>
+    <button class="modal-fechar" type="button" data-fecha-modal aria-label="Fechar">✕</button>
+  </div>
+  <div class="modal-corpo">
+    <h4 id="modal-1-titulo">Perícia do arquivo</h4>
+    <p>
+      Todo PDF carrega um dicionário interno chamado <span class="termo">/Info</span>, com campos
+      como <code>CreationDate</code>, <code>ModDate</code>, <code>Producer</code> e
+      <code>Creator</code> — lidos direto dos bytes do arquivo. Também conferimos o bloco de
+      metadados <span class="termo">XMP</span> em paralelo, para ver se as duas fontes de data
+      concordam entre si.
+    </p>
+    <p>
+      A estrutura de fechamento do arquivo também conta uma história: mais de um marcador
+      <code>%%EOF</code> ou uma entrada <code>/Prev</code> no <span class="termo">trailer</span>
+      indicam <strong>atualização incremental</strong> — o mecanismo padrão de editar um PDF
+      depois que ele já foi finalizado (às vezes depois de assinado), sem reescrevê-lo do zero.
+    </p>
+    <p>
+      O campo <code>Producer</code>/<code>Creator</code> é comparado contra duas listas:
+    </p>
+    <ul>
+      <li><strong>Editores de PDF</strong> (iLovePDF, Smallpdf, PDF24, Canva, Word…) — peso alto, porque indicam edição ativa do conteúdo.</li>
+      <li><strong>Reimpressão/achatamento</strong> (Ghostscript, Microsoft Print to PDF, Acrobat) — peso baixo, porque é o padrão comum de uma certidão digitalizada de novo, sem alteração de conteúdo.</li>
+    </ul>
+    <p>
+      Por fim, calculamos o hash <span class="termo">SHA-256</span> do arquivo inteiro — a
+      "impressão digital" exata dos bytes, que permite reconhecer se o mesmo arquivo já foi
+      enviado antes sob outro número de matrícula.
+    </p>
+  </div>
+</dialog>
+
+<dialog class="modal" id="modal-2" aria-labelledby="modal-2-titulo">
+  <div class="modal-topo">
+    <span class="modal-topo-rotulo"><span class="camada-numero">2</span> Detalhe técnico</span>
+    <button class="modal-fechar" type="button" data-fecha-modal aria-label="Fechar">✕</button>
+  </div>
+  <div class="modal-corpo">
+    <h4 id="modal-2-titulo">Selo Digital TJSP e CNM</h4>
+    <p>
+      O <strong>Selo Digital do TJSP</strong> tem 25 caracteres alfanuméricos fixos, divididos em
+      6 campos: código da serventia (CNS), natureza do ato, tipo de ato, informação do ato, ano e
+      um dígito verificador. Esse último dígito é calculado por uma variante do algoritmo de
+      <span class="termo">Luhn</span> generalizada para base 36 (dígitos 0–9 mais as letras A–Z)
+      — a mesma família de algoritmo usada para validar números de cartão de crédito, só que com
+      um alfabeto maior.
+    </p>
+    <p>
+      O <strong>CNM</strong> (Código Nacional de Matrícula), definido pelo Provimento CNJ 89/2019,
+      tem 15 dígitos no formato <code>CCCCC.L.NNNNNNN-DD</code>, com dois dígitos verificadores
+      calculados por <span class="termo">ISO 7064 MOD 97-10</span> — o mesmo padrão de checksum
+      usado nos dois dígitos verificadores de um IBAN (número de conta bancária internacional).
+    </p>
+    <p>
+      Como esses códigos são lidos por OCR, um corretor tenta até duas trocas entre confusões
+      comuns de leitura (<code>O↔0</code>, <code>I↔1</code>, <code>S↔5</code>, <code>B↔8</code>,
+      <code>Z↔2</code>, <code>G↔6</code>) para ver se alguma variante próxima fecha o dígito
+      verificador — isso resgata códigos reais borrados pela digitalização, sem aceitar uma
+      sequência aleatória qualquer.
+    </p>
+  </div>
+</dialog>
+
+<dialog class="modal" id="modal-3" aria-labelledby="modal-3-titulo">
+  <div class="modal-topo">
+    <span class="modal-topo-rotulo"><span class="camada-numero">3</span> Detalhe técnico</span>
+    <button class="modal-fechar" type="button" data-fecha-modal aria-label="Fechar">✕</button>
+  </div>
+  <div class="modal-corpo">
+    <h4 id="modal-3-titulo">Leitura do QR Code</h4>
+    <p>
+      A página onde o selo costuma aparecer é renderizada como imagem a 300 DPI e varrida em
+      busca de um QR Code. Quando encontrado, ele decodifica para uma URL no formato do portal
+      oficial de consulta do TJSP — carregando o código do selo, um campo de valor/ISS e um
+      bloco de assinatura em base64 gerado pelo certificado da serventia.
+    </p>
+    <p>
+      Não verificamos essa assinatura criptograficamente (exigiria a infraestrutura de validação
+      própria do TJSP), mas a presença dela junto de um selo bem formado já é um sinal forte de
+      coerência. Como o QR não sofre erro de leitura como o texto, ele vira a <strong>fonte
+      primária</strong> do selo quando os dois aparecem — o texto lido por OCR passa a ser só
+      conferência.
+    </p>
+    <p>
+      Só a primeira, a segunda e a última página são varridas (onde selos costumam estar), com
+      um limite de tempo curto, para não atrasar documentos que não trazem QR nenhum.
+    </p>
+  </div>
+</dialog>
+
+<dialog class="modal" id="modal-4" aria-labelledby="modal-4-titulo">
+  <div class="modal-topo">
+    <span class="modal-topo-rotulo"><span class="camada-numero">4</span> Detalhe técnico</span>
+    <button class="modal-fechar" type="button" data-fecha-modal aria-label="Fechar">✕</button>
+  </div>
+  <div class="modal-corpo">
+    <h4 id="modal-4-titulo">Consulta à ONR</h4>
+    <p>
+      Algumas certidões trazem o link de uma assinatura eletrônica registrada na
+      <span class="termo">ONR</span> (Operador Nacional do Registro de Imóveis) — a plataforma
+      nacional onde cartórios publicam documentos assinados. Quando o código desse link aparece
+      no texto, consultamos o endpoint público da ONR diretamente.
+    </p>
+    <p>
+      A resposta traz o cartório, o código da serventia (CNS), a validade da certidão, o
+      horário da assinatura e o resultado da validação <span class="termo">ICP-Brasil</span> da
+      política <code>PA_PAdES_AD_RT</code> — incluindo carimbo do tempo e cadeia de certificado.
+      É a única camada que consulta uma fonte fora do próprio arquivo, por isso é a mais forte
+      das cinco: uma divergência aqui (cartório que não bate com o cabeçalho, por exemplo) é um
+      sinal de peso.
+    </p>
+    <p>
+      Essa resposta também traz dados pessoais do signatário — CPF mascarado, RG, data de
+      nascimento. <strong>Nenhum desses campos é gravado</strong>: guardamos só cartório, CNS,
+      validade, horário da assinatura e os sinalizadores de erro/aviso da validação. A chamada
+      tem um tempo limite curto e uma nova tentativa; qualquer falha (indisponibilidade, formato
+      de resposta mudando) vira "não disponível", nunca um erro que trava a análise.
+    </p>
+  </div>
+</dialog>
+
+<dialog class="modal" id="modal-5" aria-labelledby="modal-5-titulo">
+  <div class="modal-topo">
+    <span class="modal-topo-rotulo"><span class="camada-numero">5</span> Detalhe técnico</span>
+    <button class="modal-fechar" type="button" data-fecha-modal aria-label="Fechar">✕</button>
+  </div>
+  <div class="modal-corpo">
+    <h4 id="modal-5-titulo">O veredito final</h4>
+    <p>
+      Todos os sinais das quatro camadas anteriores são combinados em uma de sete
+      classificações, escolhida pela <strong>pior categoria atingida</strong> — nenhuma
+      quantidade de sinais bons anula um sinal ruim isolado. As categorias vão de
+      <code>original_assinado</code> (assinatura eletrônica ainda íntegra) e
+      <code>copia_verificavel</code> até <code>indicios_de_adulteracao</code> e
+      <code>arquivo_danificado</code>.
+    </p>
+    <p>
+      Além de julgar o arquivo isoladamente, esta etapa <strong>cruza as fontes entre si</strong>:
+      o cartório que a ONR confirma bate com o cabeçalho lido? O CNS é o mesmo no selo, no CNM e
+      na ONR? O número da matrícula do cabeçalho é o mesmo número de ordem do CNM? O arquivo foi
+      modificado muito depois do horário de assinatura que a ONR registrou? Qualquer divergência
+      nesses cruzamentos pesa sozinha, mesmo quando cada peça isolada parecia normal.
+    </p>
+    <p>
+      Um placar de 0 a 100 acompanha a classificação — útil para ordenar muitos documentos de
+      uma vez — mas é o rótulo da categoria, em português, que deve guiar a decisão humana.
+    </p>
+  </div>
+</dialog>
+
+<script>
+  (function () {
+    var reduz = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var camadas = document.querySelectorAll('.camada');
+    if (reduz || !('IntersectionObserver' in window)) {
+      camadas.forEach(function (c) { c.classList.add('em-vista'); });
+      return;
+    }
+    var obs = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('em-vista');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    camadas.forEach(function (c) { obs.observe(c); });
+  })();
+
+  (function () {
+    document.querySelectorAll('[data-abre-modal]').forEach(function (botao) {
+      botao.addEventListener('click', function () {
+        var modal = document.getElementById(botao.getAttribute('data-abre-modal'));
+        if (modal && typeof modal.showModal === 'function') modal.showModal();
+      });
+    });
+    document.querySelectorAll('dialog.modal').forEach(function (modal) {
+      modal.querySelectorAll('[data-fecha-modal]').forEach(function (botao) {
+        botao.addEventListener('click', function () { modal.close(); });
+      });
+      // Fecha ao clicar no fundo (fora da caixa do modal)
+      modal.addEventListener('click', function (evento) {
+        if (evento.target === modal) modal.close();
+      });
+    });
+  })();
+</script>
+</body>
+</html>

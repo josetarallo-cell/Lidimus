@@ -1,0 +1,436 @@
+{
+  "name": "Lidimus Aprovar",
+  "nodes": [
+    {
+      "id": "la-0001-webhook-get",
+      "name": "Recebe link",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -660,
+        -120
+      ],
+      "webhookId": "a7c1f4e2-3b58-4d19-9f27-6c0e8a5b1d34",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "lidimus-aprovar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "Inerte de proposito: so renderiza a pagina. Se o GET aprovasse, o prefetch de preview de link do WhatsApp dispararia deploys sozinho.",
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "la-0002-montar-pagina",
+      "name": "Montar pagina",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        -120
+      ],
+      "parameters": {
+        "jsCode": "// Monta a pagina de confirmacao a partir do ticket que veio no link.\n//\n// NAO confere a assinatura: quem confere e o agente, no POST. Aqui o payload e\n// so texto para exibir — um ticket forjado renderiza uma pagina bonita e morre\n// no agente do mesmo jeito. Manter a validacao num lugar so evita as duas\n// implementacoes discordarem.\n//\n// Este ramo e deliberadamente INERTE: nada aqui toca no host. O prefetch de\n// preview de link (WhatsApp, Cloudflare) abre esta URL sozinho, e se o GET\n// aprovasse, um deploy sairia sem ninguem ter tocado em nada.\n\nconst entrada = $input.first()?.json || {}\nconst t = entrada.query?.t || ''\nconst ensaio = entrada.query?.ensaio === '1'\n\nconst esc = (v) => String(v == null ? '' : v)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;')\n\nfunction abrirTicket(bruto) {\n  try {\n    const corpo = String(bruto).split('.')[0]\n    if (typeof Buffer !== 'undefined') return JSON.parse(Buffer.from(corpo, 'base64url').toString('utf8'))\n    const b64 = corpo.replace(/-/g, '+').replace(/_/g, '/')\n    return JSON.parse(decodeURIComponent(escape(atob(b64))))\n  } catch (e) {\n    return null\n  }\n}\n\nconst ESTILO = `*{box-sizing:border-box}\nbody{margin:0;padding:24px 16px;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\nbackground:#0f1115;color:#e6e8ee;display:flex;justify-content:center}\n.cartao{width:100%;max-width:460px;background:#171a21;border:1px solid #262b36;border-radius:14px;padding:24px}\nh1{margin:0 0 4px;font-size:20px;letter-spacing:-.01em}\n.sub{margin:0 0 20px;color:#8b93a7;font-size:14px}\n.caixa{background:#0f1115;border:1px solid #262b36;border-radius:10px;padding:14px;margin:0 0 20px;font-size:14px}\n.caixa div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}\n.caixa span{color:#8b93a7}\nul{margin:8px 0 0;padding-left:18px;color:#8b93a7;font-size:13px}\nlabel{display:block;font-size:13px;color:#8b93a7;margin:0 0 6px}\ninput[type=text]{width:100%;padding:11px 12px;font-size:16px;border-radius:9px;\nborder:1px solid #39404f;background:#0f1115;color:#e6e8ee}\ninput[type=text]:focus{outline:none;border-color:#d92e2e}\nbutton{width:100%;margin-top:16px;padding:14px;font-size:16px;font-weight:600;border:0;border-radius:9px;\nbackground:#d92e2e;color:#fff;cursor:pointer}\nbutton:disabled{opacity:.5;cursor:default}\n.aviso{margin-top:14px;font-size:12px;color:#8b93a7;text-align:center}\n.erro{color:#ff8b8b}\n.ok{color:#54c98a}\n@media(prefers-color-scheme:light){\nbody{background:#f6f7f9;color:#1a1d24}\n.cartao{background:#fff;border-color:#e2e5ea}\n.caixa{background:#f6f7f9;border-color:#e2e5ea}\ninput[type=text]{background:#fff;border-color:#cdd2da;color:#1a1d24}\n}`\n\nfunction pagina(titulo, corpo) {\n  return '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\">'\n    + '<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">'\n    + '<meta name=\"robots\" content=\"noindex,nofollow\">'\n    + '<title>' + esc(titulo) + '</title><style>' + ESTILO + '</style></head>'\n    + '<body><div class=\"cartao\">' + corpo + '</div></body></html>'\n}\n\nconst p = abrirTicket(t)\n\nif (!t || !p) {\n  return [{ json: { html: pagina('Link invalido',\n    '<h1 class=\"erro\">Link invalido</h1><p class=\"sub\">Este link nao veio de um relatorio do Lidimus Update. '\n    + 'Use o link da mensagem mais recente no WhatsApp.</p>') } }]\n}\n\nif (p.exp && p.exp * 1000 < Date.now()) {\n  return [{ json: { html: pagina('Link vencido',\n    '<h1 class=\"erro\">Link vencido</h1><p class=\"sub\">Links de aprovacao tem validade curta de proposito. '\n    + 'O proximo relatorio traz um novo — ou rode <code>pnpm sandbox:ok</code> na maquina.</p>') } }]\n}\n\nconst arquivos = (p.a || []).map((a) => '<li>' + esc(a) + '</li>').join('')\nconst mais = p.n > (p.a || []).length ? '<li>...e mais ' + (p.n - (p.a || []).length) + '</li>' : ''\n\nconst corpo = '<h1>Aprovar promocao</h1>'\n  + '<p class=\"sub\">' + (ensaio\n    ? 'ENSAIO: roda o deploy em dry-run, sem tocar na producao.'\n    : 'Confirmar grava o <code>sandbox:ok</code> e sobe para producao agora.') + '</p>'\n  + '<div class=\"caixa\">'\n  + '<div><span>commit</span><b>' + esc(p.c) + '</b></div>'\n  + '<div><span>arquivos alterados</span><b>' + esc(p.n) + '</b></div>'\n  + (p.f ? '<div><span>commits a publicar</span><b>' + esc(p.f) + '</b></div>' : '')\n  + (arquivos ? '<ul>' + arquivos + mais + '</ul>' : '')\n  + '</div>'\n  + '<form method=\"POST\" action=\"lidimus-aprovar-confirmar\" onsubmit=\"this.b.disabled=true;this.b.textContent=\\'Enviando...\\'\">'\n  + '<input type=\"hidden\" name=\"t\" value=\"' + esc(t) + '\">'\n  + (ensaio ? '<input type=\"hidden\" name=\"dryRun\" value=\"1\">' : '')\n  + '<label for=\"d\">O que foi validado no sandbox</label>'\n  + '<input type=\"text\" id=\"d\" name=\"descricao\" required maxlength=\"200\" value=\"' + esc(p.d) + '\">'\n  + '<button name=\"b\" type=\"submit\">' + (ensaio ? 'Rodar ensaio' : 'Aprovar e subir agora') + '</button>'\n  + '</form>'\n  + '<p class=\"aviso\">Essa descricao vai para o corpo do commit e para o relatorio.</p>'\n\nreturn [{ json: { html: pagina('Aprovar promocao', corpo) } }]\n"
+      }
+    },
+    {
+      "id": "la-0003-responder-pagina",
+      "name": "Responder pagina",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -100,
+        -120
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "la-0004-webhook-post",
+      "name": "Recebe aceite",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -660,
+        140
+      ],
+      "webhookId": "b3d9e017-5a24-4c86-8e51-2f7b9d0c4a68",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lidimus-aprovar-confirmar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "Path proprio em vez de reusar o do GET: dois nos de webhook com o mesmo path no mesmo workflow e terreno instavel entre versoes do n8n. O formulario chega aqui por caminho relativo.",
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "la-0005-aprovar",
+      "name": "Aprovar no host",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8099/aprovar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"t\": $json.body.t, \"descricao\": $json.body.descricao } }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cJS5hRrVIxgLB7Fd",
+          "name": "Lidimus Update - agente do host"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "So grava o marcador — nao implanta. Por isso responde em segundos e o timeout e curto. Quem implanta e o Lidimus Update, chamado logo abaixo."
+    },
+    {
+      "id": "la-0006-montar-resposta",
+      "name": "Montar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        140
+      ],
+      "parameters": {
+        "jsCode": "// Traduz a resposta do agente numa pagina, e decide se o deploy segue.\n//\n// O agente responde rapido de proposito (ele so grava o marcador), entao da\n// para responder ao celular ANTES de comecar o build — o relatorio do deploy\n// chega depois, pelo WhatsApp de sempre.\n\nconst r = $input.first()?.json || {}\nconst aprovado = r.ok === true\nconst pedido = $('Recebe aceite').first()?.json?.body || {}\nconst dryRun = pedido.dryRun === '1'\n\nconst esc = (v) => String(v == null ? '' : v)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;')\n\nconst ESTILO = `body{margin:0;padding:24px 16px;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\nbackground:#0f1115;color:#e6e8ee;display:flex;justify-content:center}\n.cartao{width:100%;max-width:460px;background:#171a21;border:1px solid #262b36;border-radius:14px;padding:24px}\nh1{margin:0 0 8px;font-size:20px}\np{margin:0 0 12px;color:#8b93a7;font-size:14px}\n.erro{color:#ff8b8b}.ok{color:#54c98a}\n@media(prefers-color-scheme:light){body{background:#f6f7f9;color:#1a1d24}.cartao{background:#fff;border-color:#e2e5ea}}`\n\nconst corpo = aprovado\n  ? '<h1 class=\"ok\">' + (dryRun ? 'Ensaio iniciado' : 'Aprovado') + '</h1>'\n    + '<p>' + (dryRun\n      ? 'O deploy vai rodar em dry-run. A producao NAO sera tocada.'\n      : 'O deploy comecou. Ele ainda passa por todos os gates de sempre (disco, fila vazia, testes, migrations) e pode ser adiado por um deles.') + '</p>'\n    + '<p>O relatorio chega no WhatsApp quando terminar. Pode fechar esta pagina.</p>'\n    + '<p>Aprovado: <b>' + esc(r.marcador?.descricao) + '</b></p>'\n  : '<h1 class=\"erro\">Nao aprovado</h1>'\n    + '<p>' + esc(r.motivo || r.erro || 'o agente do host nao respondeu — confira se o pnpm update:agente esta rodando') + '</p>'\n    + '<p>A producao nao foi tocada.</p>'\n\nconst html = '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\">'\n  + '<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">'\n  + '<title>Lidimus Update</title><style>' + ESTILO + '</style></head>'\n  + '<body><div class=\"cartao\">' + corpo + '</div></body></html>'\n\nreturn [{ json: { html, aprovado, dryRun } }]\n"
+      }
+    },
+    {
+      "id": "la-0007-responder-aceite",
+      "name": "Responder aceite",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        140
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "notes": "Responde ANTES de disparar o deploy. O build leva minutos; nenhum navegador de celular espera isso de pe."
+    },
+    {
+      "id": "la-0008-se-aprovado",
+      "name": "Aprovou?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        460,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "la-cond-aprovado",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.aprovado }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "la-0009-disparar",
+      "name": "Disparar deploy",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        740,
+        60
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "EMeS3q1rDBAIpWrM",
+          "mode": "list",
+          "cachedResultName": "Lidimus Update"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "notes": "waitForSubWorkflow desligado: o deploy leva minutos e ja respondemos ao celular. O relatorio sai pelo proprio Lidimus Update, no WhatsApp."
+    },
+    {
+      "id": "la-0010-lembrete-22h",
+      "name": "Lembrete 22h SP",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -660,
+        420
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "la-0011-pendencia",
+      "name": "Consultar pendencia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        420
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:8099/pendencia",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cJS5hRrVIxgLB7Fd",
+          "name": "Lidimus Update - agente do host"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Somente leitura: git e disco. Nao builda, nao aprova."
+    },
+    {
+      "id": "la-0012-montar-lembrete",
+      "name": "Montar lembrete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// Lembrete da noite: pega o esquecimento antes do run das 5h.\n//\n// Fica CALADO quando nao ha o que aprovar. Um lembrete que chega todo dia vira\n// ruido e para de ser lido justamente no dia em que importa.\n\nconst DESTINO = '5511947250110'\nconst p = $input.first()?.json || {}\n\nif (!p.temMudanca || p.jaAprovado) return []\n\nconst arquivos = p.arquivos || []\nconst linhas = ['*Lidimus Update - lembrete*', '']\nlinhas.push('Tem trabalho no sandbox sem aprovacao. Do jeito que esta, o run das 5h nao vai subir nada.')\nlinhas.push('', '📝 ' + arquivos.length + ' arquivo(s) alterado(s) em ' + String(p.commit || '').slice(0, 7))\nfor (const a of arquivos.slice(0, 3)) linhas.push('   • ' + a)\nif (arquivos.length > 3) linhas.push('   • ...e mais ' + (arquivos.length - 3))\nif (p.commitsAFrente) linhas.push('   ' + p.commitsAFrente + ' commit(s) ainda nao publicado(s)')\n\nif (p.url) {\n  linhas.push('', '👉 Aprovar e subir agora:', p.url)\n  linhas.push('_o link vale ate ' + p.validoAteTexto + '_')\n}\nlinhas.push('', '_Ou rode pnpm sandbox:ok na maquina, e o deploy sai as 5h._')\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n"
+      }
+    },
+    {
+      "id": "la-0013-whatsapp",
+      "name": "Enviar lembrete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/message/sendText/daily-tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"text\": $json.texto } }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "59bXVFjKNOlU24oS",
+          "name": "Evolution API - apikey"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Recebe link": {
+      "main": [
+        [
+          {
+            "node": "Montar pagina",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar pagina": {
+      "main": [
+        [
+          {
+            "node": "Responder pagina",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recebe aceite": {
+      "main": [
+        [
+          {
+            "node": "Aprovar no host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aprovar no host": {
+      "main": [
+        [
+          {
+            "node": "Montar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar resposta": {
+      "main": [
+        [
+          {
+            "node": "Responder aceite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder aceite": {
+      "main": [
+        [
+          {
+            "node": "Aprovou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aprovou?": {
+      "main": [
+        [
+          {
+            "node": "Disparar deploy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Lembrete 22h SP": {
+      "main": [
+        [
+          {
+            "node": "Consultar pendencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar pendencia": {
+      "main": [
+        [
+          {
+            "node": "Montar lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar lembrete": {
+      "main": [
+        [
+          {
+            "node": "Enviar lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "active": false
+}

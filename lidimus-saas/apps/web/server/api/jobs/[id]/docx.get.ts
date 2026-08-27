@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
   const buffer = await pareceMatriculaDocx(documento, {
     emitidoEm: dataDeEmissao(job.completedAt),
     arquivoOriginal: (job.inputMeta as Record<string, any> | null)?.originalName ?? null,
+    autenticidade: (job.stageData as Record<string, any> | null)?.autenticidade?.resultado ?? null,
   })
 
   return enviarDocx(event, buffer, nomeDoArquivoParecer(documento, job.id))

@@ -13,6 +13,7 @@
     { "id": "M8ehnr7BviJ9ShfP", "arquivo": "Descritor de Terreno KML.json", "webhook": "descritor-terreno-kml" },
     { "id": "CbWKtOkOClimoL3d", "arquivo": "PDF Report Analyzer.json", "webhook": "pdf-report" },
     { "id": "DWlUswTcDiXM9D1G", "arquivo": "Tradutor de Matrículas-public.json", "webhook": "tradutor-matriculas-public" },
-    { "id": "EMeS3q1rDBAIpWrM", "arquivo": "Lidimus Update.json", "webhook": null }
+    { "id": "EMeS3q1rDBAIpWrM", "arquivo": "Lidimus Update.json", "webhook": null },
+    { "id": "jvNX0XRrdUVdlD9S", "arquivo": "Lidimus Aprovar.json", "webhook": "lidimus-aprovar" }
   ]
 }

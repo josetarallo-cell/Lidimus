@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 import { eq } from 'drizzle-orm'
 import type { Db } from '@lidimus/db'
 import { jobFiles } from '@lidimus/db'
@@ -30,9 +30,16 @@ export async function storeJobFile(
   const accessToken = generateAccessToken()
   const gcsPath = await uploadToGcs(jobId, originalName, content, mimeType)
 
+  // sha256 + tamanho do arquivo — usados pelo verificador de autenticidade
+  // (@lidimus/autenticidade) para detectar o mesmo PDF reenviado sob outra
+  // matrícula e para conferir contra o `originalFile.length` da ONR. Calculado
+  // aqui (não em cada chamador) porque `content` já está em memória de
+  // qualquer forma para o upload.
+  const sha256 = createHash('sha256').update(content).digest('hex')
+
   const [file] = await db
     .insert(jobFiles)
-    .values({ jobId, gcsPath, mimeType, originalName, accessToken })
+    .values({ jobId, gcsPath, mimeType, originalName, accessToken, sha256, sizeBytes: content.length })
     .returning({ id: jobFiles.id })
 
   return {

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",
+    "@lidimus/autenticidade": "workspace:*",
     "@lidimus/db": "workspace:*",
     "@lidimus/queue": "workspace:*",
     "@lidimus/revisao": "workspace:*",

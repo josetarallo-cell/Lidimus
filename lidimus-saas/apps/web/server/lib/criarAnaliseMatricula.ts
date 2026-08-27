@@ -9,6 +9,7 @@ import { checkRateLimit, vagasRestantes } from './rateLimit'
 import { exigirAcesso, avulsosDisponiveis, cortesiasDisponiveis } from './planAccess'
 import { countPdfPages } from './pdfPages'
 import { assertPdfSignature } from './fileSignature'
+import { analisarPdf } from '@lidimus/autenticidade'
 
 // Criação de análises de matrícula: validação dos arquivos, nível de acesso,
 // limite de uso, débito de crédito, guarda dos PDFs e enfileiramento.
@@ -177,9 +178,20 @@ export async function criarAnalisesMatriculaEmLote(
   // com erro não conta em cortesiasDisponiveis.
   const medidos = arquivos.map((a) => {
     const paginas = countPdfPages(a.arquivo)
+    // Perícia barata do buffer (§1 do verificador de autenticidade) — nunca
+    // bloqueia o upload, só documenta. Falha aqui não pode derrubar a análise
+    // que o cliente pagou por isso: um erro do parser vira "sem perícia",
+    // não um 500 no upload.
+    let autenticidade: ReturnType<typeof analisarPdf> | null = null
+    try {
+      autenticidade = analisarPdf(a.arquivo, { paginasConhecidas: paginas })
+    } catch (err) {
+      console.warn('[matricula] perícia de autenticidade falhou no upload:', err)
+    }
     return {
       ...a,
       paginas,
+      autenticidade,
       custo: porCortesia ? 0 : creditCostFor('matricula', { pages: paginas }),
     }
   })
@@ -243,6 +255,11 @@ export async function criarAnalisesMatriculaEmLote(
             originalName: m.originalName,
             params,
             paginas: m.paginas,
+            // Perícia do arquivo feita no upload (§1) — o worker completa com QR
+            // e páginas heterogêneas antes do binário sair do GCS; o callback
+            // funde tudo com as âncoras do OCR e a ONR. Nunca bloqueia o upload:
+            // `autenticidade` é null quando o parser falhou.
+            ...(m.autenticidade && { autenticidade: m.autenticidade }),
             // Procedência: separa no histórico o que veio de integração do que foi
             // enviado na tela, e dá ao painel de custos como medir uso da API.
             ...(origem === 'api' && { origem, apiKeyId }),

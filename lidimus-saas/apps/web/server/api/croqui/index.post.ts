@@ -11,6 +11,7 @@ import { exigirAcesso } from '../../lib/planAccess'
 import { countPdfPages } from '../../lib/pdfPages'
 import { assertPdfSignature } from '../../lib/fileSignature'
 import { jobs, creditTransactions, creditCostFor, lockOrgCreditBalance } from '@lidimus/db'
+import { analisarPdf } from '@lidimus/autenticidade'
 
 // Dois modos de entrada:
 //  1. multipart (PDF da matrícula) — pipeline ocr → croqui, cobra por página
@@ -118,8 +119,18 @@ export default defineEventHandler(async (event) => {
   const { connection, matriculaOcrQueue } = useQueues()
   await checkRateLimit(connection, `ratelimit:upload:${orgId}`, config.uploadRateLimitPerHour, 3600)
 
-  const paginas = countPdfPages(Buffer.from(filePart.data))
+  const buffer = Buffer.from(filePart.data)
+  const paginas = countPdfPages(buffer)
   const custo = creditCostFor('croqui', { pages: paginas })
+
+  // Perícia barata do buffer (§1 do verificador de autenticidade) — nunca
+  // bloqueia o upload, só documenta.
+  let autenticidade: ReturnType<typeof analisarPdf> | null = null
+  try {
+    autenticidade = analisarPdf(buffer, { paginasConhecidas: paginas })
+  } catch (err) {
+    console.warn('[croqui] perícia de autenticidade falhou no upload:', err)
+  }
 
   const job = await db.transaction(async (tx) => {
     const saldo = await lockOrgCreditBalance(tx, orgId)
@@ -137,7 +148,7 @@ export default defineEventHandler(async (event) => {
         userId: user.id,
         type: 'croqui',
         status: 'pending',
-        inputMeta: { originalName, paginas },
+        inputMeta: { originalName, paginas, ...(autenticidade && { autenticidade }) },
       })
       .returning({ id: jobs.id })
 
@@ -154,7 +165,7 @@ export default defineEventHandler(async (event) => {
   const { fileUrl, accessToken } = await storeJobFile(
     db,
     job.id,
-    Buffer.from(filePart.data),
+    buffer,
     mimeType,
     originalName,
     config.publicBaseUrl,

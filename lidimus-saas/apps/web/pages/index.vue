@@ -281,6 +281,10 @@ const memorialEtapas = [
 
 const faq = [
   {
+    q: 'Como sei que o relatório está certo?',
+    a: 'Cada apontamento vem com o registro ou averbação de origem — R.4, AV.2 — para você conferir contra o documento em segundos. O Lidimus não inventa conclusão: ele extrai, organiza e aponta onde está escrito.',
+  },
+  {
     q: 'Como funciona a cobrança avulsa da análise de matrícula?',
     a: 'A análise de matrícula é comprada à parte, só quando você precisar. Assinante paga R$ 89 por análise (25% a menos que o preço público de R$ 119), cobrados apenas quando a análise é concluída: erro de leitura do sistema ou matrícula ilegível não debita nada, e reprocessar a mesma matrícula em até 7 dias não gera nova cobrança. Prefere adiantar o pagamento? Pacotes de crédito saem com até 42% de desconto, e o saldo fica sempre visível no topo do app.',
   },
@@ -305,6 +309,9 @@ const faq = [
     a: 'Não. O Lidimus roda no navegador: você envia o PDF ou o KML e recebe o resultado na própria tela, pronto para imprimir ou baixar.',
   },
 ]
+
+// ── Menu mobile ──────────────────────────────────────────────────────────
+const menuAberto = ref(false)
 
 // ── Comportamento: barra de progresso, reveal e parallax ────────────────────
 const raiz = ref<HTMLElement | null>(null)
@@ -403,7 +410,8 @@ onBeforeUnmount(() => {
       <div data-progress class="lp-progresso-fill" />
     </div>
 
-    <!-- ── Masthead ─────────────────────────────────────────── -->
+    <!-- ── Topo fixo: masthead + barra agrupados ───────────────── -->
+    <div class="lp-topo">
     <div class="lp-masthead">
       <div class="lp-masthead-inner">
         <span class="cond lp-masthead-esq">Inteligência documental · jurídica e técnica</span>
@@ -436,7 +444,24 @@ onBeforeUnmount(() => {
         </NuxtLink>
           <SeloBeta />
         </div>
-        <nav class="lp-nav" aria-label="Principal">
+        <button
+          type="button"
+          class="lp-hamburger"
+          :class="{ 'lp-hamburger--aberto': menuAberto }"
+          :aria-expanded="menuAberto"
+          aria-controls="lp-nav-principal"
+          aria-label="Abrir menu de navegação"
+          @click="menuAberto = !menuAberto"
+        >
+          <span /><span /><span />
+        </button>
+        <nav
+          id="lp-nav-principal"
+          class="lp-nav"
+          :class="{ 'lp-nav--aberto': menuAberto }"
+          aria-label="Principal"
+          @click="menuAberto = false"
+        >
           <a href="#ferramentas" class="cond lp-nav-link">Ferramentas</a>
           <a href="#planos" class="cond lp-nav-link">Planos</a>
           <a href="#faq" class="cond lp-nav-link">Dúvidas</a>
@@ -449,6 +474,7 @@ onBeforeUnmount(() => {
         </nav>
       </div>
     </header>
+    </div>
 
     <main id="conteudo">
       <!-- ══════════ HERO ══════════ -->
@@ -457,12 +483,11 @@ onBeforeUnmount(() => {
           <div class="lp-hero-texto">
             <span data-reveal class="cond lp-tarja">Três ferramentas · um padrão de rigor</span>
             <h1 data-reveal data-reveal-delay="60" class="lp-hero-titulo">
-              Leia, audite e descreva documentos com rigor.
+              Analise documentos com velocidade e rigor.
             </h1>
             <p data-reveal data-reveal-delay="120" class="lp-hero-sub">
-              O Lidimus reúne três ferramentas de IA para quem trabalha com documentos críticos.
-              Relatórios técnicos de matrículas, memoriais descritivos e verificação de integridade — em
-              minutos, não em dias.
+              Relatórios técnicos de matrículas, memoriais descritivos e verificação de integridade
+              — <strong>em minutos!</strong> Para quem precisa de agilidade e não pode errar.
             </p>
             <div data-reveal data-reveal-delay="180" class="lp-hero-acoes">
               <NuxtLink to="/auth/register" class="cond lp-btn lp-btn--primary lp-btn--lg">
@@ -470,13 +495,13 @@ onBeforeUnmount(() => {
               </NuxtLink>
               <a href="#ferramentas" class="cond lp-hero-link">Ver as ferramentas</a>
             </div>
-            <p data-reveal data-reveal-delay="220" class="lp-hero-publico">
-              Para advogados, engenheiros, arquitetos e cartórios que não podem errar.
-            </p>
           </div>
 
           <!-- Prancha / documento em exibição -->
           <div class="lp-hero-prancha-wrap">
+            <p data-reveal data-reveal-delay="100" class="cond lp-hero-oferta">
+              A sua primeira Análise é por nossa conta!
+            </p>
             <div data-reveal data-reveal-delay="140" data-parallax="0.05" class="lp-doc" aria-hidden="true">
               <div class="lp-doc-topo">
                 <span class="lp-doc-marca"><img src="/logo.svg" alt="" /></span>
@@ -919,6 +944,15 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
+          <!-- Assinatura paga ainda não está aberta: a conta pode ser criada
+               grátis agora e o plano é escolhido depois, dentro do app. -->
+          <div data-reveal class="lp-planos-cta-unica">
+            <NuxtLink to="/auth/register" class="cond lp-btn lp-btn--primary lp-btn--lg">
+              Criar a conta gratuita →
+            </NuxtLink>
+            <span class="cond lp-planos-cta-nota">Assinatura dos planos abre em breve · comece grátis hoje</span>
+          </div>
+
           <div class="lp-planos-grade">
             <article
               v-for="p in planos"
@@ -939,22 +973,15 @@ onBeforeUnmount(() => {
               <ul class="lp-plano-specs">
                 <li v-for="s in p.specs" :key="s">{{ s }}</li>
               </ul>
-              <NuxtLink
-                v-if="p.to"
-                :to="p.to"
-                class="cond lp-btn lp-plano-cta"
-                :class="p.primary ? 'lp-btn--primary' : 'lp-btn--secondary'"
+              <button
+                type="button"
+                class="cond lp-btn lp-plano-cta lp-btn--desativado"
+                disabled
+                aria-disabled="true"
+                title="Assinatura em breve — crie a conta gratuita para começar"
               >
                 {{ p.cta }}
-              </NuxtLink>
-              <a
-                v-else
-                :href="p.mailto"
-                class="cond lp-btn lp-plano-cta"
-                :class="p.primary ? 'lp-btn--primary' : 'lp-btn--secondary'"
-              >
-                {{ p.cta }}
-              </a>
+              </button>
               <p class="lp-plano-resumo">{{ p.resumo }}</p>
             </article>
           </div>
@@ -1123,6 +1150,12 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   font-family: var(--font-body);
   line-height: 1.55;
+}
+/* O corte horizontal mora em #conteudo, não na raiz `.lp`: `overflow-x` só
+   computa em par com `overflow-y` (vira "auto"), e isso transforma `.lp` no
+   contêiner de referência do `position: sticky` do `.lp-topo` — que não é
+   ele mesmo quem rola a página, então o cabeçalho nunca gruda no scroll. */
+#conteudo {
   overflow-x: hidden;
 }
 /* Reset de sublinhado para todos os links; a cor fica a cargo de cada classe.
@@ -1218,6 +1251,13 @@ onBeforeUnmount(() => {
   color: var(--color-accent);
 }
 
+/* ── Topo fixo (masthead + barra agrupados) ── */
+.lp-topo {
+  position: sticky;
+  top: 0;
+  z-index: 150;
+}
+
 /* ── Masthead ── */
 .lp-masthead {
   border-bottom: 1px solid var(--color-divider);
@@ -1248,9 +1288,7 @@ onBeforeUnmount(() => {
 
 /* ── Barra ── */
 .lp-barra {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  position: relative;
   background: var(--color-bg);
   border-bottom: 2px solid var(--color-text);
 }
@@ -1297,6 +1335,36 @@ onBeforeUnmount(() => {
 .lp-nav-link--sep {
   border-left: 1px solid var(--color-divider);
   padding-left: 28px;
+}
+
+/* Hamburger — só existe visualmente abaixo de 640px (ver Responsivo) */
+.lp-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 5px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.lp-hamburger span {
+  display: block;
+  height: 2px;
+  background: var(--color-text);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.lp-hamburger--aberto span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.lp-hamburger--aberto span:nth-child(2) {
+  opacity: 0;
+}
+.lp-hamburger--aberto span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 /* ── Hero ── */
@@ -1368,20 +1436,29 @@ onBeforeUnmount(() => {
   border-bottom: 2px solid var(--color-accent);
   padding-bottom: 3px;
 }
-.lp-hero-publico {
-  margin: 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-divider);
-  font-size: 0.9rem;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-}
-
 /* Prancha / documento */
 .lp-hero-prancha-wrap {
   padding: 56px 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 18px;
   min-width: 0;
+}
+.lp-hero-oferta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-family: 'Archivo Narrow', var(--font-heading);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 8px 16px;
 }
 .lp-doc {
   width: 100%;
@@ -2330,6 +2407,20 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
+.lp-planos-cta-unica {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 2px solid var(--color-text);
+}
+.lp-planos-cta-nota {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
 .lp-planos-grade {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -2424,6 +2515,15 @@ onBeforeUnmount(() => {
   width: 100%;
   justify-content: flex-start;
   margin-bottom: 18px;
+}
+.lp-btn--desativado {
+  border-color: var(--color-divider);
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  cursor: not-allowed;
+}
+.lp-btn--desativado:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 .lp-plano-resumo {
   margin: 0;
@@ -2684,18 +2784,42 @@ onBeforeUnmount(() => {
   .lp-barra-inner {
     height: auto;
     min-height: 60px;
-    flex-wrap: wrap;
     padding-top: 10px;
     padding-bottom: 10px;
-    row-gap: 8px;
   }
+  .lp-hamburger {
+    display: flex;
+  }
+  /* Nav vira um dropdown ancorado na barra (position: relative), abaixo do
+     hamburger — a marca do topo fixo continua visível junto com o logotipo. */
   .lp-nav {
-    flex-wrap: wrap;
-    gap: 8px 16px;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--color-bg);
+    border-bottom: 2px solid var(--color-text);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+  }
+  .lp-nav--aberto {
+    display: flex;
+  }
+  .lp-nav-link,
+  .lp-nav .lp-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  .lp-nav > :last-child {
+    border-bottom: none;
   }
   .lp-nav-link--sep {
     border-left: none;
-    padding-left: 0;
+    padding-left: 20px;
   }
   .lp-lista-diamante {
     grid-template-columns: 1fr;

@@ -96,14 +96,15 @@ function deltaFmt(delta: number): string {
           {{ acesso?.avulsosMatricula === 1 ? 'análise' : 'análises' }}
         </p>
       </div>
-      <a
-        href="https://www.asaas.com/c/0wglmp28h3nehpto"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
         class="ld-btn ld-btn--secondary"
+        disabled
+        aria-disabled="true"
+        title="Compra avulsa em breve"
       >
         Comprar via Pix — R$ 89
-      </a>
+      </button>
     </section>
 
     <section class="ld-painel historico">

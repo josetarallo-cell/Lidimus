@@ -128,6 +128,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// Extrai Selo Digital TJSP e CNM do texto do OCR — porta em JS puro (sem import,\n// n8n Code node não linka pacotes do workspace) do que packages/autenticidade/src/\n// ancoras.ts + luhn.ts + iso7064.ts fazem. Qualquer mudança de comportamento\n// precisa ser feita nos dois lugares.\n//\n// Nunca lança: qualquer erro aqui vira ancoras: null, e o OCR segue normalmente\n// para o Callback OCR — o verificador de autenticidade não bloqueia a leitura.\n\nconst texto = String($json.texto_ocr || '');\n\nfunction extrairAncoras(texto) {\n  const ALFABETO = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';\n  const N = ALFABETO.length;\n\n  function valorDoCaractere(c) {\n    const v = ALFABETO.indexOf(c.toUpperCase());\n    if (v < 0) throw new Error('char fora do alfabeto');\n    return v;\n  }\n\n  function calcularDvLuhnModN(payload) {\n    let fator = 2, soma = 0;\n    for (let i = payload.length - 1; i >= 0; i--) {\n      let parcela = valorDoCaractere(payload[i]) * fator;\n      parcela = Math.floor(parcela / N) + (parcela % N);\n      soma += parcela;\n      fator = fator === 2 ? 1 : 2;\n    }\n    const resto = soma % N;\n    return ALFABETO[(N - resto) % N];\n  }\n\n  function luhnModNFecha(codigo) {\n    if (codigo.length < 2) return false;\n    try {\n      return calcularDvLuhnModN(codigo.slice(0, -1)) === codigo.slice(-1).toUpperCase();\n    } catch {\n      return false;\n    }\n  }\n\n  function modBigInt(numeroDecimal, modulo) {\n    let resto = 0n;\n    for (const c of numeroDecimal) resto = (resto * 10n + BigInt(c)) % modulo;\n    return resto;\n  }\n\n  function iso7064Fecha(numeroCompleto) {\n    if (!/^\\d{3,}$/.test(numeroCompleto)) return false;\n    return modBigInt(numeroCompleto, 97n) === 1n;\n  }\n\n  const CONFUSOES_OCR = {\n    O: '0', '0': 'O', I: '1', '1': 'I', S: '5', '5': 'S',\n    B: '8', '8': 'B', Z: '2', '2': 'Z', G: '6', '6': 'G',\n  };\n\n  function substituir(codigo, posicoes) {\n    const chars = [...codigo];\n    for (const { indice, caractere } of posicoes) chars[indice] = caractere;\n    return chars.join('');\n  }\n\n  function variantesComCorrecao(codigo) {\n    const posicoes = [...codigo]\n      .map((c, indice) => ({ indice, alt: CONFUSOES_OCR[c.toUpperCase()] }))\n      .filter((p) => p.alt);\n    const variantes = [];\n    for (const p of posicoes) variantes.push(substituir(codigo, [{ indice: p.indice, caractere: p.alt }]));\n    for (let a = 0; a < posicoes.length; a++) {\n      for (let b = a + 1; b < posicoes.length; b++) {\n        variantes.push(\n          substituir(codigo, [\n            { indice: posicoes[a].indice, caractere: posicoes[a].alt },\n            { indice: posicoes[b].indice, caractere: posicoes[b].alt },\n          ]),\n        );\n      }\n    }\n    return variantes;\n  }\n\n  function tentarComCorrecaoDv(codigo, fecha) {\n    if (fecha(codigo)) return { codigo, corrigido: false };\n    for (const variante of variantesComCorrecao(codigo)) {\n      if (fecha(variante)) return { codigo: variante, corrigido: true };\n    }\n    return null;\n  }\n\n  // ─── Selo TJSP ──────────────────────────────────────────────────────────\n  const JANELA_ROTULO = 80;\n  const ROTULO_SELO = /selo\\s*digital|tjsp/gi;\n\n  function candidatosProximosAoRotulo(texto, tamanho, rotulo) {\n    const posicoesRotulo = [];\n    for (const m of texto.matchAll(rotulo)) posicoesRotulo.push(m.index || 0);\n    if (posicoesRotulo.length === 0) return [];\n    const achados = [];\n    const padrao = new RegExp(`[0-9A-Za-z]{${tamanho}}`, 'g');\n    for (const m of texto.matchAll(padrao)) {\n      const idx = m.index || 0;\n      if (posicoesRotulo.some((p) => Math.abs(p - idx) <= JANELA_ROTULO)) achados.push(m[0]);\n    }\n    return achados;\n  }\n\n  function decomporSelo(codigo, corrigido, dvFecha) {\n    return {\n      codigo,\n      cns: codigo.slice(0, 6),\n      natureza: codigo.slice(6, 7),\n      ato: codigo.slice(7, 9),\n      infoAto: codigo.slice(9, 22),\n      ano: codigo.slice(22, 24),\n      dv: codigo.slice(24, 25),\n      dvFecha,\n      corrigidoPorDv: corrigido,\n      origem: 'texto_ocr',\n    };\n  }\n\n  function extrairSelo(texto) {\n    const rotulados = candidatosProximosAoRotulo(texto, 25, ROTULO_SELO);\n    for (const bruto of rotulados) {\n      const codigo = bruto.toUpperCase();\n      const r = tentarComCorrecaoDv(codigo, luhnModNFecha);\n      if (r) return decomporSelo(r.codigo, r.corrigido, true);\n    }\n    if (rotulados.length > 0) return decomporSelo(rotulados[0].toUpperCase(), false, false);\n\n    for (const m of texto.matchAll(/\\b[0-9A-Za-z]{25}\\b/g)) {\n      const codigo = m[0].toUpperCase();\n      const r = tentarComCorrecaoDv(codigo, luhnModNFecha);\n      if (r) return decomporSelo(r.codigo, r.corrigido, true);\n    }\n    return null;\n  }\n\n  // ─── CNM ────────────────────────────────────────────────────────────────\n  const CNM_PONTUADO = /\\b(\\d{5})\\.(\\d)\\.(\\d{7})-(\\d{2})\\b/g;\n  const CNM_SEM_PONTUACAO = /\\b\\d{15}\\b/g;\n\n  function decomporCnm(cns, livro, numeroOrdem, dv, corrigido, dvFecha) {\n    return {\n      codigo: `${cns}.${livro}.${numeroOrdem}-${dv}`,\n      cns,\n      livro,\n      numeroOrdem,\n      dv,\n      dvFecha,\n      livroEhRegistroGeral: livro === '2',\n      corrigidoPorDv: corrigido,\n      origem: 'texto_ocr',\n    };\n  }\n\n  function extrairCnm(texto) {\n    for (const m of texto.matchAll(CNM_PONTUADO)) {\n      const [, cns, livro, numeroOrdem, dv] = m;\n      const completo = cns + livro + numeroOrdem + dv;\n      if (iso7064Fecha(completo)) return decomporCnm(cns, livro, numeroOrdem, dv, false, true);\n      return decomporCnm(cns, livro, numeroOrdem, dv, false, false);\n    }\n    for (const m of texto.matchAll(CNM_SEM_PONTUACAO)) {\n      const bloco = m[0];\n      const base = bloco.slice(0, 13);\n      const dv = bloco.slice(13, 15);\n      if (iso7064Fecha(base + dv)) {\n        return decomporCnm(base.slice(0, 5), base.slice(5, 6), base.slice(6, 13), dv, false, true);\n      }\n    }\n    return null;\n  }\n\n  return { selo: extrairSelo(texto), cnm: extrairCnm(texto) };\n}\n\nlet ancoras = { selo: null, cnm: null };\ntry {\n  ancoras = extrairAncoras(texto);\n} catch (e) {\n  // nunca bloqueia o OCR por causa disto\n  ancoras = { selo: null, cnm: null };\n}\n\nreturn [{ json: { ...$json, ancoras } }];\n"
+      },
+      "id": "node-extrair-ancoras",
+      "name": "Extrair Âncoras",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        304
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "={{ $('Preparar Input').first().json.callbackUrl }}",
         "sendHeaders": true,
@@ -145,7 +158,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', result: { texto_ocr: $json.texto_ocr, total_paginas: $json.total_paginas }, tokens: $json.tokens, usage: { models: [{ workflow: 'lidimus-OCR', model: 'google-document-ai', promptTokens: 0, completionTokens: 0, totalTokens: 0, units: ($json.total_paginas || 0), unitLabel: 'páginas', costUsd: Number((($json.total_paginas || 0) * 0.0015).toFixed(6)) }] } }) }}",
+        "jsonBody": "={{ JSON.stringify({ jobId: $('Preparar Input').first().json.jobId, stage: 'ocr', result: { texto_ocr: $json.texto_ocr, total_paginas: $json.total_paginas, ancoras: $json.ancoras }, tokens: $json.tokens, usage: { models: [{ workflow: 'lidimus-OCR', model: 'google-document-ai', promptTokens: 0, completionTokens: 0, totalTokens: 0, units: ($json.total_paginas || 0), unitLabel: 'páginas', costUsd: Number((($json.total_paginas || 0) * 0.0015).toFixed(6)) }] } }) }}",
         "options": {}
       },
       "id": "node-callback-ok",
@@ -153,7 +166,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1328,
+        1552,
         304
       ]
     },
@@ -290,7 +303,7 @@
       "main": [
         [
           {
-            "node": "Callback OCR",
+            "node": "Extrair Âncoras",
             "type": "main",
             "index": 0
           }
@@ -327,6 +340,17 @@
         [
           {
             "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Âncoras": {
+      "main": [
+        [
+          {
+            "node": "Callback OCR",
             "type": "main",
             "index": 0
           }

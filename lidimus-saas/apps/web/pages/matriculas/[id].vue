@@ -65,6 +65,15 @@ const textoOcr = computed(() => {
   return stageData?.ocr?.texto_ocr ?? null
 })
 
+// ─── Verificador de autenticidade de documento (@lidimus/autenticidade) ─────
+// Nunca bloqueia a leitura: fica ausente quando ainda não rodou (job antigo,
+// pipeline anterior a esta funcionalidade) ou quando qualquer etapa do
+// verificador falhou — a seção só aparece quando há o que mostrar.
+const autenticidade = computed(() => {
+  const stageData = job.value?.stageData as Record<string, any> | undefined
+  return stageData?.autenticidade?.resultado ?? null
+})
+
 // ─── Corretor de leitura (OCR → CORRETOR → Jurídico) ─────────────────────────
 // Quando o filtro encontra trechos que valem conferência humana, o pipeline para
 // aqui e a tela de espera dá lugar ao corretor. É a única pausa deliberada do
@@ -412,6 +421,10 @@ async function gerarCroquiDaMatricula() {
           arquivo — são páginas que não constam do documento enviado, e reprocessá-lo não as traz.
         </p>
       </aside>
+
+      <!-- Verificador de autenticidade de documento: seção própria,
+           informativa, nunca bloqueia a leitura do relatório. -->
+      <BlocoAutenticidade v-if="autenticidade" :autenticidade="autenticidade" />
 
       <!-- Título do documento -->
       <div class="prancha-titulo">

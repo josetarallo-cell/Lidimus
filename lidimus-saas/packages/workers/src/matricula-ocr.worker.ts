@@ -1,11 +1,73 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Worker } from 'bullmq'
 import { eq } from 'drizzle-orm'
 import type IORedis from 'ioredis'
 import type { Db } from '@lidimus/db'
-import { jobs, refundJobCredits } from '@lidimus/db'
+import { jobFiles, jobs, refundJobCredits } from '@lidimus/db'
 import type { MatriculaOcrJobPayload } from '@lidimus/queue'
 import { QUEUE_NAMES, publishJobEvent } from '@lidimus/queue'
+import { analisarPdf, detectarPaginasHeterogeneas, lerQrDoPdf } from '@lidimus/autenticidade'
 import { triggerN8nWebhook } from './lib/n8n.ts'
+import { baixarDoGcs } from './lib/gcs.ts'
+
+// Perícia completa do arquivo (§1 + QR do §3) — roda aqui, e não no callback,
+// porque este é o único ponto do pipeline que ainda tem o binário em mãos
+// *antes* de disparar o n8n: o callback do estágio 'ocr' já pode ter apagado o
+// PDF do GCS (softDeleteJobFile, quando não sobra nada para o corretor
+// revisar). Grava direto em `stage_data.autenticidade` — não passa pelo n8n,
+// que não tem acesso ao binário.
+//
+// Nunca bloqueia nem atrasa o job além do necessário: qualquer falha (GCS,
+// poppler ausente, PDF ilegível) vira log e o pipeline segue sem a perícia
+// completa — o upload já guardou a perícia leve em `inputMeta.autenticidade`.
+async function periciaCompletaDeAutenticidade(db: Db, jobId: string): Promise<void> {
+  try {
+    const [arquivo] = await db
+      .select({ gcsPath: jobFiles.gcsPath, deletedAt: jobFiles.deletedAt })
+      .from(jobFiles)
+      .where(eq(jobFiles.jobId, jobId))
+      .limit(1)
+    if (!arquivo || arquivo.deletedAt) return
+
+    const [atual] = await db
+      .select({ stageData: jobs.stageData, inputMeta: jobs.inputMeta })
+      .from(jobs)
+      .where(eq(jobs.id, jobId))
+      .limit(1)
+    if (!atual) return
+
+    const paginasConhecidas = (atual.inputMeta as Record<string, unknown> | null)?.paginas
+    const pdf = await baixarDoGcs(arquivo.gcsPath)
+    const pericia = analisarPdf(pdf, {
+      paginasConhecidas: typeof paginasConhecidas === 'number' ? paginasConhecidas : undefined,
+    })
+
+    const pasta = await mkdtemp(join(tmpdir(), 'lidimus-autenticidade-'))
+    const caminhoPdf = join(pasta, 'documento.pdf')
+    try {
+      await writeFile(caminhoPdf, pdf)
+
+      const [qr, heterogeneas] = await Promise.all([
+        lerQrDoPdf(caminhoPdf, pericia.paginas),
+        detectarPaginasHeterogeneas(caminhoPdf, pericia.paginas),
+      ])
+      if (heterogeneas) pericia.indicios.push(heterogeneas)
+
+      await db
+        .update(jobs)
+        .set({
+          stageData: { ...(atual.stageData ?? {}), autenticidade: { pericia, qr } },
+        })
+        .where(eq(jobs.id, jobId))
+    } finally {
+      await rm(pasta, { recursive: true, force: true }).catch(() => {})
+    }
+  } catch (err) {
+    console.warn(`[ocr] perícia completa de autenticidade falhou no job ${jobId}, seguindo sem ela:`, err)
+  }
+}
 
 export function startMatriculaOcrWorker(
   db: Db,
@@ -23,6 +85,8 @@ export function startMatriculaOcrWorker(
         .update(jobs)
         .set({ status: 'processing', stage: 'ocr' })
         .where(eq(jobs.id, jobId))
+
+      await periciaCompletaDeAutenticidade(db, jobId)
 
       await triggerN8nWebhook(n8nWebhookUrl, {
         jobId,

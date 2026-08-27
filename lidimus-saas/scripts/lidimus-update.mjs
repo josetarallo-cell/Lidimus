@@ -22,7 +22,8 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   buscarComRepeticao, carimbo, compararArvores, executar, git, hashArvore,
-  lerMarcador, raizRepo, raizSaas, CAMINHO_MARCADOR,
+  lerEnvProducaoBruto, lerMarcador, montarLinkAprovacao, raizRepo, raizSaas,
+  resumoPendencia, valorDoEnv, CAMINHO_MARCADOR,
 } from './lidimus-update-comum.mjs'
 
 const ehDryRun = process.argv.includes('--dry-run')
@@ -34,6 +35,11 @@ const ESPACO_MINIMO_GB = Number(process.env.LIDIMUS_ESPACO_MINIMO_GB || 20)
 const URL_PROD = 'http://127.0.0.1:3000'
 const URL_SANDBOX = 'http://127.0.0.1:3100'
 const URL_PUBLICA = 'https://lidimus.gvlar.com'
+
+// Onde o link de aprovação do WhatsApp aponta (webhook do workflow
+// "Lidimus Aprovar"). Vive no .env de produção junto do LIDIMUS_UPDATE_TOKEN.
+const URL_APROVAR = valorDoEnv(lerEnvProducaoBruto(), 'LIDIMUS_APROVAR_URL')
+  || 'https://n8n.gvlar.com/webhook/lidimus-aprovar'
 const COMPOSE = ['compose', '-f', 'docker-compose.yml']
 
 // SQL que não pode rodar sozinho às 5h. O histórico tem casos reais: a
@@ -45,6 +51,15 @@ const SQL_DESTRUTIVO = /\b(drop\s+(table|column|constraint|index|schema|type)|de
 // Nunca commitar, mesmo com a árvore aprovada.
 const NUNCA_COMMITAR = /(^|[\\/])(backups[\\/]|\.lidimus[\\/])|\.(sql|pem|key|p12|pfx)$|\.env($|\.)/i
 
+// Exceções: casam com a peneira por extensão, mas são exatamente o que um
+// deploy precisa publicar. Em 27/08/2026 a peneira derrubou a fase do GitHub
+// com produção já no ar — o `.sql` mira o dump do banco e levou junto a
+// migration 0025_autenticidade; o `.env` mira .env e .env.sandbox, e o ponto
+// da alternância pegou também o .env.example, que é template sem segredo.
+// Lista estreita de propósito: só migration do Drizzle e só o .example — os
+// dois já versionados, e nenhum outro .sql existe fora de packages/db/drizzle.
+const PODE_COMMITAR = /(^|[\\/])packages[\\/]db[\\/]drizzle[\\/][^\\/]+\.sql$|(^|[\\/])\.env\.example$/i
+
 const relatorio = {
   iniciadoEm: new Date().toISOString(),
   concluidoEm: null,
@@ -53,13 +68,16 @@ const relatorio = {
   fase: null,
   motivo: null,
   aprovacao: null,
+  // Só existe quando o deploy não aconteceu por falta de aprovação: descreve o
+  // que ficou parado e carrega o link de aceite pelo WhatsApp.
+  pendencia: null,
   codigo: { commitsAFrente: 0, commits: [] },
   // `verificado` separa "conferi e não achei nada" de "nem cheguei a conferir".
   // Sem essa distinção, um abort no preflight produzia um relatório dizendo
   // "n8n em sincronia" e "nenhuma migration pendente" — duas afirmações que
   // ninguém tinha checado.
   n8n: { verificado: false, divergentes: [], erros: [] },
-  migrations: { verificado: false, pendentes: [], aplicadas: false, bloqueadas: false },
+  migrations: { verificado: false, pendentes: [], aplicadas: false, bloqueadas: false, contagemAntes: null },
   deploy: { imagensBackup: [], dump: null, downtimeSegundos: null },
   smoke: [],
   disco: { livreGbAntes: null, livreGbDepois: null },
@@ -116,6 +134,18 @@ async function preflight() {
   const marcador = lerMarcador()
   if (!marcador) {
     log('  nenhuma aprovação pendente')
+    // Antes de desistir, levanta o que ficou para trás. É isso que transforma o
+    // "💤 nada aprovado" numa mensagem acionável: a lista do que está parado e o
+    // link para aprovar do celular. Falha aqui não pode derrubar o relatório —
+    // o desfecho continua sendo `nada-a-fazer`.
+    try {
+      const pendencia = await resumoPendencia()
+      if (pendencia.temMudanca) {
+        relatorio.pendencia = { ...pendencia, ...montarLinkAprovacao(pendencia, URL_APROVAR) }
+      }
+    } catch (e) {
+      relatorio.erros.push(`não consegui montar o convite de aprovação: ${e.message}`)
+    }
     relatorio.concluidoEm = new Date().toISOString()
     encerrar('nada-a-fazer', 'nenhum sandbox aprovado desde o último deploy')
   }
@@ -230,6 +260,7 @@ async function conferirMigrations() {
     abortar('migrations', `o journal tem ${esperadas} migrations até o marco mas o banco registra ${contagem} — alguma foi pulada, confira à mão`)
   }
 
+  relatorio.migrations.contagemAntes = Number(contagem)
   relatorio.migrations.pendentes = pendentes.map((e) => e.tag)
   relatorio.migrations.verificado = true
   if (!pendentes.length) {
@@ -295,9 +326,28 @@ async function implantar() {
     // Do host o `pnpm db:migrate` não funciona: o .env aponta @postgres:5432,
     // que não resolve no Windows. Dentro do container o hostname resolve e o
     // dotenv vira no-op (o .env não é COPYado na imagem).
-    const m = await docker([...COMPOSE, 'exec', '-T', 'web', 'pnpm', '--filter', 'db', 'migrate'],
+    //
+    // `run --rm`, não `exec`: o `exec` roda no container que AINDA está no ar,
+    // cuja imagem é a antiga e não tem os .sql novos. Em 27/08/2026 o migrator
+    // leu o journal velho, não viu nada pendente, saiu com código 0, e o deploy
+    // subiu código novo contra schema velho — todo upload passou a morrer em
+    // `column "sha256" does not exist`. `run` usa a imagem recém-buildada.
+    // `--no-deps` pelo mesmo motivo do `up` abaixo, e `run` não publica portas,
+    // então não briga com o container de produção na 3000.
+    const m = await docker([...COMPOSE, 'run', '--rm', '--no-deps', 'web', 'pnpm', '--filter', 'db', 'migrate'],
       { timeoutMs: 10 * 60 * 1000 })
     if (!m.ok) abortar('deploy', `migrations falharam: ${m.erro || m.saida}`)
+
+    // Código 0 não prova que aplicou — foi exatamente assim que a falha de
+    // 27/08 passou batido. Confere no ledger que ele cresceu o tanto esperado.
+    // Aqui produção ainda está na imagem antiga: abortar deixa o site intacto,
+    // e `aplicadas` continua false, então o rollback segue permitido.
+    const depois = await consultarBanco('select count(*) from drizzle.__drizzle_migrations')
+    const alvo = relatorio.migrations.contagemAntes + relatorio.migrations.pendentes.length
+    if (Number(depois) !== alvo) {
+      abortar('deploy', `migrations não aplicaram: o ledger registra ${depois}, esperava ${alvo} `
+        + `(${relatorio.migrations.pendentes.join(', ')}) — produção intacta na imagem anterior`)
+    }
     relatorio.migrations.aplicadas = true
     log(`  migrations aplicadas: ${relatorio.migrations.pendentes.join(', ')}`)
   }
@@ -411,7 +461,8 @@ async function publicarNoGithub() {
     // o CÓDIGO. O que não pode passar de jeito nenhum é o dump do banco ou uma
     // chave — daí a segunda peneira.
     const staged = await git(['diff', '--cached', '--name-only'])
-    const proibidos = staged.saida.split(/\r?\n/).filter((f) => f && NUNCA_COMMITAR.test(f))
+    const proibidos = staged.saida.split(/\r?\n/)
+      .filter((f) => f && NUNCA_COMMITAR.test(f) && !PODE_COMMITAR.test(f))
     if (proibidos.length) {
       await git(['reset'])
       abortar('github', `arquivos que nunca podem ser commitados entraram no stage: ${proibidos.join(', ')}`)

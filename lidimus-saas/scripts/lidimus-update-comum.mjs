@@ -5,11 +5,12 @@
 // código: se o hash da árvore fosse calculado de dois jeitos diferentes, o gate
 // passaria a reprovar deploys legítimos (ou, pior, a aprovar árvores alteradas).
 
-import { createHash } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PORTA_WEB } from './sandbox-env.mjs'
 
 export const raizSaas = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const raizRepo = resolve(raizSaas, '..')
@@ -137,6 +138,174 @@ export function lerMarcador() {
     return JSON.parse(readFileSync(CAMINHO_MARCADOR, 'utf8'))
   } catch (e) {
     throw new Error(`.lidimus/sandbox-aprovado.json ilegível: ${e.message}`)
+  }
+}
+
+// Grava o marcador de aprovação. Mora aqui, e não no sandbox-ok.mjs, porque
+// existem dois caminhos até ele — o `pnpm sandbox:ok` do teclado e o aceite pelo
+// WhatsApp (update-agent.mjs) — e os dois precisam impor exatamente as mesmas
+// condições. Duplicar isso seria criar uma porta dos fundos sem a checagem de
+// saúde do sandbox.
+//
+// Lança Error com texto de mensagem pronta: o chamador HTTP devolve esse texto
+// direto para a tela do celular, e o CLI imprime no terminal.
+export async function aprovarSandbox(descricao, { aprovadoPor } = {}) {
+  const texto = String(descricao || '').trim()
+  if (!texto) throw new Error('falta a descrição do que foi validado')
+
+  // Aprovar um sandbox que não está de pé é quase sempre engano: ou o container
+  // caiu, ou o que foi testado foi o `nuxt dev` no host, que não passa pelo
+  // build do container — justamente onde os erros de build aparecem.
+  const url = `http://127.0.0.1:${PORTA_WEB}/api/health`
+  let saude
+  try {
+    const resposta = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    saude = await resposta.json()
+  } catch (e) {
+    throw new Error(`o sandbox não respondeu em ${url} (${e.message}) — suba com \`pnpm sandbox:up\` e valide lá antes de aprovar`)
+  }
+  if (saude?.status !== 'ok') {
+    throw new Error(`o sandbox respondeu, mas não está saudável: ${JSON.stringify(saude)}`)
+  }
+
+  const { commit, hash, arquivos } = await hashArvore()
+
+  const marcador = {
+    descricao: texto,
+    commit,
+    hashArvore: hash,
+    arquivos,
+    aprovadoEm: new Date().toISOString(),
+    aprovadoPor: aprovadoPor || process.env.USERNAME || process.env.USER || 'desconhecido',
+  }
+
+  mkdirSync(dirname(CAMINHO_MARCADOR), { recursive: true })
+  writeFileSync(CAMINHO_MARCADOR, JSON.stringify(marcador, null, 2) + '\n', 'utf8')
+  return marcador
+}
+
+// O que está esperando aprovação, na forma que o WhatsApp precisa mostrar.
+//
+// Usado pelo lembrete das 22h e pelo próprio relatório das 5h quando ele termina
+// em `nada-a-fazer` — é o que transforma um "💤 nada aprovado" mudo na lista do
+// que ficou para trás.
+export async function resumoPendencia() {
+  const { commit, hash, arquivos } = await hashArvore()
+
+  // Sem fetch a contagem mente depois de um push feito de outra máquina. Falha
+  // de rede aqui não é motivo para não mandar o lembrete: segue com o que tem.
+  await git(['fetch', 'origin', 'main'], { timeoutMs: 30000 })
+  const log = await git(['log', '--oneline', 'origin/main..HEAD'])
+  const commits = log.ok ? log.saida.split(/\r?\n/).filter(Boolean) : []
+
+  const assunto = await git(['log', '-1', '--format=%s'])
+
+  const marcador = lerMarcador()
+  const nomes = Object.keys(arquivos)
+
+  return {
+    commit,
+    hash,
+    arquivos: nomes,
+    commits,
+    commitsAFrente: commits.length,
+    jaAprovado: Boolean(marcador),
+    // Sem árvore suja e sem commit à frente não há o que promover — é o dia em
+    // que ninguém mexeu em nada, e o lembrete deve ficar calado.
+    temMudanca: nomes.length > 0 || commits.length > 0,
+    descricaoSugerida: assunto.ok ? assunto.saida.slice(0, 80) : '',
+  }
+}
+
+// ------------------------------------------------------------------ tickets
+//
+// O link de aprovação que vai no WhatsApp precisa provar duas coisas quando
+// voltar: que saiu daqui, e que se refere à árvore que a mensagem descreveu.
+// Um ticket assinado resolve as duas sem guardar estado nenhum — e sem segredo
+// novo, porque a chave é derivada do LIDIMUS_UPDATE_TOKEN que o agente já usa.
+
+const VALIDADE_HORAS = Number(process.env.LIDIMUS_TICKET_HORAS || 18)
+
+function chaveDeTicket() {
+  const token = valorDoEnv(lerEnvProducaoBruto(), 'LIDIMUS_UPDATE_TOKEN')
+  if (!token || token.length < 32) {
+    throw new Error('LIDIMUS_UPDATE_TOKEN ausente ou curto demais no lidimus-saas/.env')
+  }
+  // Derivar em vez de usar o token cru: quem capturar um ticket não fica com a
+  // credencial que dispara deploy no agente.
+  return createHash('sha256').update(token + ':aprovacao').digest()
+}
+
+const paraBase64Url = (buf) => Buffer.from(buf).toString('base64url')
+const assinar = (corpo) => createHmac('sha256', chaveDeTicket()).update(corpo).digest()
+
+// O hash da árvore entra truncado em 128 bits: é o que decide o tamanho do link
+// no WhatsApp, e forjar não é o risco (a assinatura cobre isso) — colisão
+// acidental em 128 bits, muito menos.
+export function criarTicket(pendencia) {
+  const payload = {
+    h: pendencia.hash.slice(0, 32),
+    c: pendencia.commit.slice(0, 7),
+    n: pendencia.arquivos.length,
+    a: pendencia.arquivos.slice(0, 3).map((p) => p.split(/[\\/]/).pop()),
+    f: pendencia.commitsAFrente,
+    d: (pendencia.descricaoSugerida || '').slice(0, 80),
+    exp: Math.floor(Date.now() / 1000) + VALIDADE_HORAS * 3600,
+  }
+  const corpo = paraBase64Url(JSON.stringify(payload))
+  return `${corpo}.${paraBase64Url(assinar(corpo))}`
+}
+
+// Devolve { ok, payload } ou { ok: false, motivo }. Nunca lança: o chamador é um
+// endpoint HTTP recebendo texto de fora.
+export function conferirTicket(ticket) {
+  const partes = String(ticket || '').split('.')
+  if (partes.length !== 2) return { ok: false, motivo: 'link inválido' }
+
+  const [corpo, assinatura] = partes
+  let recebida
+  try { recebida = Buffer.from(assinatura, 'base64url') } catch { return { ok: false, motivo: 'link inválido' } }
+
+  const esperada = assinar(corpo)
+  if (recebida.length !== esperada.length || !timingSafeEqual(recebida, esperada)) {
+    return { ok: false, motivo: 'link inválido — a assinatura não confere' }
+  }
+
+  let payload
+  try { payload = JSON.parse(Buffer.from(corpo, 'base64url').toString('utf8')) } catch {
+    return { ok: false, motivo: 'link inválido' }
+  }
+
+  if (!payload?.exp || payload.exp * 1000 < Date.now()) {
+    return { ok: false, motivo: `link vencido (valia ${VALIDADE_HORAS}h) — o próximo relatório traz um novo` }
+  }
+
+  return { ok: true, payload }
+}
+
+// O link pronto para colar no WhatsApp, com a validade já em texto — quem lê a
+// mensagem precisa saber se ainda dá tempo sem ter que decodificar nada.
+export function montarLinkAprovacao(pendencia, urlBase) {
+  const ticket = criarTicket(pendencia)
+  const exp = new Date((espiarTicket(ticket).exp) * 1000)
+  return {
+    ticket,
+    url: `${urlBase}?t=${ticket}`,
+    validoAte: exp.toISOString(),
+    validoAteTexto: exp.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    }),
+  }
+}
+
+// Lê o payload sem conferir assinatura. Só para a PÁGINA montar o resumo do que
+// está sendo aprovado: quem valida de verdade é o agente, no POST.
+export function espiarTicket(ticket) {
+  try {
+    return JSON.parse(Buffer.from(String(ticket).split('.')[0], 'base64url').toString('utf8'))
+  } catch {
+    return null
   }
 }
 

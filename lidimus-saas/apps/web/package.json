@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",
+    "@lidimus/autenticidade": "workspace:*",
     "@lidimus/croqui": "workspace:*",
     "@lidimus/db": "workspace:*",
     "@lidimus/docx": "workspace:*",

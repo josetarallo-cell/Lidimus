@@ -19,6 +19,7 @@ export async function getJobsDoLote(db: Db, loteId: string, userId: string) {
       status: jobs.status,
       inputMeta: jobs.inputMeta,
       result: jobs.result,
+      stageData: jobs.stageData,
       createdAt: jobs.createdAt,
       completedAt: jobs.completedAt,
     })

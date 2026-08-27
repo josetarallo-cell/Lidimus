@@ -141,6 +141,18 @@ const SECOES = [
               Metadados de imagens embutidas e análise de fontes, quando o documento os expõe.
             </td>
           </tr>
+          <tr>
+            <td><strong>Tags Unicode invisíveis</strong></td>
+            <td>
+              É a técnica usada em ataques reais de prompt injection contra LLMs — cada caractere
+              ASCII do payload é deslocado para o bloco de "tag characters" (código-alvo = 0xE0000 +
+              código ASCII). Praticamente nenhuma fonte tem glifo desenhado nesse bloco, então o texto
+              não aparece na tela nem na impressão — mas continua presente, caractere por caractere,
+              em qualquer extração de texto Unicode-aware (exatamente o que os pipelines de IA
+              consomem). É invisibilidade "de fábrica": não depende de cor, tamanho ou modo de
+              renderização.
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -271,6 +283,13 @@ const SECOES = [
           <tr>
             <td><code>offPageAnalysis</code></td>
             <td>Texto posicionado fora da área visível da página.</td>
+          </tr>
+          <tr>
+            <td><code>unicodeTagAnalysis</code></td>
+            <td>
+              Trechos decodificados da faixa de Unicode Tags (U+E0000–U+E007F) já convertidos de
+              volta para o texto ASCII original.
+            </td>
           </tr>
           <tr>
             <td><code>textType</code> / <code>isDigital</code></td>

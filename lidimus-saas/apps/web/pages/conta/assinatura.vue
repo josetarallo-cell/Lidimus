@@ -226,10 +226,12 @@ async function mudarPlano(plano: { id: string; name: string; monthlyPriceCents: 
               type="button"
               class="ld-btn ld-btn--sm"
               :class="ehUpgrade(plano) ? 'ld-btn--primary' : 'ld-btn--secondary'"
-              :disabled="carregando === plano.id"
+              disabled
+              aria-disabled="true"
+              title="Mudança de plano em breve"
               @click="mudarPlano(plano)"
             >
-              {{ carregando === plano.id ? 'Alterando…' : `Mudar para ${plano.name}` }}
+              Mudar para {{ plano.name }}
             </button>
           </article>
         </div>

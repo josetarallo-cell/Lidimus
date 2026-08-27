@@ -6,7 +6,8 @@
 // documento mais confiante que a análise que o gerou. Cada uma delas está
 // marcada abaixo com o comentário da regra.
 
-import { AlignmentType, BorderStyle, HeadingLevel, ImageRun, Paragraph, Table, TextRun } from 'docx'
+import { AlignmentType, BorderStyle, ExternalHyperlink, HeadingLevel, ImageRun, Paragraph, Table, TextRun } from 'docx'
+import type { Autenticidade, Classificacao } from '@lidimus/autenticidade'
 import { E, FILETE, TINTA_SUAVE, espaco } from './estilos.ts'
 import { htmlParaParagrafos } from './html.ts'
 import { riscoLabel } from './risco.ts'
@@ -19,6 +20,13 @@ export type MetaParecer = {
   emitidoEm?: string | null
   /** Nome do arquivo enviado — o parecer de lote precisa dele para se localizar */
   arquivoOriginal?: string | null
+  /**
+   * Resultado do verificador de autenticidade de documento
+   * (@lidimus/autenticidade), quando o job o calculou. Vem em `meta`, não em
+   * `doc`, porque mora em `jobs.stage_data.autenticidade`, fora do
+   * `documento` que o jurídico monta.
+   */
+  autenticidade?: Autenticidade | null
 }
 
 const NADA = '—'
@@ -162,6 +170,66 @@ function secaoIncompleta(doc: Documento): (Paragraph | Table)[] {
       E.alerta,
     ),
   )
+  return saida
+}
+
+// ── Verificador de autenticidade de documento ───────────────────────────────
+// Mesmo lugar da tela (BlocoAutenticidade.vue): depois da ressalva de matrícula
+// incompleta, antes do dado do imóvel — aviso antes do dado. Não bloqueia nada;
+// simplesmente não aparece quando o job não tem o resultado calculado.
+const TITULO_CLASSIFICACAO: Record<Classificacao, string> = {
+  original_assinado: 'Assinatura digital íntegra',
+  copia_verificavel: 'Cópia verificável',
+  reimpresso: 'Reimpressão sem indício de alteração',
+  copia_sem_ancora: 'Sem código de verificação',
+  editado: 'Indício de edição',
+  indicios_de_adulteracao: 'Indícios de adulteração',
+  arquivo_danificado: 'Arquivo corrompido',
+}
+
+const PESO_ROTULO: Record<Autenticidade['indicios'][number]['peso'], string> = {
+  alto: 'Relevante',
+  medio: 'Atenção',
+  informativo: 'Informativo',
+}
+
+function secaoAutenticidade(meta: MetaParecer): (Paragraph | Table)[] {
+  const autenticidade = meta.autenticidade
+  if (!autenticidade) return []
+
+  const saida: (Paragraph | Table)[] = [
+    h1(`Autenticidade do documento — ${TITULO_CLASSIFICACAO[autenticidade.classificacao]}`),
+  ]
+
+  for (const indicio of autenticidade.indicios) {
+    saida.push(p(`${PESO_ROTULO[indicio.peso]} — ${indicio.evidencia}`, E.nota))
+  }
+
+  if (autenticidade.linksDeConferencia.length) {
+    saida.push(
+      new Paragraph({
+        style: E.nota,
+        children: autenticidade.linksDeConferencia.flatMap((link, i) => [
+          ...(i > 0 ? [new TextRun('   ·   ')] : []),
+          new ExternalHyperlink({
+            link: link.url,
+            children: [new TextRun({ text: link.rotulo, style: 'Hyperlink' })],
+          }),
+        ]),
+      }),
+    )
+  }
+
+  saida.push(
+    p(
+      'A ausência de indícios não é garantia de que o documento é autêntico — é a ausência dos ' +
+        'sinais que o Lidimus sabe procurar. Esta verificação é um apoio à análise, não um ' +
+        'substituto da conferência do documento original com o cartório.',
+      E.nota,
+    ),
+  )
+
+  saida.push(p(''))
   return saida
 }
 
@@ -500,6 +568,7 @@ export function corpoDoParecer(doc: Documento, meta: MetaParecer = {}): (Paragra
   return [
     ...secaoTitulo(doc, meta),
     ...secaoIncompleta(doc),
+    ...secaoAutenticidade(meta),
     ...secaoImovel(doc),
     ...secaoCroqui(doc),
     ...secaoProprietarios(doc),

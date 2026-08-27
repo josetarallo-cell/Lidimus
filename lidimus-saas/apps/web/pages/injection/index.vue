@@ -22,6 +22,11 @@ const amostras = [
     desc: 'Instrução para IA escondida em campos de metadados do arquivo.',
     href: '/amostras/documento-metadados-ocultos.pdf',
   },
+  {
+    nome: 'Tags Unicode',
+    desc: 'Instrução para IA escondida em caracteres Unicode invisíveis (U+E0000–U+E007F).',
+    href: '/amostras/documento-tags-unicode.pdf',
+  },
 ]
 
 async function onSubmit(file: File) {
@@ -72,7 +77,7 @@ async function onSubmit(file: File) {
       <header class="amostras-cabecalho">
         <h2>Documentos de exemplo</h2>
         <p>
-          Três PDFs de teste que usamos aqui internamente — cada um esconde uma fraude diferente.
+          PDFs de teste que usamos aqui internamente — cada um esconde uma fraude diferente.
           Abra e veja que a olho nu não dá pra perceber nada; depois envie o mesmo arquivo acima e
           veja o Lidimus apontar o conteúdo oculto.
         </p>

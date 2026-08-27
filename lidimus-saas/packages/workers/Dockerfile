@@ -10,6 +10,7 @@ RUN apk add --no-cache poppler-utils
 WORKDIR /app
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/autenticidade/package.json ./packages/autenticidade/
 COPY packages/db/package.json ./packages/db/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/revisao/package.json ./packages/revisao/
@@ -17,6 +18,7 @@ COPY packages/workers/package.json ./packages/workers/
 
 RUN pnpm install --frozen-lockfile
 
+COPY packages/autenticidade ./packages/autenticidade
 COPY packages/db ./packages/db
 COPY packages/queue ./packages/queue
 COPY packages/revisao ./packages/revisao

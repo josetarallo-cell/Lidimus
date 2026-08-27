@@ -43,15 +43,21 @@ async function salvarNome() {
 }
 
 // ── Senha ──────────────────────────────────────────────────
+const editandoSenha = ref(false)
 const senhaAtual = ref('')
 const senhaNova = ref('')
 const trocando = ref(false)
 const trocaErro = ref('')
-const trocaOk = ref(false)
+
+function abrirEdicaoSenha() {
+  senhaAtual.value = ''
+  senhaNova.value = ''
+  trocaErro.value = ''
+  editandoSenha.value = true
+}
 
 async function trocarSenha() {
   trocaErro.value = ''
-  trocaOk.value = false
   if (senhaNova.value.length < 8) {
     trocaErro.value = 'A nova senha precisa de pelo menos 8 caracteres.'
     return
@@ -66,9 +72,9 @@ async function trocarSenha() {
         revokeOtherSessions: true,
       },
     })
-    trocaOk.value = true
     senhaAtual.value = ''
     senhaNova.value = ''
+    editandoSenha.value = false
   } catch {
     trocaErro.value = 'Não foi possível trocar a senha. Confira a senha atual.'
   } finally {
@@ -89,14 +95,14 @@ async function trocarSenha() {
       <section class="ld-painel bloco">
         <div class="perfil-topo">
           <h2 class="bloco-titulo">Perfil</h2>
-          <button
-            v-if="!editandoNome"
-            type="button"
-            class="ld-btn ld-btn--secondary btn-linha"
-            @click="abrirEdicaoNome"
-          >
-            Editar nome
-          </button>
+          <div v-if="!editandoNome && !editandoSenha" class="perfil-acoes">
+            <button type="button" class="ld-btn ld-btn--secondary btn-linha" @click="abrirEdicaoNome">
+              Editar nome
+            </button>
+            <button type="button" class="ld-btn ld-btn--secondary btn-linha" @click="abrirEdicaoSenha">
+              Trocar senha
+            </button>
+          </div>
         </div>
 
         <form v-if="editandoNome" class="nome-form" @submit.prevent="salvarNome">
@@ -110,6 +116,26 @@ async function trocarSenha() {
               {{ salvandoNome ? 'Salvando…' : 'Salvar' }}
             </button>
             <button type="button" class="ld-btn ld-btn--secondary" @click="editandoNome = false">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
+        <form v-else-if="editandoSenha" class="senha-form" @submit.prevent="trocarSenha">
+          <label class="ld-campo campo">
+            <span class="ld-label">Senha atual</span>
+            <input v-model="senhaAtual" type="password" autocomplete="current-password" required class="ld-input" />
+          </label>
+          <label class="ld-campo campo">
+            <span class="ld-label">Nova senha</span>
+            <input v-model="senhaNova" type="password" autocomplete="new-password" required class="ld-input" />
+          </label>
+          <p v-if="trocaErro" class="senha-erro" role="alert">{{ trocaErro }}</p>
+          <div class="nome-acoes">
+            <button type="submit" class="ld-btn ld-btn--primary" :disabled="trocando">
+              {{ trocando ? 'Alterando…' : 'Alterar senha' }}
+            </button>
+            <button type="button" class="ld-btn ld-btn--secondary" @click="editandoSenha = false">
               Cancelar
             </button>
           </div>
@@ -141,25 +167,6 @@ async function trocarSenha() {
           </div>
         </dl>
       </section>
-
-      <section class="ld-painel bloco">
-        <h2 class="bloco-titulo">Trocar senha</h2>
-        <form class="senha-form" @submit.prevent="trocarSenha">
-          <label class="ld-campo campo">
-            <span class="ld-label">Senha atual</span>
-            <input v-model="senhaAtual" type="password" autocomplete="current-password" required class="ld-input" />
-          </label>
-          <label class="ld-campo campo">
-            <span class="ld-label">Nova senha</span>
-            <input v-model="senhaNova" type="password" autocomplete="new-password" required class="ld-input" />
-          </label>
-          <p v-if="trocaErro" class="senha-erro" role="alert">{{ trocaErro }}</p>
-          <p v-if="trocaOk" class="senha-ok" role="status">Senha alterada. As outras sessões foram encerradas.</p>
-          <button type="submit" class="ld-btn ld-btn--secondary" :disabled="trocando">
-            {{ trocando ? 'Alterando…' : 'Alterar senha' }}
-          </button>
-        </form>
-      </section>
     </div>
   </div>
 </template>
@@ -178,14 +185,10 @@ async function trocarSenha() {
 
 .conta-grade {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
+  max-width: 40rem;
   gap: var(--ld-space-lg);
   align-items: start;
-}
-@media (max-width: 720px) {
-  .conta-grade {
-    grid-template-columns: 1fr;
-  }
 }
 
 .bloco {
@@ -203,6 +206,11 @@ async function trocarSenha() {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--ld-space-md);
+}
+.perfil-acoes {
+  display: flex;
+  gap: var(--ld-space-sm);
+  flex-shrink: 0;
 }
 .btn-linha {
   padding: 5px 12px;
@@ -246,10 +254,5 @@ async function trocarSenha() {
   margin: 0;
   font-size: 0.875rem;
   color: var(--ld-carimbo-tinta);
-}
-.senha-ok {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--ld-verde-profundo);
 }
 </style>

@@ -176,6 +176,13 @@
       "when": 1786979684467,
       "tag": "0024_corretor_leitura",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787600364025,
+      "tag": "0025_autenticidade",
+      "breakpoints": true
     }
   ]
 }

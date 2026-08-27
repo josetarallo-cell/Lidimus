@@ -88,6 +88,11 @@ export default defineNuxtConfig({
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     // Câmbio US$→R$ para o painel de custos (custo de modelos é cobrado em USD)
     usdBrlRate: Number(process.env.USD_BRL_RATE || 5.45),
+    // Verificador de autenticidade (@lidimus/autenticidade): a consulta à ONR é
+    // a única parte que depende de rede externa a um serviço não documentado —
+    // desligada por padrão até confirmarmos estabilidade em produção. Todo o
+    // resto do verificador (perícia do arquivo, selo, CNM) roda sempre.
+    autenticidadeOnrEnabled: process.env.AUTENTICIDADE_ONR_ENABLED === 'true',
 
     // Variáveis disponíveis no cliente via useRuntimeConfig().public
     public: {
