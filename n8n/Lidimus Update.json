@@ -7,8 +7,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -620,
-        0
+        -720,
+        100
       ],
       "parameters": {
         "rule": {
@@ -22,24 +22,85 @@
       }
     },
     {
+      "id": "lu-0007-trigger-ensaio",
+      "name": "Ensaio 3h30 SP",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -720,
+        380
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 3 * * *"
+            }
+          ]
+        }
+      },
+      "notes": "Ensaia o deploy 90 min antes do run real, numa stack descartavel com clone do banco. Reprovando, o preflight das 5h aborta e a producao nao e tocada. Passando, so grava o selo — nao manda WhatsApp."
+    },
+    {
       "id": "lu-0002-trigger-manual",
       "name": "Rodar agora",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -620,
-        220
+        -720,
+        -60
       ],
       "parameters": {}
     },
     {
+      "id": "lu-0006-trigger-aprovacao",
+      "name": "Aprovado pelo WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        240
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "notes": "Chamado pelo workflow \"Lidimus Aprovar\" quando o aceite chega do celular. O marcador ja foi gravado pelo agente; daqui para baixo o caminho e identico ao das 5h — mesmos gates, mesmo relatorio."
+    },
+    {
+      "id": "lu-0008-modo-deploy",
+      "name": "Modo deploy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// dryRun vem do aceite pelo WhatsApp com &ensaio=1. Nos demais gatilhos\n// (5h e manual) nao existe e o valor cai para false.\nconst entrada = $input.first()?.json || {}\nreturn [{ json: { alvo: 'producao', dryRun: entrada.dryRun === true } }]"
+      }
+    },
+    {
+      "id": "lu-0009-modo-ensaio",
+      "name": "Modo ensaio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        380
+      ],
+      "parameters": {
+        "jsCode": "// O ensaio das 3h30 nao toca em producao: builda a arvore aprovada numa\n// stack descartavel, com um clone do banco, e grava o selo que o run das\n// 5h consome. Se ele reprovar, o deploy nem comeca.\nreturn [{ json: { alvo: 'ensaio', dryRun: false } }]"
+      }
+    },
+    {
       "id": "lu-0003-executar",
-      "name": "Executar deploy no host",
+      "name": "Disparar no host",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -260,
-        100
+        -280,
+        200
       ],
       "parameters": {
         "method": "POST",
@@ -48,9 +109,9 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"dryRun\": $json.dryRun === true } }}",
+        "jsonBody": "={{ { \"alvo\": $json.alvo, \"dryRun\": $json.dryRun === true } }}",
         "options": {
-          "timeout": 900000,
+          "timeout": 60000,
           "response": {
             "response": {
               "neverError": true
@@ -65,7 +126,123 @@
         }
       },
       "onError": "continueRegularOutput",
-      "notes": "O container do n8n nao tem docker nem o codigo-fonte. Quem executa e o agente no host (scripts/update-agent.mjs), alcancado por host.docker.internal. Timeout de 15 min porque o build do Nuxt demora."
+      "notes": "O agente responde 202 na hora com um execucaoId; quem acompanha e o laco abaixo. Era sincrono com timeout de 15 min, e um build mais longo fazia o n8n reportar \"o agente nao respondeu\" ENQUANTO o deploy seguia rodando no host."
+    },
+    {
+      "id": "lu-0010-aceitou",
+      "name": "Aceitou?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "tem-execucao",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.execucaoId }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Sem execucaoId o agente nao aceitou (fora do ar, porta ocupada, deploy ja rodando). Vai direto ao relatorio, que sabe dizer isso."
+    },
+    {
+      "id": "lu-0011-esperar",
+      "name": "Esperar",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        100
+      ],
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "webhookId": "lu-espera-lidimus-update"
+    },
+    {
+      "id": "lu-0012-consultar",
+      "name": "Consultar execucao",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        380,
+        100
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:8099/execucao/{{ $('Disparar no host').first().json.execucaoId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cJS5hRrVIxgLB7Fd",
+          "name": "Lidimus Update - agente do host"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "lu-0013-terminou",
+      "name": "Terminou?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        600,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "pronto-ou-demais",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.pronto === true || !$json.iniciadoEm || (Date.now() - new Date($json.iniciadoEm).getTime()) > 2700000 }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Sai do laco quando a execucao termina, quando passa de 45 min, ou quando o agente para de responder. Sem esse teto o laco giraria para sempre."
     },
     {
       "id": "lu-0004-formatar",
@@ -73,11 +250,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        100,
-        100
+        840,
+        200
       ],
       "parameters": {
-        "jsCode": "// Transforma o relatorio JSON do agente numa mensagem de WhatsApp.\n//\n// Quem le isto as 8h da manha precisa decidir em 5 segundos se precisa agir.\n// Por isso a primeira linha ja diz o desfecho, e o resto e detalhe.\n\nconst DESTINO = '5511947250110'\n// $input.first(), nao $json: no modo padrao do no Code (uma vez para todos os\n// itens) o $json nao existe. Mesmo padrao do DailyTasks.\nconst r = $input.first()?.json || {}\n\nconst agora = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit',\n})\n\nconst linhas = ['*Lidimus Update - ' + agora + '*']\n\n// Sem campo `resultado` o agente nao respondeu: maquina desligada, agente fora\n// do ar, ou o wget morreu no meio. A producao nao foi tocada.\nif (!r.resultado) {\n  linhas.push('', '🚨 O agente do host nao respondeu.', '')\n  linhas.push('A producao NAO foi tocada.')\n  linhas.push('Confira se o `pnpm update:agente` esta rodando na maquina.')\n  const detalhe = r.error?.message || r.message || r.motivo\n  if (detalhe) linhas.push('', '_' + String(detalhe).slice(0, 300) + '_')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\nconst cabecalhos = {\n  'sucesso': '✅ Deploy concluido',\n  'nada-a-fazer': '💤 Nada aprovado para subir',\n  'abortado': '⛔ Deploy nao aconteceu (producao intacta)',\n  'rollback': '↩️ Deploy revertido para a versao anterior',\n  'intervencao-manual': '🚨 PRECISA DE INTERVENCAO MANUAL',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\nlinhas.push('', cabecalhos[r.resultado] || ('❓ ' + r.resultado))\n\nif (r.motivo) linhas.push('', r.motivo)\n\nif (r.aprovacao?.descricao) {\n  // De onde veio o aceite deixa o historico auditavel: aprovar pelo celular e\n  // aprovar no teclado tem o mesmo peso, mas nao a mesma trilha.\n  const via = r.aprovacao.aprovadoPor === 'whatsapp' ? ' (pelo WhatsApp)' : ''\n  linhas.push('', '📋 Aprovado' + via + ': _' + r.aprovacao.descricao + '_')\n}\n\n// Nada aprovado quase nunca e decisao — e esquecimento. Listar o que ficou\n// parado e oferecer o link de aceite e o que torna este aviso acionavel sem\n// precisar chegar na maquina. So aparece quando ha mesmo algo esperando.\nif (r.pendencia) {\n  const p = r.pendencia\n  linhas.push('', '📝 Esperando aprovacao (' + String(p.commit || '').slice(0, 7) + '):')\n  if (p.arquivos?.length) {\n    linhas.push('   ' + p.arquivos.length + ' arquivo(s) alterado(s)')\n    for (const a of p.arquivos.slice(0, 3)) linhas.push('   • ' + a)\n    if (p.arquivos.length > 3) linhas.push('   • ...e mais ' + (p.arquivos.length - 3))\n  }\n  if (p.commitsAFrente) linhas.push('   ' + p.commitsAFrente + ' commit(s) ainda nao publicado(s)')\n  if (p.url) {\n    linhas.push('', '👉 Aprovar e subir agora:', p.url)\n    linhas.push('_o link vale ate ' + p.validoAteTexto + '_')\n  }\n}\n\nif (r.codigo?.commits?.length) {\n  linhas.push('', '📦 Codigo: ' + r.codigo.commits.length + ' commit(s)')\n  for (const c of r.codigo.commits.slice(0, 5)) linhas.push('   • ' + c)\n  if (r.codigo.commits.length > 5) linhas.push('   • ...e mais ' + (r.codigo.commits.length - 5))\n}\n\n// So fala de migrations e n8n se a fase correspondente rodou de verdade.\n// Um abort no preflight nao autoriza dizer 'nenhuma pendente'.\nif (r.migrations?.verificado) {\n  const p = r.migrations.pendentes || []\n  if (!p.length) linhas.push('', '🗄️ Migrations: nenhuma pendente')\n  else if (r.migrations.aplicadas) linhas.push('', '🗄️ Migrations aplicadas: ' + p.join(', '))\n  else linhas.push('', '🗄️ Migrations pendentes NAO aplicadas: ' + p.join(', '))\n}\n\nif (r.n8n?.verificado) {\n  const d = r.n8n.divergentes || []\n  if (d.length) {\n    linhas.push('', '🔄 n8n: ' + d.length + ' workflow(s) divergente(s) - revisar')\n    for (const w of d.slice(0, 5)) {\n      const nos = [...(w.nos?.alterados || []), ...(w.nos?.acrescentados || [])].slice(0, 3)\n      linhas.push('   • ' + w.arquivo + (nos.length ? ' (' + nos.join(', ') + ')' : ''))\n    }\n  } else {\n    linhas.push('', '🔄 n8n: em sincronia com o repositorio')\n  }\n  for (const e of (r.n8n.erros || [])) linhas.push('   ! ' + e)\n}\n\nif (r.smoke?.length) {\n  const passaram = r.smoke.filter((t) => t.ok).length\n  linhas.push('', '🧪 Smoke: ' + passaram + '/' + r.smoke.length + ' passaram')\n  for (const t of r.smoke.filter((t) => !t.ok)) linhas.push('   ✗ ' + t.nome)\n}\n\nif (r.deploy?.downtimeSegundos != null) {\n  linhas.push('', '⏱️ Indisponibilidade: ' + r.deploy.downtimeSegundos + 's')\n}\n\nif (r.github?.empurrado) {\n  linhas.push('🐙 GitHub: ' + (r.github.commit || 'push') + ' publicado')\n}\n\nif (r.disco?.livreGbDepois != null) {\n  linhas.push('💾 Disco: ' + r.disco.livreGbDepois + ' GB livres')\n}\n\n// O caminho do dump so aparece quando ele importa: alguem vai precisar dele.\nif (r.resultado === 'intervencao-manual' && r.deploy?.dump) {\n  linhas.push('', '💾 Backup do banco: ' + r.deploy.dump)\n}\n\n// O ultimo erro costuma ser o proprio motivo, ja impresso la em cima.\nconst ultimo = r.erros?.length ? String(r.erros[r.erros.length - 1]) : null\nif (ultimo && ultimo !== r.motivo && r.resultado !== 'nada-a-fazer') {\n  linhas.push('', '⚠️ ' + ultimo.slice(0, 400))\n}\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]"
+        "jsCode": "// Transforma o relatorio JSON do agente numa mensagem de WhatsApp.\n//\n// Quem le isto as 8h da manha precisa decidir em 5 segundos se precisa agir.\n// Por isso a primeira linha ja diz o desfecho, e o resto e detalhe.\n\nconst DESTINO = '5511947250110'\n// $input.first(), nao $json: no modo padrao do no Code (uma vez para todos os\n// itens) o $json nao existe. Mesmo padrao do DailyTasks.\nconst bruto = $input.first()?.json || {}\n\n// A rota /execucao/<id> devolve um envelope { pronto, relatorio, ... }; um\n// agente que recusou o pedido devolve o corpo cru. Aceita os dois.\nconst r = bruto.relatorio || bruto\nconst ehEnsaio = (bruto.alvo || r.alvo) === 'ensaio'\n\nconst agora = new Date().toLocaleString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit',\n})\n\nconst linhas = ['*Lidimus ' + (ehEnsaio ? 'Ensaio' : 'Update') + ' - ' + agora + '*']\n\n// O laco de polling desistiu de esperar: passou de 45 min e a execucao\n// continua. Nao e falha - e aviso de que o desfecho vem depois.\nif (bruto.pronto === false) {\n  linhas.push('', '⏳ ' + (ehEnsaio ? 'Ensaio' : 'Deploy') + ' ainda rodando depois de 45 min.')\n  linhas.push('', 'Comecou as ' + new Date(bruto.iniciadoEm).toLocaleString('pt-BR', {\n    timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',\n  }) + '. O desfecho fica em .lidimus/historico/' + bruto.id + '.json')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\n// Sem campo `resultado` o agente nao respondeu: maquina desligada, agente fora\n// do ar, ou o wget morreu no meio. A producao nao foi tocada.\nif (!r.resultado) {\n  linhas.push('', '🚨 O agente do host nao respondeu.', '')\n  linhas.push('A producao NAO foi tocada.')\n  linhas.push('Confira se o `pnpm update:agente` esta rodando na maquina.')\n  const detalhe = r.error?.message || r.message || r.motivo\n  if (detalhe) linhas.push('', '_' + String(detalhe).slice(0, 300) + '_')\n  return [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]\n}\n\n// O ensaio que PASSA nao manda mensagem.\n//\n// Ele roda as 3h30; um WhatsApp as 4h da manha todo dia vira ruido que ninguem\n// le — mesmo principio do lembrete das 22h, que fica calado quando nao ha o que\n// aprovar. E o relatorio das 5h ja diz se a imagem veio do ensaio. Reprovacao,\n// essa sim, precisa aparecer: e ela que explica por que o deploy das 5h nao vai\n// acontecer.\nif (ehEnsaio && ['sucesso', 'sucesso-sem-push', 'nada-a-fazer'].includes(r.resultado)) {\n  return []\n}\n\nconst cabecalhos = {\n  'sucesso': '✅ Deploy concluido',\n  'sucesso-sem-push': '✅ Deploy no ar, mas NAO publicado no GitHub',\n  'nada-a-fazer': '💤 Nada aprovado para subir',\n  'abortado': '⛔ Deploy nao aconteceu (producao intacta)',\n  'rollback': '↩️ Deploy revertido para a versao anterior',\n  'intervencao-manual': '🚨 PRECISA DE INTERVENCAO MANUAL',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\n\n// O ensaio das 3h30 nao mexe em producao: os mesmos desfechos querem dizer\n// outra coisa. 'abortado' aqui e boa noticia - achou o problema antes.\nconst cabecalhosEnsaio = {\n  'sucesso': '🎬 Ensaio aprovado - o deploy das 5h esta liberado',\n  'sucesso-sem-push': '🎬 Ensaio aprovado',\n  'nada-a-fazer': '💤 Nada aprovado para ensaiar',\n  'abortado': '🎬 Ensaio REPROVOU - o deploy das 5h NAO vai acontecer',\n  'rollback': '🎬 Ensaio REPROVOU no smoke - o deploy das 5h NAO vai acontecer',\n  'intervencao-manual': '🎬 Ensaio travou - olhe a maquina antes das 5h',\n  'erro-do-agente': '🚨 Falha no proprio agente',\n}\nlinhas.push('', (ehEnsaio ? cabecalhosEnsaio : cabecalhos)[r.resultado] || ('❓ ' + r.resultado))\n\nif (r.motivo) linhas.push('', r.motivo)\n\nif (r.aprovacao?.descricao) {\n  // De onde veio o aceite deixa o historico auditavel: aprovar pelo celular e\n  // aprovar no teclado tem o mesmo peso, mas nao a mesma trilha.\n  const via = r.aprovacao.aprovadoPor === 'whatsapp' ? ' (pelo WhatsApp)' : ''\n  linhas.push('', '📋 Aprovado' + via + ': _' + r.aprovacao.descricao + '_')\n}\n\n// Nada aprovado quase nunca e decisao — e esquecimento. Listar o que ficou\n// parado e oferecer o link de aceite e o que torna este aviso acionavel sem\n// precisar chegar na maquina. So aparece quando ha mesmo algo esperando.\nif (r.pendencia) {\n  const p = r.pendencia\n  linhas.push('', '📝 Esperando aprovacao (' + String(p.commit || '').slice(0, 7) + '):')\n  if (p.arquivos?.length) {\n    linhas.push('   ' + p.arquivos.length + ' arquivo(s) alterado(s)')\n    for (const a of p.arquivos.slice(0, 3)) linhas.push('   • ' + a)\n    if (p.arquivos.length > 3) linhas.push('   • ...e mais ' + (p.arquivos.length - 3))\n  }\n  if (p.commitsAFrente) linhas.push('   ' + p.commitsAFrente + ' commit(s) ainda nao publicado(s)')\n  if (p.url) {\n    linhas.push('', '👉 Aprovar e subir agora:', p.url)\n    linhas.push('_o link vale ate ' + p.validoAteTexto + '_')\n  }\n}\n\nif (r.codigo?.commits?.length) {\n  linhas.push('', '📦 Codigo: ' + r.codigo.commits.length + ' commit(s)')\n  for (const c of r.codigo.commits.slice(0, 5)) linhas.push('   • ' + c)\n  if (r.codigo.commits.length > 5) linhas.push('   • ...e mais ' + (r.codigo.commits.length - 5))\n}\n\n// So fala de migrations e n8n se a fase correspondente rodou de verdade.\n// Um abort no preflight nao autoriza dizer 'nenhuma pendente'.\nif (r.migrations?.verificado) {\n  const p = r.migrations.pendentes || []\n  if (!p.length) linhas.push('', '🗄️ Migrations: nenhuma pendente')\n  else if (r.migrations.aplicadas) linhas.push('', '🗄️ Migrations aplicadas: ' + p.join(', '))\n  else linhas.push('', '🗄️ Migrations pendentes NAO aplicadas: ' + p.join(', '))\n}\n\nif (r.n8n?.verificado) {\n  const d = r.n8n.divergentes || []\n  if (d.length) {\n    linhas.push('', '🔄 n8n: ' + d.length + ' workflow(s) divergente(s) - revisar')\n    for (const w of d.slice(0, 5)) {\n      const nos = [...(w.nos?.alterados || []), ...(w.nos?.acrescentados || [])].slice(0, 3)\n      linhas.push('   • ' + w.arquivo + (nos.length ? ' (' + nos.join(', ') + ')' : ''))\n    }\n  } else {\n    linhas.push('', '🔄 n8n: em sincronia com o repositorio')\n  }\n  for (const e of (r.n8n.erros || [])) linhas.push('   ! ' + e)\n}\n\nif (r.smoke?.length) {\n  const passaram = r.smoke.filter((t) => t.ok).length\n  linhas.push('', '🧪 Smoke: ' + passaram + '/' + r.smoke.length + ' passaram')\n  for (const t of r.smoke.filter((t) => !t.ok)) linhas.push('   ✗ ' + t.nome)\n}\n\nif (r.deploy?.downtimeSegundos != null) {\n  linhas.push('', '⏱️ Indisponibilidade: ' + r.deploy.downtimeSegundos + 's')\n}\n\nif (r.github?.empurrado) {\n  linhas.push('🐙 GitHub: ' + (r.github.commit || 'push') + ' publicado')\n} else if (r.github?.pendencia) {\n  // O deploy subiu; o que ficou para tras foi a publicacao. Pendencia de\n  // push o run seguinte retenta sozinho; de commit (arquivo barrado pela\n  // peneira) precisa de gente.\n  linhas.push('', '🐙 GitHub: NAO publicado (' + r.github.pendencia.tipo + ')')\n  linhas.push('   ' + String(r.github.pendencia.motivo || '').slice(0, 200))\n}\n\n// Quando a imagem vem do ensaio, o deploy das 5h nao buildou nada: sao\n// segundos de recriacao em vez de meia hora de build no caminho critico.\nif (r.deploy?.origemDaImagem === 'ensaio') {\n  linhas.push('🎬 Imagem promovida do ensaio (sem rebuildar)')\n}\n\nif (r.disco?.livreGbDepois != null) {\n  linhas.push('💾 Disco: ' + r.disco.livreGbDepois + ' GB livres')\n}\n\n// O caminho do dump so aparece quando ele importa: alguem vai precisar dele.\nif (r.resultado === 'intervencao-manual' && r.deploy?.dump) {\n  linhas.push('', '💾 Backup do banco: ' + r.deploy.dump)\n}\n\n// O ultimo erro costuma ser o proprio motivo, ja impresso la em cima.\nconst ultimo = r.erros?.length ? String(r.erros[r.erros.length - 1]) : null\nif (ultimo && ultimo !== r.motivo && r.resultado !== 'nada-a-fazer') {\n  linhas.push('', '⚠️ ' + ultimo.slice(0, 400))\n}\n\nreturn [{ json: { number: DESTINO, texto: linhas.join('\\n') } }]"
       }
     },
     {
@@ -86,8 +263,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        440,
-        100
+        1060,
+        200
       ],
       "parameters": {
         "method": "POST",
@@ -109,20 +286,6 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
-    },
-    {
-      "id": "lu-0006-trigger-aprovacao",
-      "name": "Aprovado pelo WhatsApp",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -620,
-        440
-      ],
-      "parameters": {
-        "inputSource": "passthrough"
-      },
-      "notes": "Chamado pelo workflow \"Lidimus Aprovar\" quando o aceite chega do celular. O marcador ja foi gravado pelo agente; daqui para baixo o caminho e identico ao das 5h — mesmos gates, mesmo relatorio."
     }
   ],
   "connections": {
@@ -130,7 +293,7 @@
       "main": [
         [
           {
-            "node": "Executar deploy no host",
+            "node": "Modo deploy",
             "type": "main",
             "index": 0
           }
@@ -141,18 +304,120 @@
       "main": [
         [
           {
-            "node": "Executar deploy no host",
+            "node": "Modo deploy",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Executar deploy no host": {
+    "Aprovado pelo WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Modo deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensaio 3h30 SP": {
+      "main": [
+        [
+          {
+            "node": "Modo ensaio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo deploy": {
+      "main": [
+        [
+          {
+            "node": "Disparar no host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo ensaio": {
+      "main": [
+        [
+          {
+            "node": "Disparar no host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar no host": {
+      "main": [
+        [
+          {
+            "node": "Aceitou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aceitou?": {
+      "main": [
+        [
+          {
+            "node": "Esperar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatar relatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar": {
+      "main": [
+        [
+          {
+            "node": "Consultar execucao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar execucao": {
+      "main": [
+        [
+          {
+            "node": "Terminou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminou?": {
       "main": [
         [
           {
             "node": "Formatar relatorio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Esperar",
             "type": "main",
             "index": 0
           }
@@ -164,17 +429,6 @@
         [
           {
             "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aprovado pelo WhatsApp": {
-      "main": [
-        [
-          {
-            "node": "Executar deploy no host",
             "type": "main",
             "index": 0
           }

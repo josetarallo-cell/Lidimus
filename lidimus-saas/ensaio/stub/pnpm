@@ -1,0 +1,15 @@
+#!/bin/sh
+# Shim do pnpm dentro da imagem de stub.
+#
+# O pipeline aplica migrations com:
+#   docker compose run --rm --no-deps web pnpm --filter db migrate
+#
+# A imagem de stub não tem pnpm nem o workspace. Em vez de dar um caminho
+# diferente ao pipeline durante o ensaio — o que faria o ensaio testar outra
+# coisa que não o deploy real —, o comando é o mesmo e quem responde é isto.
+if [ "$1" = "--filter" ] && [ "$2" = "db" ] && [ "$3" = "migrate" ]; then
+  exec node /app/stub/migrar.mjs
+fi
+
+echo "pnpm (shim de ensaio): comando nao suportado: $*" >&2
+exit 1

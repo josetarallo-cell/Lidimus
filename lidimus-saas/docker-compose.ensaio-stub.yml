@@ -1,0 +1,100 @@
+# Stack da MATRIZ DE CENÁRIOS — as mesmas peças do docker-compose.ensaio.yml,
+# com a imagem de stub no lugar do Nuxt e do worker.
+#
+# Portas e nome de projeto próprios (3201/5435/6382, `lidimus-ensaio-stub`) para
+# que esta stack e a do ensaio geral possam coexistir sem brigar por porta.
+#
+# Nenhuma interpolação ${VAR}: o Compose resolveria ${} a partir do `.env` do
+# diretório, que é o de produção. Tudo entra pelo `.env.ensaio`, que o
+# `ensaio.mjs` reescreve entre um cenário e outro para girar os botões do stub
+# (ENSAIO_MODO_WEB, ENSAIO_MODO_WORKER, ENSAIO_MIGRACAO, ENSAIO_SELECT_PROFUNDO).
+
+name: lidimus-ensaio-stub
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: lidimus
+      POSTGRES_PASSWORD: lidimus
+      POSTGRES_DB: lidimus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lidimus"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    ports:
+      - "6382:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: ensaio/Dockerfile.stub
+      args:
+        # A imagem de linha de base é construída pelo ensaio.mjs com
+        # `--build-arg ENSAIO_VERSAO=anterior`. Esta é a candidata — é a
+        # diferença entre as duas que prova que o rollback voltou de verdade.
+        ENSAIO_VERSAO: candidata
+    # Nome próprio, distinto do `lidimus-candidato-*` do ensaio geral. Os dois
+    # compartilhavam a tag, e a limpeza da matriz apagava justamente a imagem que
+    # o selo do ensaio manda a produção promover às 5h.
+    image: lidimus-ensaio-stub-web:latest
+    restart: "no"
+    command: ["node", "/app/stub/servidor.mjs", "web"]
+    ports:
+      - "3201:3000"
+    env_file: .env.ensaio
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 2
+      start_period: 3s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: ensaio/Dockerfile.stub
+      args:
+        ENSAIO_VERSAO: candidata
+    image: lidimus-ensaio-stub-worker:latest
+    # `on-failure`, e não `no`: é o que produz um crash-loop de verdade, com o
+    # container alternando entre `running` e `restarting`. Esse é exatamente o
+    # estado em que o smoke antigo (`.State.Running`) dava ✓ para um worker que
+    # morria a cada poucos segundos.
+    restart: "on-failure"
+    command: ["node", "/app/stub/servidor.mjs", "worker"]
+    env_file: .env.ensaio
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 2
+      start_period: 3s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:

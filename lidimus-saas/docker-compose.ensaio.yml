@@ -1,0 +1,103 @@
+# Ambiente de ENSAIO — onde o deploy é rehearsado antes de tocar a produção.
+#
+# Não confundir com o sandbox (docker-compose.sandbox.yml). O sandbox é onde
+# VOCÊ desenvolve e valida funcionalidade, na 3100. Este aqui é descartável e
+# ninguém trabalha nele: existe para o `lidimus-update.mjs` rodar inteiro —
+# build, migrations, recriação, smoke, rollback — contra uma cópia do banco de
+# produção, de madrugada, sem nada em risco.
+#
+# Até 27/08/2026 esse lugar não existia, e a consequência está no histórico: o
+# pipeline de deploy só era exercitado em produção, às 5h, uma vez por dia. Duas
+# semanas sem um ciclo limpo e nove horas de site fora do ar num único dia.
+#
+# Mesma regra do sandbox: NADA de interpolação ${VAR}, porque o Compose resolve
+# ${} a partir do `.env` do diretório — que é o de produção. Toda a configuração
+# entra pelo `env_file: .env.ensaio`, gerado por `pnpm ensaio:preparar`.
+#
+# O par deste arquivo é o docker-compose.ensaio-stub.yml, que sobe as mesmas
+# peças com uma imagem mínima no lugar do Nuxt. Este builda os Dockerfiles
+# REAIS: é o ensaio noturno, e a imagem que ele valida é a que a produção
+# promove às 5h — por isso as tags `lidimus-candidato-*`.
+
+name: lidimus-ensaio
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: lidimus
+      POSTGRES_PASSWORD: lidimus
+      POSTGRES_DB: lidimus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lidimus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    # Tag explícita, e não o `lidimus-ensaio-web` que o Compose derivaria do
+    # nome do projeto: é este nome que o selo do ensaio carrega e que a produção
+    # promove por `docker tag` às 5h.
+    image: lidimus-candidato-web:latest
+    restart: "no"
+    ports:
+      - "3200:3000"
+    env_file: .env.ensaio
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/workers/Dockerfile
+    image: lidimus-candidato-worker:latest
+    restart: "no"
+    env_file: .env.ensaio
+    healthcheck:
+      test: ["CMD", "node", "packages/workers/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+# Sem cloudflared: o ensaio nunca é publicado. O smoke pula o teste do túnel
+# quando o alvo não tem urlPublica.
+
+volumes:
+  pgdata:
+  redisdata:

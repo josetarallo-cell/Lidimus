@@ -1,0 +1,35 @@
+# Imagem mínima usada pela matriz de cenários no lugar do Nuxt e do worker.
+#
+# Builda em segundos, o que é o que torna a matriz executável: com os
+# Dockerfiles reais cada cenário custaria de 15 a 30 minutos de build.
+#
+# Leva as migrations de verdade (packages/db/drizzle) porque o stub APLICA
+# migrations no ledger real do Drizzle — sem isso a conferência do ledger que o
+# pipeline faz depois do migrator não estaria sendo testada.
+
+FROM node:20-alpine
+
+# psql é como o stub fala com o Postgres: evita ter que instalar dependências
+# npm na imagem (o que exigiria rede a cada build de cenário).
+RUN apk add --no-cache postgresql16-client
+
+WORKDIR /app
+
+COPY ensaio/stub/ /app/stub/
+COPY packages/db/drizzle/ /app/drizzle/
+
+RUN cp /app/stub/pnpm /usr/local/bin/pnpm \
+  && chmod +x /usr/local/bin/pnpm /app/stub/pnpm
+
+# O análogo do `nuxt build` quebrado: é aqui que o cenário `build-quebrado`
+# morre. Sem um passo que falhe, uma imagem de stub sempre buildaria com
+# sucesso e o cenário não teria como existir.
+RUN node --check /app/stub/servidor.mjs && node --check /app/stub/migrar.mjs
+
+# Distingue a imagem "anterior" da "candidata" num mesmo cenário — é o que
+# permite conferir que o rollback realmente voltou para a versão de antes.
+ARG ENSAIO_VERSAO=1
+ENV ENSAIO_VERSAO=$ENSAIO_VERSAO
+
+EXPOSE 3000
+CMD ["node", "/app/stub/servidor.mjs", "web"]

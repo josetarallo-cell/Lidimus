@@ -17,19 +17,22 @@
 // logado. Trate como credencial de execução remota de código.
 //
 // Rotas, todas exigindo o Bearer:
-//   POST /lidimus-update  implanta (é o que o cron das 5h chama)
-//   GET  /status          se há deploy rodando e como terminou o último
+//   POST /lidimus-update  implanta ou ensaia; responde 202 na hora
+//   GET  /execucao/<id>   como está (ou como terminou) uma execução
+//   GET  /status          se há algo rodando e como terminou o último
 //   GET  /pendencia       o que espera aprovação + ticket para o link do WhatsApp
 //   POST /aprovar         grava o sandbox:ok vindo do celular, sem implantar
 //
 // Uso: node scripts/update-agent.mjs
 
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
+import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
   aprovarSandbox, conferirTicket, hashArvore, lerEnvProducaoBruto,
-  montarLinkAprovacao, raizSaas, resumoPendencia, valorDoEnv,
+  montarLinkAprovacao, raizRepo, raizSaas, resumoPendencia, valorDoEnv,
 } from './lidimus-update-comum.mjs'
 
 const PORTA = Number(process.env.PORTA_UPDATE_AGENT || 8099)
@@ -63,9 +66,35 @@ function tokenConfere(cabecalho) {
 let emExecucao = false
 let ultimoResultado = null
 
-function executarDeploy(argumentos) {
+// Execuções desta sessão, para o n8n consultar enquanto o deploy roda.
+const execucoes = new Map()
+const LIMITE_EM_MEMORIA = 40
+
+// E o histórico que sobrevive a um reinício do agente. Sem isto, `ultimoResultado`
+// morre junto com o processo: em 27/08/2026 o relatório do deploy quebrado só
+// existia dentro de um .log de 49 KB sem rotação, e quem foi investigar às 14h
+// teve que garimpar texto corrido.
+const DIR_HISTORICO = resolve(raizRepo, '.lidimus', 'historico')
+const HISTORICO_A_MANTER = 60
+
+function arquivarExecucao(execucao) {
+  try {
+    mkdirSync(DIR_HISTORICO, { recursive: true })
+    writeFileSync(resolve(DIR_HISTORICO, `${execucao.id}.json`),
+      JSON.stringify(execucao, null, 2) + '\n', 'utf8')
+
+    const antigos = readdirSync(DIR_HISTORICO).filter((n) => n.endsWith('.json')).sort()
+    for (const velho of antigos.slice(0, -HISTORICO_A_MANTER)) {
+      unlinkSync(resolve(DIR_HISTORICO, velho))
+    }
+  } catch (e) {
+    console.error(`[${new Date().toISOString()}] não consegui arquivar a execução: ${e.message}`)
+  }
+}
+
+function executarDeploy(script, argumentos) {
   return new Promise((resolver) => {
-    const filho = spawn('node', ['scripts/lidimus-update.mjs', ...argumentos], {
+    const filho = spawn('node', [script, ...argumentos], {
       cwd: raizSaas,
       shell: true,
       env: process.env,
@@ -113,7 +142,12 @@ const servidor = createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/status') {
     if (!tokenConfere(req.headers.authorization)) return responder(401, { erro: 'nao autorizado' })
-    return responder(200, { emExecucao, ultimoResultado })
+    return responder(200, {
+      emExecucao,
+      ultimoResultado,
+      execucoes: [...execucoes.values()].slice(-10).map(({ id, alvo, pronto, iniciadoEm, concluidoEm, relatorio }) =>
+        ({ id, alvo, pronto, iniciadoEm, concluidoEm, resultado: relatorio?.resultado || null })),
+    })
   }
 
   // O que está esperando aprovação, mais o ticket que vira link no WhatsApp.
@@ -190,6 +224,15 @@ const servidor = createServer(async (req, res) => {
     }
   }
 
+  // Como está a execução que o POST devolveu. É o que o n8n consulta em laço
+  // enquanto o build roda.
+  if (req.method === 'GET' && url.pathname.startsWith('/execucao/')) {
+    if (!tokenConfere(req.headers.authorization)) return responder(401, { erro: 'nao autorizado' })
+    const execucao = execucoes.get(url.pathname.slice('/execucao/'.length))
+    if (!execucao) return responder(404, { erro: 'execucao desconhecida' })
+    return responder(200, execucao)
+  }
+
   if (req.method !== 'POST' || url.pathname !== ROTA) {
     return responder(404, { erro: 'nao encontrado' })
   }
@@ -210,19 +253,61 @@ const servidor = createServer(async (req, res) => {
   let pedido = {}
   try { pedido = corpo ? JSON.parse(corpo) : {} } catch { /* corpo vazio é o caso normal */ }
 
-  emExecucao = true
-  console.log(`[${new Date().toISOString()}] deploy solicitado${pedido.dryRun ? ' (dry-run)' : ''}`)
+  // Só `ensaio` é aceito como alvo alternativo, e ele escolhe um SCRIPT, não um
+  // argumento: esta rota executa comandos com a conta do usuário logado, e
+  // montar linha de comando a partir de texto de fora seria dar um shell a quem
+  // alcançasse a porta.
+  const ehEnsaio = pedido.alvo === 'ensaio'
+  const script = ehEnsaio ? 'scripts/ensaio-geral.mjs' : 'scripts/lidimus-update.mjs'
+  const argumentos = pedido.dryRun ? ['--dry-run'] : []
 
-  try {
-    ultimoResultado = await executarDeploy(pedido.dryRun ? ['--dry-run'] : [])
-    responder(200, ultimoResultado)
-  } catch (e) {
-    ultimoResultado = { resultado: 'erro-do-agente', motivo: String(e?.message || e) }
-    responder(500, ultimoResultado)
-  } finally {
-    emExecucao = false
-    console.log(`[${new Date().toISOString()}] deploy terminou: ${ultimoResultado?.resultado}`)
+  const execucao = {
+    // aaaammddhhmmss-xxxxxx: ordenável por nome, que é como o expurgo do
+    // histórico decide o que apagar.
+    id: `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${randomUUID().slice(0, 6)}`,
+    alvo: ehEnsaio ? 'ensaio' : 'producao',
+    dryRun: Boolean(pedido.dryRun),
+    iniciadoEm: new Date().toISOString(),
+    concluidoEm: null,
+    pronto: false,
+    relatorio: null,
   }
+  execucoes.set(execucao.id, execucao)
+  for (const velho of [...execucoes.keys()].slice(0, -LIMITE_EM_MEMORIA)) execucoes.delete(velho)
+
+  emExecucao = true
+  console.log(`[${execucao.iniciadoEm}] ${execucao.alvo} solicitado${execucao.dryRun ? ' (dry-run)' : ''} — execucao ${execucao.id}`)
+
+  // O trabalho segue em segundo plano e a resposta sai agora.
+  //
+  // Era síncrono, e o nó HTTP do n8n desistia em 15 min. Um build de 20 min
+  // fazia o n8n reportar "o agente do host nao respondeu" no WhatsApp ENQUANTO
+  // o deploy continuava rodando aqui — relatório mentindo, e o `emExecucao`
+  // segurando as tentativas seguintes sem que ninguém soubesse por quê.
+  const trabalho = executarDeploy(script, argumentos)
+    .then((relatorio) => relatorio)
+    .catch((e) => ({ resultado: 'erro-do-agente', motivo: String(e?.message || e) }))
+    .then((relatorio) => {
+      execucao.relatorio = relatorio
+      execucao.pronto = true
+      execucao.concluidoEm = new Date().toISOString()
+      ultimoResultado = relatorio
+      emExecucao = false
+      arquivarExecucao(execucao)
+      console.log(`[${execucao.concluidoEm}] ${execucao.alvo} terminou: ${relatorio?.resultado} (${execucao.id})`)
+      return relatorio
+    })
+
+  // `aguardar` existe para o uso no teclado (`curl` à mão, um teste rápido):
+  // segura a conexão e devolve o relatório inteiro, como antes.
+  if (pedido.aguardar) return responder(200, await trabalho)
+
+  return responder(202, {
+    aceito: true,
+    execucaoId: execucao.id,
+    consultarEm: `/execucao/${execucao.id}`,
+    alvo: execucao.alvo,
+  })
 })
 
 // Sem timeout de resposta: o build pode levar vários minutos e o n8n segura a
@@ -230,6 +315,24 @@ const servidor = createServer(async (req, res) => {
 servidor.timeout = 0
 servidor.headersTimeout = 0
 servidor.requestTimeout = 0
+
+// Morrer alto em vez de virar processo-fantasma.
+//
+// Sem este handler o EADDRINUSE de um segundo agente subia como evento 'error'
+// não tratado — e o processo ficava por aí sem escutar nada. Em 27/08/2026
+// havia três `update-agent.mjs` vivos na máquina e só um detinha a porta; os
+// outros dois eram órfãos de 20/08 que ninguém tinha como distinguir do bom.
+servidor.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(
+      `A porta ${PORTA} já está ocupada — provavelmente por outro agente já rodando.\n`
+      + 'Confira com:  Get-NetTCPConnection -LocalPort 8099 | Select-Object OwningProcess',
+    )
+  } else {
+    console.error(`o servidor do agente falhou: ${e.stack || e.message}`)
+  }
+  process.exit(1)
+})
 
 servidor.listen(PORTA, ENDERECO, () => {
   console.log(`Lidimus Update escutando em http://${ENDERECO}:${PORTA}${ROTA}`)

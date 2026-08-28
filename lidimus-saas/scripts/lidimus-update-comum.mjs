@@ -51,6 +51,12 @@ export function executar(comando, args, opcoes = {}) {
     filho.stderr.on('data', (p) => { erro += p })
 
     if (entrada !== undefined) {
+      // Handler obrigatório: um filho que fecha o stdin antes de ler tudo — o
+      // psql que aborta na primeira linha, o comando que nem existe — faz o
+      // write emitir EOF/EPIPE. Sem isto o erro sobe como evento 'error' não
+      // tratado e derruba o processo INTEIRO, escondendo a falha de verdade,
+      // que está na saída do comando.
+      filho.stdin.on('error', () => {})
       filho.stdin.write(entrada)
       filho.stdin.end()
     }
