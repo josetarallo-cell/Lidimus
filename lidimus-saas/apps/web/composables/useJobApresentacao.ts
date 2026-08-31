@@ -5,6 +5,8 @@
 // divergir — um job "Crítico" no painel e "Médio" no lote seria pior que não ter
 // a segunda tela.
 
+import { classificarInjecao, FAIXA_ROTULO, FAIXA_SELO } from '~/utils/riscoInjecao'
+
 export type JobListado = {
   id: string
   type: string
@@ -66,11 +68,12 @@ export function riscoInfo(job: JobListado): Selo | null {
   if (job.status !== 'done') return { classe: 'ld-selo--neutro', texto: '—' }
 
   if (job.type === 'injection') {
-    const r = String(job.result?.risk_level ?? '').toLowerCase()
-    if (r === 'high') return { classe: 'ld-selo--carimbo', texto: 'Alto' }
-    if (r === 'medium') return { classe: 'ld-selo--ocre', texto: 'Médio' }
-    if (r === 'low') return { classe: 'ld-selo--verde', texto: 'Baixo' }
-    return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
+    // Mesma escala do medidor do laudo (utils/riscoInjecao.ts): o `risk_level`
+    // do pipeline não distingue Alto de Crítico, e a listagem não pode chamar
+    // de "Alto" o que o laudo carimba como "Crítico".
+    if (!job.result) return { classe: 'ld-selo--neutro', texto: 'Não classificado' }
+    const faixa = classificarInjecao(job.result).nivel.faixa
+    return { classe: FAIXA_SELO[faixa], texto: FAIXA_ROTULO[faixa] }
   }
 
   if (job.type === 'matricula') {

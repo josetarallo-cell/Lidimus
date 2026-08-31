@@ -43,14 +43,19 @@ const emitidoEm = computed(() => {
     : '—'
 })
 
+// Camadas de detecção × conteúdo do que foi encontrado: os dois eixos da escala
+// de sete níveis do medidor (ver utils/riscoInjecao.ts). O `risk_level` do
+// pipeline entra como piso, nunca como teto — mensagem que instrui uma IA não
+// desce de Alto, e a camada em que ela estava decide entre Alto e Crítico.
+const analise = computed(() => (result.value ? classificarInjecao(result.value) : null))
+
 // A Regra do Carimbo: vermelho somente onde há risco real. O carimbo estampa
-// o veredito em destaque no bloco de identificação.
+// o veredito em destaque no bloco de identificação — a faixa do nível, para
+// que carimbo, medidor e listagem do painel digam sempre a mesma coisa.
 const risco = computed(() => {
-  const r = String(result.value?.risk_level ?? '').toLowerCase()
-  if (r === 'high') return { classe: 'ld-carimbo--alto', texto: 'Risco alto' }
-  if (r === 'medium') return { classe: 'ld-carimbo--medio', texto: 'Risco médio' }
-  if (r === 'low') return { classe: 'ld-carimbo--baixo', texto: 'Risco baixo' }
-  return { classe: 'ld-carimbo--neutro', texto: 'Não classificado' }
+  const faixa = analise.value?.nivel.faixa
+  if (!faixa) return { classe: 'ld-carimbo--neutro', texto: 'Não classificado' }
+  return { classe: FAIXA_CARIMBO[faixa], texto: `Risco ${FAIXA_ROTULO[faixa].toLowerCase()}` }
 })
 
 const temAchados = computed(() => (result.value?.findings?.length ?? 0) > 0)
@@ -81,23 +86,32 @@ const evidenciaMetadados = computed(() => {
   return a?.isSuspicious || a?.aiAnalysis?.isInjection ? a : null
 })
 
-// O alarme sem orientação abandona o usuário no pico da ansiedade — o laudo
-// diz o que o achado significa e o que fazer, em linguagem leiga
-const veredito = computed(() => {
-  if (!temAchados.value) return null
-  const r = String(result.value?.risk_level ?? '').toLowerCase()
-  if (r === 'high') {
-    return (
-      'Este arquivo contém instruções ocultas destinadas a manipular análises feitas por ' +
-      'inteligência artificial. Recomendamos não confiar em resumos ou análises automáticas ' +
-      'deste documento e conferir o conteúdo original antes de aceitá-lo.'
-    )
-  }
-  return (
-    'Este arquivo apresenta indícios que merecem verificação. Confira os achados abaixo e o ' +
-    'documento original antes de confiar em análises automáticas deste arquivo.'
-  )
+const evidenciaEstrutura = computed(() => {
+  const a = result.value?.structuralAnalysis as Record<string, any> | undefined
+  if (!a?.available) return null
+  const relevantes = (a.structuralItems ?? []).filter((it: any) => it.severity !== 'baixa')
+  return relevantes.length ? a : null
 })
+
+// Integridade do arquivo — eixo próprio, fora do risco de injeção. A perícia já
+// roda no upload (analisarPdf, gravada em inputMeta.autenticidade); aqui é só
+// exibição. Assinar um PDF *é* uma atualização incremental, então isto vale como
+// informação ao advogado, não como indício de fraude: por isso não toca o carimbo.
+const integridade = computed(() => {
+  const pericia = (job.value?.inputMeta as Record<string, any> | undefined)?.autenticidade
+  const contagens = pericia?.contagens
+  if (!contagens) return null
+  if (!(contagens.eof > 1 || contagens.prev > 0)) return null
+  const indicio = (pericia.indicios ?? []).find((i: any) => i.codigo === 'updates_incrementais')
+  return {
+    gravacoes: Math.max(Number(contagens.eof) || 0, (Number(contagens.prev) || 0) + 1),
+    evidencia: indicio?.evidencia as string | undefined,
+  }
+})
+
+// O alarme sem orientação abandona o usuário no pico da ansiedade — o que o
+// achado significa e o que fazer agora vive no resumo de cada nível da escala
+// (NIVEIS_INJECAO), exibido pelo bloco de risco em linguagem leiga.
 
 function exportarPdf() {
   window.print()
@@ -151,16 +165,18 @@ function exportarPdf() {
       <div class="prancha-titulo">
         <h1>Laudo de verificação</h1>
         <p class="prancha-sub">
-          Varredura de instruções ocultas: texto invisível, fontes minúsculas, camadas e metadados.
+          Varredura de instruções ocultas: texto invisível, fontes minúsculas, imagens, metadados
+          e a estrutura interna do arquivo.
         </p>
       </div>
+
+      <BlocoRiscoInjecao v-if="analise" :analise="analise" />
 
       <section class="secao" aria-labelledby="sec-achados">
         <h2 id="sec-achados">
           Achados
           <span v-if="temAchados" class="contagem">({{ result.findings.length }})</span>
         </h2>
-        <p v-if="veredito" class="veredito">{{ veredito }}</p>
         <ul v-if="temAchados" class="achados">
           <li v-for="(f, i) in achados" :key="i" class="achado">{{ f }}</li>
         </ul>
@@ -182,6 +198,25 @@ function exportarPdf() {
       <section v-if="evidenciaMetadados" class="secao" aria-labelledby="sec-ev-metadados">
         <h2 id="sec-ev-metadados">Demonstração — texto oculto nos metadados</h2>
         <EvidenciaMetadados :analysis="evidenciaMetadados" />
+      </section>
+
+      <section v-if="evidenciaEstrutura" class="secao" aria-labelledby="sec-ev-estrutura">
+        <h2 id="sec-ev-estrutura">Demonstração — texto na estrutura interna do arquivo</h2>
+        <EvidenciaEstrutura :analysis="evidenciaEstrutura" />
+      </section>
+
+      <section v-if="integridade" class="secao" aria-labelledby="sec-integridade">
+        <h2 id="sec-integridade">Integridade do arquivo</h2>
+        <p class="integridade-texto">
+          Este PDF foi gravado {{ integridade.gravacoes }} vezes: além da versão original, o
+          arquivo carrega alterações anexadas depois. É o mecanismo normal de assinar
+          digitalmente um documento — e também o de editar um PDF já assinado sem reescrevê-lo.
+          As versões anteriores continuam dentro do arquivo.
+        </p>
+        <p class="integridade-nota">
+          Por si só isto não indica fraude e não entra no risco acima. Vale conferir se a data e o
+          conteúdo batem com a versão que o emissor do documento entregou.
+        </p>
       </section>
 
       <footer class="prancha-rodape">
@@ -260,11 +295,21 @@ function exportarPdf() {
   font-weight: 400;
 }
 
-.veredito {
-  margin: 0 0 var(--ld-space-md);
+
+/* Integridade: eixo informativo, não alarme — sem o vermelho do carimbo */
+.integridade-texto {
+  margin: 0 0 var(--ld-space-sm);
   max-width: 72ch;
   font-size: 0.9375rem;
   line-height: 1.6;
+  text-wrap: pretty;
+}
+.integridade-nota {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--ld-tinta-suave);
   text-wrap: pretty;
 }
 

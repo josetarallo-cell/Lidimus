@@ -8,7 +8,8 @@ useHead({
       name: 'description',
       content:
         'Procura instruções escondidas em PDFs — texto branco sobre branco, fonte minúscula, ' +
-        'texto fora da página e comandos em metadados — antes de o documento chegar a uma IA.',
+        'caracteres Unicode sem glifo, campos da estrutura interna do arquivo, texto dentro de ' +
+        'imagens e comandos em metadados — antes de o documento chegar a uma IA.',
     },
     { name: 'robots', content: 'noindex, follow' },
   ],
@@ -17,6 +18,7 @@ useHead({
 const SECOES = [
   { id: 'por-que', rotulo: 'Por que importa' },
   { id: 'o-que-procura', rotulo: 'O que procura' },
+  { id: 'niveis', rotulo: 'Níveis de risco' },
   { id: 'tempo', rotulo: 'Quanto tempo leva' },
   { id: 'como-usar', rotulo: 'Como usar' },
   { id: 'o-que-recebe', rotulo: 'O que você recebe' },
@@ -28,8 +30,9 @@ const SECOES = [
 <template>
   <DocsPagina titulo="Detector de conteúdo oculto" selo="Ferramenta" :secoes="SECOES">
     <p class="doc-lide">
-      Um PDF pode conter texto que você não vê: branco sobre branco, em corpo 1, posicionado fora da
-      área impressa ou escondido nos metadados. Quando esse documento chega a uma inteligência
+      Um PDF pode conter texto que você não vê: branco sobre branco, em corpo 1, em caracteres que
+      nenhuma fonte desenha, guardado em campos do arquivo que nunca chegam à página impressa,
+      dentro de uma imagem ou nos metadados. Quando esse documento chega a uma inteligência
       artificial, o texto invisível é lido como instrução. O detector procura isso antes.
     </p>
 
@@ -104,45 +107,29 @@ const SECOES = [
     <!-- ── O que procura ───────────────────────────────────────────────── -->
     <section id="o-que-procura">
       <h2>O que procura</h2>
+
+      <p>
+        São <strong>cinco camadas independentes</strong>, e todas rodam em todo documento — não há o
+        que configurar. Cada uma examina um tipo diferente de campo, porque esconder texto num PDF
+        não é uma técnica só: o que uma camada não alcança, outra alcança.
+      </p>
+
       <table class="tabela">
-        <thead><tr><th>Técnica</th><th>Como o detector encontra</th></tr></thead>
+        <thead><tr><th>Camada</th><th>O que examina</th><th>O que encontra</th></tr></thead>
         <tbody>
           <tr>
-            <td><strong>Texto invisível por estilo</strong></td>
+            <td><strong>1. Texto oculto por estilo</strong></td>
+            <td>Como o texto é desenhado na página</td>
             <td>
-              Branco sobre branco, corpo minúsculo ou opacidade zero. Inspeciona as operações de
-              texto do PDF e compara com o fundo em que estão desenhadas.
+              Fonte da cor do papel (branco sobre branco, ou quase), modo de renderização invisível
+              e corpo minúsculo — abaixo de 4 pt, ilegível a olho nu. Compara cada trecho com o
+              fundo sobre o qual está desenhado: texto claro sobre fundo escuro é design legítimo,
+              não ocultação, e não vira achado.
             </td>
           </tr>
           <tr>
-            <td><strong>Texto fora da página</strong></td>
-            <td>
-              Conteúdo posicionado além da área imprimível — invisível na tela e no papel, mas
-              presente na extração de texto.
-            </td>
-          </tr>
-          <tr>
-            <td><strong>Instrução em metadados</strong></td>
-            <td>
-              Campos padrão e <em>campos personalizados</em> do PDF. É onde mais aparece: um campo
-              chamado <code>instruction</code> com um comando dirigido à IA.
-            </td>
-          </tr>
-          <tr>
-            <td><strong>Leitura por IA dos metadados</strong></td>
-            <td>
-              O conteúdo suspeito é submetido a um modelo que avalia se aquilo é de fato uma
-              tentativa de injeção, qual a intenção e qual o dano possível.
-            </td>
-          </tr>
-          <tr>
-            <td><strong>Imagens e fontes</strong></td>
-            <td>
-              Metadados de imagens embutidas e análise de fontes, quando o documento os expõe.
-            </td>
-          </tr>
-          <tr>
-            <td><strong>Tags Unicode invisíveis</strong></td>
+            <td><strong>2. Tags Unicode</strong></td>
+            <td>Os próprios códigos dos caracteres</td>
             <td>
               É a técnica usada em ataques reais de prompt injection contra LLMs — cada caractere
               ASCII do payload é deslocado para o bloco de "tag characters" (código-alvo = 0xE0000 +
@@ -153,14 +140,185 @@ const SECOES = [
               renderização.
             </td>
           </tr>
+          <tr>
+            <td><strong>3. Estrutura interna do arquivo</strong></td>
+            <td>Campos que representam a página, mas não são desenhados nela</td>
+            <td>
+              Um PDF guarda texto em muitos lugares além da página desenhada. Esta camada percorre
+              os objetos do arquivo — inclusive os empacotados em <em>object streams</em>, onde
+              anotações e formulários costumam morar num PDF moderno — e reporta de qual campo cada
+              trecho veio. Cobre <code>/ActualText</code>, camada desligada por padrão, anotação com
+              o bit de oculta, formulário XFA, campos de formulário, anexos e ações automáticas.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>4. Imagens embutidas</strong></td>
+            <td>O que está escrito dentro das imagens</td>
+            <td>
+              Instrução escrita <em>dentro</em> da imagem — em baixo contraste, como marca d'água ou
+              à vista. Nenhuma extração de texto acha isso, porque ali não há texto: há pixel. As
+              imagens são extraídas do arquivo e submetidas a um modelo de visão, que lê o que está
+              escrito e avalia se é uma instrução dirigida a uma IA.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>5. Metadados</strong></td>
+            <td>Campos que descrevem o arquivo, não o seu conteúdo</td>
+            <td>
+              É onde mais aparece: um campo chamado <code>instruction</code> com um comando dirigido
+              à IA. Verifica campos padrão e personalizados, nomes de campo suspeitos, assinatura da
+              ferramenta que gerou o arquivo e datas incoerentes — criação depois da modificação, ou
+              no futuro. O conteúdo suspeito ainda passa por um modelo, que julga se é de fato uma
+              tentativa de injeção, qual a intenção e qual o dano possível.
+            </td>
+          </tr>
         </tbody>
       </table>
 
       <p class="dica">
-        O detector também identifica se o PDF é digital ou digitalizado
-        (<code>textType</code>), o que muda o que se pode esperar dele: documento escaneado é
-        imagem, e o vetor de ataque ali passa a ser outro.
+        <code>/ActualText</code> e camada desligada não são defeitos do arquivo: são recursos da
+        especificação do PDF funcionando como projetados. <code>/ActualText</code> existe para
+        substituir o texto da página na hora de copiar ou extrair — é um recurso de acessibilidade.
+        O que o detector aponta é a <em>divergência</em>: quando o valor declarado ali diz outra
+        coisa do que está impresso, quem lê a folha e quem lê o arquivo recebem versões diferentes
+        do mesmo documento, sem que nenhum dos dois esteja com defeito.
       </p>
+
+      <p class="dica">
+        <strong>Estrutura interna e metadados moram no mesmo lugar</strong> — os dois são campos do
+        grafo de objetos do PDF. O que os separa não é onde estão, é o que afirmam: a camada 3 olha
+        campos que <em>representam a página</em> e por isso podem contradizer o que está impresso; a
+        camada 5 olha campos que <em>descrevem o arquivo</em> — quem o gerou, quando, com que
+        ferramenta. Por isso a camada 5 encontra coisas que não são texto escondido de forma alguma,
+        como data de criação posterior à de modificação.
+      </p>
+
+      <h3>PDF digitalizado</h3>
+      <p>
+        Quando o arquivo não tem camada de texto — é só imagem —, as páginas são lidas por OCR e o
+        texto resultante passa pelas mesmas buscas. O detector informa em <code>textType</code> com
+        qual dos dois tipos está lidando, o que muda o que se pode esperar dele: documento escaneado
+        esconde menos, porque não há camada de texto onde plantar nada, mas também revela menos.
+      </p>
+
+      <h3>Integridade do arquivo</h3>
+      <p>
+        Fora das cinco camadas, o laudo informa quantas vezes o PDF foi gravado. Um PDF pode receber
+        alterações anexadas ao fim do arquivo sem ser reescrito do zero, e as versões anteriores
+        continuam lá dentro. É o mecanismo normal de assinar digitalmente um documento — e também o
+        de editar um documento já assinado.
+      </p>
+      <div class="nota">
+        <p>
+          Por isso a informação de integridade <strong>não entra no <code>risk_level</code></strong>:
+          assinar um PDF já é uma gravação a mais, então praticamente todo documento assinado teria
+          o risco elevado sem nenhum motivo. Ela aparece no laudo como dado de conferência, num eixo
+          próprio, separado da procura por instruções ocultas.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Níveis de risco ─────────────────────────────────────────────── -->
+    <section id="niveis">
+      <h2>Níveis de risco</h2>
+
+      <p>
+        O laudo abre com um medidor de sete posições. Ele cruza os dois eixos pelos quais a fraude
+        de fato se organiza — <strong>em que camada</strong> o texto estava e
+        <strong>o que o texto diz</strong>:
+      </p>
+
+      <ul class="lista">
+        <li>
+          <strong>O conteúdo define o piso.</strong> Se a mensagem encontrada dá ordens a uma
+          inteligência artificial, o risco não fica abaixo de <strong>Alto</strong> — instrução
+          dirigida a uma IA dentro de um documento não tem uso legítimo.
+        </li>
+        <li>
+          <strong>A camada decide entre Alto e Crítico.</strong> A mesma frase pesa mais plantada
+          onde nenhum leitor tropeçaria nela — em caracteres que nenhuma fonte desenha, ou num campo
+          que substitui o texto impresso na hora da extração — e pesa mais ainda repetida em camadas
+          diferentes, para sobreviver a um filtro.
+        </li>
+      </ul>
+
+      <table class="tabela">
+        <thead><tr><th>Nível</th><th>Quando aparece</th><th>Risco</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Limpo</strong></td>
+            <td>Nenhuma camada encontrou conteúdo escondido.</td>
+            <td>Baixo</td>
+          </tr>
+          <tr>
+            <td><strong>Atípico</strong></td>
+            <td>
+              Campo do arquivo fora do padrão — data de criação posterior à de modificação, por
+              exemplo —, sem texto escondido do leitor nem instrução dirigida a uma IA.
+            </td>
+            <td>Médio</td>
+          </tr>
+          <tr>
+            <td><strong>Oculto</strong></td>
+            <td>
+              Há texto que o leitor não vê e a máquina lê, mas o que está escondido não dá ordens a
+              uma IA. Esconder texto continua sendo ato deliberado: o laudo mostra o que está lá.
+            </td>
+            <td>Médio</td>
+          </tr>
+          <tr>
+            <td><strong>Dirigido</strong></td>
+            <td>
+              O corpo do documento traz uma instrução endereçada a uma IA. Está ao alcance de quem
+              ler tudo — mas basta o arquivo passar por um resumo automático para ser obedecida.
+            </td>
+            <td>Alto</td>
+          </tr>
+          <tr>
+            <td><strong>Injetado</strong></td>
+            <td>
+              A instrução para IA está numa camada que o documento impresso não mostra: texto
+              invisível por estilo, dentro de imagem, em metadados ou na estrutura interna. Quem lê
+              a folha vê um documento; quem processa o arquivo recebe uma ordem.
+            </td>
+            <td>Alto</td>
+          </tr>
+          <tr>
+            <td><strong>Camuflado</strong></td>
+            <td>
+              A instrução usa técnica invisível de fábrica — tags Unicode, ou um
+              <code>/ActualText</code> que substitui o impresso na extração. Sobrevive a copiar,
+              colar e imprimir, e ninguém topa com ela por acidente.
+            </td>
+            <td>Crítico</td>
+          </tr>
+          <tr>
+            <td><strong>Coordenado</strong></td>
+            <td>
+              A instrução para IA aparece em duas ou mais camadas independentes do arquivo. Não é
+              sobra de edição: é redundância montada para o caso de uma das camadas ser filtrada.
+            </td>
+            <td>Crítico</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        Abaixo do medidor, o laudo lista as <strong>camadas de detecção</strong> uma a uma: o que
+        cada uma examinou, o que encontrou e se o que encontrou fala com uma IA. É a prestação de
+        contas do medidor — a posição da agulha nunca aparece sem o motivo ao lado.
+      </p>
+
+      <div class="nota">
+        <p>
+          <strong>O <code>risk_level</code> da API continua com três degraus</strong> —
+          <code>low</code>, <code>medium</code>, <code>high</code>. A escala de sete níveis é do
+          laudo, para leitura humana, e é derivada na hora de exibir: ela desdobra o <code>high</code>
+          em Alto e Crítico e nunca mostra risco menor do que o <code>risk_level</code> gravado.
+          Como a derivação é feita na exibição, os laudos emitidos antes desta escala existir também
+          aparecem classificados, sem reprocessar nada.
+        </p>
+      </div>
     </section>
 
     <!-- ── Tempo ───────────────────────────────────────────────────────── -->
@@ -244,6 +402,18 @@ const SECOES = [
     }
   },
   "hiddenTextAnalysis": { "hiddenTextFound": false, "stats": { "textShowOps": 47 } },
+  "structuralAnalysis": {
+    "structuralFound": true,
+    "bySeverity": { "alta": 1, "media": 0, "baixa": 0 },
+    "structuralItems": [
+      {
+        "type": "actualtext",
+        "origin": "página 1 › content stream › /ActualText",
+        "text": "O prazo de vigência é de 60 meses, com renovação automática",
+        "severity": "alta"
+      }
+    ]
+  },
   "offPageAnalysis":    { "offPageTextFound": false }
 }</code></pre>
       </div>
@@ -253,7 +423,11 @@ const SECOES = [
         <tbody>
           <tr>
             <td><code>risk_level</code></td>
-            <td><code>low</code>, <code>medium</code> ou <code>high</code>. É o campo de decisão.</td>
+            <td>
+              <code>low</code>, <code>medium</code> ou <code>high</code>. É o campo de decisão — no
+              laudo ele aparece desdobrado na escala de sete níveis (veja
+              <a href="#niveis">Níveis de risco</a>).
+            </td>
           </tr>
           <tr>
             <td><code>findings</code></td>
@@ -281,8 +455,35 @@ const SECOES = [
             </td>
           </tr>
           <tr>
+            <td><code>structuralAnalysis</code></td>
+            <td>
+              Campos de texto do grafo de objetos que não passam pela renderização. Cada item traz
+              <code>type</code> (a superfície: <code>actualtext</code>, <code>ocg_desligada</code>,
+              <code>anot_oculta</code>…), <code>origin</code> (o caminho no arquivo, com a página
+              quando dá para atribuir), <code>text</code> e <code>severity</code>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>imageAnalysis</code></td>
+            <td>
+              Leitura das imagens embutidas: o texto que o modelo de visão encontrou dentro de cada
+              uma e se o considerou suspeito. Traz também as miniaturas usadas na demonstração do
+              laudo.
+            </td>
+          </tr>
+          <tr>
+            <td><code>scannedAnalysis</code></td>
+            <td>
+              Só para PDF digitalizado: o texto obtido por OCR das páginas em imagem, e o veredito
+              sobre ele.
+            </td>
+          </tr>
+          <tr>
             <td><code>offPageAnalysis</code></td>
-            <td>Texto posicionado fora da área visível da página.</td>
+            <td>
+              Campo antigo, mantido para não quebrar integrações que já o leem: hoje repete o
+              conteúdo de <code>hiddenTextAnalysis</code>. Em código novo, use esse.
+            </td>
           </tr>
           <tr>
             <td><code>unicodeTagAnalysis</code></td>
@@ -300,8 +501,9 @@ const SECOES = [
 
       <p class="dica">
         As seções que não se aplicam ao documento vêm com <code>available: false</code> — é o caso
-        da análise de fontes e cores num PDF que não expõe esses dados. Ausência de análise não é
-        ausência de risco: é ausência de dado.
+        de <code>scannedAnalysis</code> num PDF digital, ou de <code>imageAnalysis</code> num
+        documento sem imagem embutida. Ausência de análise não é ausência de risco: é ausência de
+        dado.
       </p>
     </section>
 
@@ -326,9 +528,9 @@ const SECOES = [
           lista.
         </li>
         <li>
-          <strong>PDF digitalizado esconde menos e revela menos.</strong> Documento que é só imagem
-          não tem camada de texto para ocultar nada — mas também não permite inspecionar o que a
-          imagem mostra.
+          <strong>Em PDF digitalizado, a leitura depende do OCR.</strong> Documento que é só imagem
+          não tem camada de texto onde plantar instrução, e as páginas são lidas por OCR antes de
+          passar pelas buscas — mas o que o OCR não conseguir ler, o detector não analisa.
         </li>
         <li>
           <strong>O detector não limpa o arquivo.</strong> Ele aponta. Removida a suspeita, quem

@@ -27,6 +27,11 @@ const amostras = [
     desc: 'Instrução para IA escondida em caracteres Unicode invisíveis (U+E0000–U+E007F).',
     href: '/amostras/documento-tags-unicode.pdf',
   },
+  {
+    nome: 'Estrutura interna',
+    desc: 'Texto guardado fora da página impressa: /ActualText, camada desligada e anotação oculta.',
+    href: '/amostras/documento-estrutura-oculta.pdf',
+  },
 ]
 
 async function onSubmit(file: File) {

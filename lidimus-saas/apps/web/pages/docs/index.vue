@@ -66,7 +66,8 @@ const SECOES = [
           <h2>Detector de conteúdo oculto</h2>
           <p>
             Procura instruções escondidas em PDFs antes que o documento chegue a uma inteligência
-            artificial.
+            artificial — cinco camadas: estilo, caracteres sem glifo, estrutura interna do arquivo,
+            imagens e metadados.
           </p>
           <span class="doc-cartao-meta">~4 s · 3 + 0,5/página · todos os planos</span>
         </NuxtLink>
