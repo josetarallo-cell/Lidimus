@@ -134,11 +134,12 @@
       ],
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 5000
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "model": "mistral-large-latest",
+        "model": "mistral-medium-latest",
         "options": {}
       },
       "id": "node-mistral",
@@ -167,7 +168,8 @@
       "position": [
         944,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -180,7 +182,8 @@
       "position": [
         1104,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -193,7 +196,8 @@
       "position": [
         1328,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -234,7 +238,8 @@
       "position": [
         1760,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -314,11 +319,12 @@
       "position": [
         3488,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nconst result = {\n  numero_matricula: d.numero_matricula ?? null,\n  cartorio: d.cartorio ?? null,\n  endereco: d.endereco ?? null,\n  endereco_curto: d.endereco_curto ?? null,\n  sql_iptu: d.sql_iptu ?? null,\n  data_abertura: d.data_abertura ?? null,\n  livro_folha: d.livro_folha ?? null,\n  matricula_anterior: d.matricula_anterior ?? null,\n  area_total_m2: d.area_total_m2 ?? null,\n  area_construida_m2: d.area_construida_m2 ?? null,\n  testada: d.testada ?? null,\n  confrontantes: d.confrontantes ?? null,\n  // Confrontação literal (\"de um lado\", \"nos fundos\"). Só entra rumo cardeal\n  // quando a matrícula escreve o rumo — cardeal inferido é retificação errada.\n  confrontantes_descricao: d.confrontantes_descricao ?? [],\n  proprietarios: d.proprietarios ?? [],\n  proprietarios_html: d.proprietarios_html ?? '',\n  promissarios_cessionarios: d.promissarios_cessionarios ?? [],\n  promissarios_html: d.promissarios_html ?? '',\n  atos: d.atos ?? [],\n  onus_ativos: d.onus_ativos ?? [],\n  areas_destacadas: d.areas_destacadas ?? [],\n  // Portão de integridade: quantas páginas a certidão declara, quantas chegaram,\n  // que atos faltam. É o que decide se o laudo emite parecer ou apenas organiza\n  // os dados recebidos.\n  integridade: d.integridade ?? null,\n  matricula_incompleta: d.matricula_incompleta ?? false,\n  aviso_matricula_incompleta: d.aviso_matricula_incompleta ?? null,\n  // Matrícula de origem apontada no \"REGISTRO ANTERIOR\". Diferente de\n  // incompletude: o documento está inteiro, e o que fica fora é o histórico\n  // anterior à abertura, que está na matrícula apontada e se obtém por certidão.\n  origem: d.origem ?? null,\n  cadeia_anterior_nao_examinada: d.cadeia_anterior_nao_examinada ?? false,\n  ressalva_origem: d.ressalva_origem ?? null,\n  total_paginas: d.total_paginas ?? null,\n  ultimo_ato_tipo: d.ultimo_ato_tipo ?? null,\n  lat: d.lat ?? null,\n  lng: d.lng ?? null,\n  analise_juridica: d.analise_juridica ?? {},\n  resumo_juridico: d.resumo_juridico ?? {},\n  linha_tempo: d.linha_tempo ?? [],\n  badge_risco_html: d.badge_risco_html ?? '',\n  parecer_juridico_html: d.parecer_juridico_html ?? '',\n  riscos_html: d.riscos_html ?? '',\n  inconsistencias_html: d.inconsistencias_html ?? '',\n  problemas_html: d.problemas_html ?? '',\n  onus_juridico_html: d.onus_juridico_html ?? '',\n  gravames_juridico_html: d.gravames_juridico_html ?? '',\n  cadeia_dominial_html: d.cadeia_dominial_html ?? '',\n  analise_fundamentacao_html: d.analise_fundamentacao_html ?? '',\n  analise_classes_juridicas_html: d.analise_classes_juridicas_html ?? '',\n  analise_regras_html: d.analise_regras_html ?? '',\n  analise_resumo_executivo: d.analise_resumo_executivo ?? '',\n};\n// Uso real do modelo (Análise Jurídica = Anthropic claude-sonnet-4-6) para telemetria de margem.\nconst _an = $('Análise Jurídica').first().json || {};\nconst _u = _an.usage || {};\nconst _inTok = (Number(_u.input_tokens) || 0) + (Number(_u.cache_read_input_tokens) || 0) + (Number(_u.cache_creation_input_tokens) || 0);\nconst _outTok = Number(_u.output_tokens) || 0;\n// Preços claude-sonnet-4-6: US$3/1M input, US$15/1M output\nconst _costUsd = Number(((_inTok * 3 + _outTok * 15) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: 'lidimus-Juridico', model: 'claude-sonnet-4-6', promptTokens: _inTok, completionTokens: _outTok, totalTokens: _inTok + _outTok, costUsd: _costUsd }] };\ntry { const _em = $('Embeddings Consultas').first().json || {}; const _eu = _em.usage || {}; const _etot = Number(_eu.total_tokens) || Number(_eu.prompt_tokens) || 0; if (_etot) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-embed', promptTokens: Number(_eu.prompt_tokens) || 0, completionTokens: 0, totalTokens: _etot, costUsd: Number((_etot * 0.1 / 1e6).toFixed(6)) }); } catch (e) {}\n// Estimativa do custo da Extração de Campos (mistral-large; nó langchain não expõe usage real).\ntry { const _ocrLen = String($('Preparar Input').first().json.texto_ocr || '').length; const _mlIn = Math.round(_ocrLen / 4); const _mlOut = 400; if (_mlIn) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-large-latest', promptTokens: _mlIn, completionTokens: _mlOut, totalTokens: _mlIn + _mlOut, costUsd: Number(((_mlIn * 2 + _mlOut * 6) / 1e6).toFixed(6)), estimated: true }); } catch (e) {}\nreturn [{ json: { jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', result, usage } }];\n"
+        "jsCode": "const d = $input.first().json;\nconst result = {\n  numero_matricula: d.numero_matricula ?? null,\n  cartorio: d.cartorio ?? null,\n  endereco: d.endereco ?? null,\n  endereco_curto: d.endereco_curto ?? null,\n  sql_iptu: d.sql_iptu ?? null,\n  data_abertura: d.data_abertura ?? null,\n  livro_folha: d.livro_folha ?? null,\n  matricula_anterior: d.matricula_anterior ?? null,\n  area_total_m2: d.area_total_m2 ?? null,\n  area_construida_m2: d.area_construida_m2 ?? null,\n  testada: d.testada ?? null,\n  confrontantes: d.confrontantes ?? null,\n  // Confrontação literal (\"de um lado\", \"nos fundos\"). Só entra rumo cardeal\n  // quando a matrícula escreve o rumo — cardeal inferido é retificação errada.\n  confrontantes_descricao: d.confrontantes_descricao ?? [],\n  proprietarios: d.proprietarios ?? [],\n  proprietarios_html: d.proprietarios_html ?? '',\n  promissarios_cessionarios: d.promissarios_cessionarios ?? [],\n  promissarios_html: d.promissarios_html ?? '',\n  atos: d.atos ?? [],\n  onus_ativos: d.onus_ativos ?? [],\n  areas_destacadas: d.areas_destacadas ?? [],\n  // Portão de integridade: quantas páginas a certidão declara, quantas chegaram,\n  // que atos faltam. É o que decide se o laudo emite parecer ou apenas organiza\n  // os dados recebidos.\n  integridade: d.integridade ?? null,\n  matricula_incompleta: d.matricula_incompleta ?? false,\n  aviso_matricula_incompleta: d.aviso_matricula_incompleta ?? null,\n  // Matrícula de origem apontada no \"REGISTRO ANTERIOR\". Diferente de\n  // incompletude: o documento está inteiro, e o que fica fora é o histórico\n  // anterior à abertura, que está na matrícula apontada e se obtém por certidão.\n  origem: d.origem ?? null,\n  cadeia_anterior_nao_examinada: d.cadeia_anterior_nao_examinada ?? false,\n  ressalva_origem: d.ressalva_origem ?? null,\n  total_paginas: d.total_paginas ?? null,\n  ultimo_ato_tipo: d.ultimo_ato_tipo ?? null,\n  lat: d.lat ?? null,\n  lng: d.lng ?? null,\n  analise_juridica: d.analise_juridica ?? {},\n  resumo_juridico: d.resumo_juridico ?? {},\n  linha_tempo: d.linha_tempo ?? [],\n  badge_risco_html: d.badge_risco_html ?? '',\n  parecer_juridico_html: d.parecer_juridico_html ?? '',\n  riscos_html: d.riscos_html ?? '',\n  inconsistencias_html: d.inconsistencias_html ?? '',\n  problemas_html: d.problemas_html ?? '',\n  onus_juridico_html: d.onus_juridico_html ?? '',\n  gravames_juridico_html: d.gravames_juridico_html ?? '',\n  cadeia_dominial_html: d.cadeia_dominial_html ?? '',\n  analise_fundamentacao_html: d.analise_fundamentacao_html ?? '',\n  analise_classes_juridicas_html: d.analise_classes_juridicas_html ?? '',\n  analise_regras_html: d.analise_regras_html ?? '',\n  analise_resumo_executivo: d.analise_resumo_executivo ?? '',\n};\n// Uso real do modelo (Análise Jurídica = Anthropic claude-sonnet-4-6) para telemetria de margem.\nconst _an = $('Análise Jurídica').first().json || {};\nconst _u = _an.usage || {};\nconst _inTok = (Number(_u.input_tokens) || 0) + (Number(_u.cache_read_input_tokens) || 0) + (Number(_u.cache_creation_input_tokens) || 0);\nconst _outTok = Number(_u.output_tokens) || 0;\n// Preços claude-sonnet-4-6: US$3/1M input, US$15/1M output\nconst _costUsd = Number(((_inTok * 3 + _outTok * 15) / 1e6).toFixed(6));\nconst usage = { models: [{ workflow: 'lidimus-Juridico', model: 'claude-sonnet-4-6', promptTokens: _inTok, completionTokens: _outTok, totalTokens: _inTok + _outTok, costUsd: _costUsd }] };\ntry { const _em = $('Embeddings Consultas').first().json || {}; const _eu = _em.usage || {}; const _etot = Number(_eu.total_tokens) || Number(_eu.prompt_tokens) || 0; if (_etot) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-embed', promptTokens: Number(_eu.prompt_tokens) || 0, completionTokens: 0, totalTokens: _etot, costUsd: Number((_etot * 0.1 / 1e6).toFixed(6)) }); } catch (e) {}\n// Estimativa do custo da Extração de Campos (mistral-medium; nó langchain não expõe usage real).\ntry { const _ocrLen = String($('Preparar Input').first().json.texto_ocr || '').length; const _mlIn = Math.round(_ocrLen / 4); const _mlOut = 400; if (_mlIn) usage.models.push({ workflow: 'lidimus-Juridico', model: 'mistral-medium-latest', promptTokens: _mlIn, completionTokens: _mlOut, totalTokens: _mlIn + _mlOut, costUsd: Number(((_mlIn * 0.4 + _mlOut * 2) / 1e6).toFixed(6)), estimated: true }); } catch (e) {}\nreturn [{ json: { jobId: $('Preparar Input').first().json.jobId, stage: 'juridico', result, usage } }];\n"
       },
       "id": "node-montar-callback",
       "name": "Montar Callback",
@@ -327,7 +333,8 @@
       "position": [
         3712,
         304
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -358,11 +365,14 @@
       "position": [
         3936,
         304
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst msg = (item.error && (item.error.message || item.error)) || item.message || 'Falha na análise jurídica';\nreturn [{ json: { errorMessage: String(typeof msg === 'object' ? JSON.stringify(msg) : msg).slice(0, 500) } }];"
+        "jsCode": "// ─── MONTAR ERRO ──────────────────────────────────────────────────────\n// Ponto único de saída para qualquer falha do caminho principal. Todo nó que\n// pode quebrar tem a saída de erro ligada aqui, e não porque erro seja raro:\n// sem isso a execução morre calada. O \"Responder Webhook\" já devolveu\n// \"processing\" no terceiro nó, então o Lidimus considera o disparo bem-sucedido\n// e fica esperando um callback que nunca vem — até o watchdog varrer o job em\n// 60 minutos. Foi o que aconteceu na execução 829: cinco minutos de falha,\n// uma hora de ampulheta na tela do cliente.\nconst item = $input.first().json || {};\n\n// Qual nó quebrou. $prevNode é quem entregou o item nesta execução, e só a\n// saída de erro chega aqui — logo, é sempre o nó que falhou.\nlet noQueFalhou = '';\ntry { noQueFalhou = $prevNode.name || ''; } catch (e) {}\n\n// O n8n põe a falha em `error` (ora string, ora objeto); nó HTTP às vezes\n// devolve `message` no próprio item.\nconst bruto = (item.error && typeof item.error === 'object')\n  ? (item.error.message || item.error.description || JSON.stringify(item.error))\n  : (item.error || item.message || 'Falha na análise jurídica');\n\n// O nó HTTP embrulha a resposta da API em \"... Status 403\\nBody: {json}\".\n// O que interessa a quem lê o laudo é a frase de dentro, não o envelope.\nfunction desembrulhar(txt) {\n  const m = String(txt).match(/Body:\\s*(\\{[\\s\\S]*\\})\\s*$/);\n  if (!m) return String(txt);\n  try {\n    const b = JSON.parse(m[1]);\n    const dentro = b.message || (b.error && (b.error.message || b.error)) || null;\n    return dentro ? String(dentro) : String(txt);\n  } catch (e) { return String(txt); }\n}\n\nconst detalhe = desembrulhar(bruto).replace(/\\s+/g, ' ').trim();\nconst onde = noQueFalhou ? ' (' + noQueFalhou + ')' : '';\n// A execução vai junto: é por ela que o suporte acha o run no n8n sem ter de\n// adivinhar pelo horário.\nlet execucao = '';\ntry { execucao = ' [execução ' + $execution.id + ']'; } catch (e) {}\n\nconst errorMessage = ('Falha na análise jurídica' + onde + ': ' + detalhe + execucao).slice(0, 500);\nreturn [{ json: { errorMessage } }];\n"
       },
       "id": "node-montar-erro",
       "name": "Montar Erro",
@@ -402,7 +412,10 @@
       "position": [
         3712,
         544
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -562,6 +575,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -570,6 +590,13 @@
         [
           {
             "node": "Processar Atos e Coords",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
             "type": "main",
             "index": 0
           }
@@ -584,6 +611,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -592,6 +626,13 @@
         [
           {
             "node": "Geocodificar Endereço",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
             "type": "main",
             "index": 0
           }
@@ -614,6 +655,13 @@
         [
           {
             "node": "Carregar Skill Analise Juridica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
             "type": "main",
             "index": 0
           }
@@ -657,6 +705,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Montar Erro",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -665,6 +720,13 @@
         [
           {
             "node": "Callback Juridico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Erro",
             "type": "main",
             "index": 0
           }

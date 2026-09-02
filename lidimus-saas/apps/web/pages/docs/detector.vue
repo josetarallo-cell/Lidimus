@@ -8,8 +8,8 @@ useHead({
       name: 'description',
       content:
         'Procura instruções escondidas em PDFs — texto branco sobre branco, fonte minúscula, ' +
-        'caracteres Unicode sem glifo, campos da estrutura interna do arquivo, texto dentro de ' +
-        'imagens e comandos em metadados — antes de o documento chegar a uma IA.',
+        'texto fora da página, caracteres sem glifo, campos da estrutura interna do arquivo, ' +
+        'texto dentro de imagens e comandos em metadados — antes de o documento chegar a uma IA.',
     },
     { name: 'robots', content: 'noindex, follow' },
   ],
@@ -109,9 +109,11 @@ const SECOES = [
       <h2>O que procura</h2>
 
       <p>
-        São <strong>cinco camadas independentes</strong>, e todas rodam em todo documento — não há o
-        que configurar. Cada uma examina um tipo diferente de campo, porque esconder texto num PDF
-        não é uma técnica só: o que uma camada não alcança, outra alcança.
+        São <strong>cinco camadas independentes</strong>, e não há o que configurar. Cada uma
+        examina um tipo diferente de campo, porque esconder texto num PDF não é uma técnica só: o
+        que uma camada não alcança, outra alcança. Quatro delas rodam em todo documento; a leitura
+        de imagens embutidas é a exceção, e vale só para o PDF digital — no digitalizado as páginas
+        inteiras já passam por um modelo de visão, que é o mesmo exame por outro caminho.
       </p>
 
       <table class="tabela">
@@ -121,23 +123,28 @@ const SECOES = [
             <td><strong>1. Texto oculto por estilo</strong></td>
             <td>Como o texto é desenhado na página</td>
             <td>
-              Fonte da cor do papel (branco sobre branco, ou quase), modo de renderização invisível
-              e corpo minúsculo — abaixo de 4 pt, ilegível a olho nu. Compara cada trecho com o
-              fundo sobre o qual está desenhado: texto claro sobre fundo escuro é design legítimo,
-              não ocultação, e não vira achado.
+              São seis maneiras de sumir com o texto sem tirá-lo do arquivo: fonte da cor do papel
+              (branco sobre branco, ou quase); modo de renderização que não pinta; corpo minúsculo,
+              abaixo de 4 pt; dimensão nula — corpo, escala ou matriz de texto zerados;
+              transparência total; e posição fora da folha, seja além da borda da página, seja na
+              faixa que o recorte de exibição esconde. Compara cada trecho com o fundo sobre o qual
+              está desenhado: texto claro sobre fundo escuro é design legítimo, não ocultação, e não
+              vira achado.
             </td>
           </tr>
           <tr>
-            <td><strong>2. Tags Unicode</strong></td>
+            <td><strong>2. Codificação dos caracteres</strong></td>
             <td>Os próprios códigos dos caracteres</td>
             <td>
-              É a técnica usada em ataques reais de prompt injection contra LLMs — cada caractere
-              ASCII do payload é deslocado para o bloco de "tag characters" (código-alvo = 0xE0000 +
-              código ASCII). Praticamente nenhuma fonte tem glifo desenhado nesse bloco, então o texto
-              não aparece na tela nem na impressão — mas continua presente, caractere por caractere,
-              em qualquer extração de texto Unicode-aware (exatamente o que os pipelines de IA
-              consomem). É invisibilidade "de fábrica": não depende de cor, tamanho ou modo de
-              renderização.
+              Caracteres que nenhuma fonte desenha. A técnica mais conhecida usa o bloco de "tag
+              characters" (código-alvo = 0xE0000 + código ASCII), empregada em ataques reais contra
+              LLMs; junto com ela vêm os caracteres de largura zero — que cabem <em>dentro</em> de
+              uma palavra visível e costumam carregar o texto em binário, um bit por caractere —, os
+              controles de direção de leitura, que fazem a folha mostrar uma coisa e a extração
+              devolver outra, e os seletores e preenchedores sem glifo. É invisibilidade "de
+              fábrica": não depende de cor, tamanho ou modo de renderização, e o texto continua
+              presente, caractere por caractere, em qualquer extração Unicode-aware — exatamente o
+              que os pipelines de IA consomem. O laudo decodifica e mostra o trecho.
             </td>
           </tr>
           <tr>
@@ -166,10 +173,13 @@ const SECOES = [
             <td>Campos que descrevem o arquivo, não o seu conteúdo</td>
             <td>
               É onde mais aparece: um campo chamado <code>instruction</code> com um comando dirigido
-              à IA. Verifica campos padrão e personalizados, nomes de campo suspeitos, assinatura da
-              ferramenta que gerou o arquivo e datas incoerentes — criação depois da modificação, ou
-              no futuro. O conteúdo suspeito ainda passa por um modelo, que julga se é de fato uma
-              tentativa de injeção, qual a intenção e qual o dano possível.
+              à IA. Lê os campos personalizados, os padrão (<code>/Subject</code>,
+              <code>/Keywords</code>, <code>/Title</code>, <code>/Author</code>) e o bloco XMP — que
+              é um documento XML inteiro dentro do PDF, com nomes de campo à escolha de quem o
+              escreveu. Verifica também nomes de campo suspeitos, assinatura da ferramenta que gerou
+              o arquivo e datas incoerentes — criação depois da modificação, ou no futuro. O conteúdo
+              suspeito ainda passa por um modelo, que julga se é de fato uma tentativa de injeção,
+              qual a intenção e qual o dano possível.
             </td>
           </tr>
         </tbody>
@@ -179,9 +189,12 @@ const SECOES = [
         <code>/ActualText</code> e camada desligada não são defeitos do arquivo: são recursos da
         especificação do PDF funcionando como projetados. <code>/ActualText</code> existe para
         substituir o texto da página na hora de copiar ou extrair — é um recurso de acessibilidade.
-        O que o detector aponta é a <em>divergência</em>: quando o valor declarado ali diz outra
-        coisa do que está impresso, quem lê a folha e quem lê o arquivo recebem versões diferentes
-        do mesmo documento, sem que nenhum dos dois esteja com defeito.
+        O risco está aí mesmo: quem lê a folha e quem lê o arquivo podem receber versões diferentes
+        do mesmo documento, sem que nenhum dos dois esteja com defeito. Por isso o detector
+        <strong>reporta todo <code>/ActualText</code> que encontra, com o valor declarado</strong>,
+        para você comparar com o que está impresso. Ele não faz essa comparação sozinho: confrontar o
+        texto desenhado com o texto extraído é outro tipo de análise, e está listada nos
+        <a href="#limites">Limites</a>.
       </p>
 
       <p class="dica">
@@ -247,14 +260,16 @@ const SECOES = [
         <tbody>
           <tr>
             <td><strong>Limpo</strong></td>
-            <td>Nenhuma camada encontrou conteúdo escondido.</td>
+            <td>Nenhuma camada encontrou conteúdo escondido, e a varredura chegou ao fim do arquivo.</td>
             <td>Baixo</td>
           </tr>
           <tr>
             <td><strong>Atípico</strong></td>
             <td>
               Campo do arquivo fora do padrão — data de criação posterior à de modificação, por
-              exemplo —, sem texto escondido do leitor nem instrução dirigida a uma IA.
+              exemplo —, sem texto escondido do leitor nem instrução dirigida a uma IA. É também
+              onde cai o documento grande demais para ser varrido inteiro numa passagem: não houve
+              achado, mas também não houve exame completo.
             </td>
             <td>Médio</td>
           </tr>
@@ -286,9 +301,9 @@ const SECOES = [
           <tr>
             <td><strong>Camuflado</strong></td>
             <td>
-              A instrução usa técnica invisível de fábrica — tags Unicode, ou um
-              <code>/ActualText</code> que substitui o impresso na extração. Sobrevive a copiar,
-              colar e imprimir, e ninguém topa com ela por acidente.
+              A instrução usa técnica invisível de fábrica — caracteres que nenhuma fonte desenha,
+              ou um <code>/ActualText</code> que substitui o impresso na extração. Sobrevive a
+              copiar, colar e imprimir, e ninguém topa com ela por acidente.
             </td>
             <td>Crítico</td>
           </tr>
@@ -481,15 +496,26 @@ const SECOES = [
           <tr>
             <td><code>offPageAnalysis</code></td>
             <td>
-              Campo antigo, mantido para não quebrar integrações que já o leem: hoje repete o
-              conteúdo de <code>hiddenTextAnalysis</code>. Em código novo, use esse.
+              Os trechos que estavam fora da folha: além da borda da página, ou na faixa que o
+              recorte de exibição esconde. Os mesmos itens também aparecem em
+              <code>hiddenTextAnalysis</code>, marcados com <code>offPage</code>.
             </td>
           </tr>
           <tr>
             <td><code>unicodeTagAnalysis</code></td>
             <td>
-              Trechos decodificados da faixa de Unicode Tags (U+E0000–U+E007F) já convertidos de
-              volta para o texto ASCII original.
+              O que veio pela codificação do caractere: <code>familias</code> lista quais estão
+              presentes (tags, largura zero, bidi, seletores, preenchedores) e <code>trechos</code>
+              traz o texto já decodificado de volta ao alfabeto. <code>runs</code> continua sendo só
+              a faixa de tags, para não mudar o significado do campo para quem já o lê.
+            </td>
+          </tr>
+          <tr>
+            <td><code>varreduraCompleta</code></td>
+            <td>
+              <code>false</code> quando o arquivo é maior do que o detector examina numa passagem.
+              O laudo diz isso, e o nível nunca aparece como Limpo — parar de procurar não é o
+              mesmo que não ter achado.
             </td>
           </tr>
           <tr>
@@ -526,6 +552,27 @@ const SECOES = [
           <strong><code>low</code> não é atestado de segurança.</strong> Significa que as técnicas
           conhecidas não foram encontradas. Ataque novo é, por definição, o que ainda não está na
           lista.
+        </li>
+        <li>
+          <strong>Não compara o desenhado com o extraído.</strong> Confrontar o que a página pinta
+          com o que a extração devolve é o exame que pegaria de uma vez o <code>/ActualText</code>
+          divergente e a fonte adulterada — aquela em que o mapa de caracteres é remendado para o
+          glifo mostrar um número e o código guardar outro. O detector reporta os campos e o texto,
+          e deixa a comparação com você.
+        </li>
+        <li>
+          <strong>A varredura tem tetos.</strong> Arquivo muito grande é examinado até um limite de
+          tempo e de tamanho. Quando isso acontece o laudo avisa, e o nível não pode sair como
+          Limpo — mas o que ficou além do teto não foi analisado.
+        </li>
+        <li>
+          <strong>Imagem em codec de fax não é lida.</strong> A leitura de imagens embutidas cobre
+          JPEG e os formatos comprimidos comuns; CCITTFax, JBIG2 e JPEG 2000 ficam de fora. Em PDF
+          digitalizado isso é compensado pelo OCR das páginas inteiras.
+        </li>
+        <li>
+          <strong>Arquivo embutido é apontado, não aberto.</strong> Um anexo dentro do PDF vira
+          achado pela presença; o que está escrito dentro dele o detector não lê.
         </li>
         <li>
           <strong>Em PDF digitalizado, a leitura depende do OCR.</strong> Documento que é só imagem

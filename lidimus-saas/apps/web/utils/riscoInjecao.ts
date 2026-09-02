@@ -18,7 +18,13 @@
 // laudos já gravados ganham a escala sem reprocessar job nenhum — o mesmo
 // caminho que revelarTextoOculto tomou.
 
-import { revelarTextoOculto, temTagsUnicode } from './textoOculto'
+import {
+  decodificarRunsBinarios,
+  familiasPresentes,
+  normalizarParaAnalise,
+  revelarTextoOculto,
+  temCaracteresInvisiveis,
+} from './textoOculto'
 
 export type FaixaRisco = 'baixo' | 'medio' | 'alto' | 'critico'
 
@@ -180,13 +186,18 @@ const PADROES_INSTRUCAO_IA = [
  */
 export function instrucoesParaIa(texto: string): string[] {
   if (!texto) return []
+  // Sobre o texto normalizado: um "а" cirílico no lugar do "a" deixa a frase
+  // idêntica na tela e não casa com nenhum dos padrões acima. Como toda a
+  // escalada de risco passa por casar palavra, normalizar antes é o que impede
+  // a troca de um caractere de derrubar a detecção inteira.
+  const alvo = normalizarParaAnalise(texto)
   const achados = new Set<string>()
   for (const fonte of PADROES_INSTRUCAO_IA) {
     // RegExp nova a cada chamada: com `g` o objeto guarda lastIndex, e um regex
     // compartilhado entre chamadas pularia o começo do texto seguinte.
     const rx = new RegExp(fonte, 'gi')
     let m: RegExpExecArray | null
-    while ((m = rx.exec(texto)) !== null) {
+    while ((m = rx.exec(alvo)) !== null) {
       achados.add(m[0].trim())
       if (m.index === rx.lastIndex) rx.lastIndex++
     }
@@ -202,11 +213,16 @@ const MENCAO_IA =
 
 function falaComIa(texto: string): boolean {
   if (!texto) return false
-  return instrucoesParaIa(texto).length > 0 || MENCAO_IA.test(texto)
+  return instrucoesParaIa(texto).length > 0 || MENCAO_IA.test(normalizarParaAnalise(texto))
 }
 
+// Comparação de trechos entre camadas. Passa pela mesma dobra de homoglifos do
+// teste de conteúdo: o achado da camada de estilo sai com o texto como está no
+// arquivo (cirílico incluído) e o do texto sai já normalizado — sem dobrar os
+// dois lados, um plantio só aparece como dois, e o laudo anuncia "ataque em
+// várias camadas" onde há uma.
 function normalizar(texto: string): string {
-  return texto.toLowerCase().replace(/\s+/g, ' ').trim()
+  return normalizarParaAnalise(texto).toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
 // ── Eixo das camadas ─────────────────────────────────────────────────────────
@@ -266,26 +282,48 @@ export function classificarInjecao(result: Record<string, any> | undefined | nul
     revelarTextoOculto(String(it?.text ?? '')),
   )
 
-  // 2. Tags Unicode. `runs` já vem decodificado do pipeline; varrer os itens de
-  //    novo cobre laudos gravados antes de esse campo existir.
-  const runs: string[] = (r.unicodeTagAnalysis?.runs ?? []).map((t: any) => String(t ?? ''))
-  const brutosComTags = [
+  // 2. Codificação dos caracteres — tags, largura zero, bidi, seletores e
+  //    preenchedores. `trechos` já vem decodificado do pipeline; varrer os itens
+  //    de novo cobre laudos gravados antes de esse campo existir.
+  const runs: string[] = [
+    ...(r.unicodeTagAnalysis?.trechos ?? r.unicodeTagAnalysis?.runs ?? []),
+  ].map((t: any) => String(t ?? ''))
+  const brutos = [
     ...itensOcultos.map((it) => String(it?.text ?? '')),
     ...itensEstruturais.map((it) => String(it?.text ?? '')),
     fullText,
-  ].filter((t) => temTagsUnicode(t))
+  ]
+  const brutosComInvisiveis = brutos.filter((t) => temCaracteresInvisiveis(t))
   const trechosUnicode = [
-    ...new Set([...runs, ...brutosComTags.map(revelarTextoOculto)].filter((t) => t.trim())),
+    ...new Set(
+      [
+        ...runs,
+        ...brutosComInvisiveis.map(revelarTextoOculto),
+        ...brutos.flatMap(decodificarRunsBinarios),
+      ].filter((t) => t.trim()),
+    ),
+  ]
+  // Família presente sem trecho legível ainda é ocultação: um controle de
+  // direção de texto no meio de um contrato não chega ali por acaso.
+  const familiasEncontradas = [
+    ...new Set([...(r.unicodeTagAnalysis?.familias ?? []), ...brutos.flatMap(familiasPresentes)]),
   ]
 
   // 4. Imagens — o veredito é do modelo de visão que leu o que está desenhado
   const imagem = r.imageAnalysis ?? {}
   const trechosImagem: string[] = (imagem.imageTexts ?? []).map((t: any) => String(t ?? ''))
 
-  // 5. Metadados — campos que descrevem o arquivo, não o seu conteúdo
+  // 5. Metadados — campos que descrevem o arquivo, não o seu conteúdo.
+  //    Além dos customizados entram os padrão (/Subject, /Keywords…) e o XMP,
+  //    que o pipeline passou a ler: um payload em /Subject não é menos payload
+  //    por estar num campo que a especificação prevê.
   const meta = r.metadataAnalysis ?? {}
   const razoesMeta: string[] = (meta.suspiciousReasons ?? []).map((t: any) => String(t ?? ''))
-  const camposMeta: string[] = Object.values(meta.customFields ?? {}).map((v) => String(v ?? ''))
+  const camposMeta: string[] = [
+    ...Object.values(meta.customFields ?? {}),
+    ...Object.values(meta.standardScanned ?? {}),
+    ...Object.values(meta.xmpFields ?? {}),
+  ].map((v) => String(v ?? ''))
 
   // 0. Texto do documento. O `fullText` inclui o que as outras camadas acharam
   //    (a extração de PDF ignora cor e corpo), então só conta como "à vista" o
@@ -310,11 +348,11 @@ export function classificarInjecao(result: Record<string, any> | undefined | nul
     },
     {
       id: 'unicode',
-      rotulo: 'Tags Unicode',
+      rotulo: 'Codificação dos caracteres',
       exame: 'os próprios códigos dos caracteres',
       disponivel: true,
-      encontrou: trechosUnicode.length > 0,
-      ocultacao: trechosUnicode.length > 0,
+      encontrou: trechosUnicode.length > 0 || familiasEncontradas.length > 0,
+      ocultacao: trechosUnicode.length > 0 || familiasEncontradas.length > 0,
       payload: trechosUnicode.some(falaComIa),
       trechos: trechosUnicode,
     },
@@ -366,21 +404,30 @@ export function classificarInjecao(result: Record<string, any> | undefined | nul
   const comPayload = camadas.filter((c) => c.payload)
   const sitiosComPayload = comPayload.filter((c) => SITIOS.includes(c.id))
 
-  // Camuflagem: invisibilidade que não depende de estilo nenhum. Tags Unicode
-  // (caractere sem glifo) e /ActualText divergente entregam à extração um texto
-  // que a folha impressa nunca mostra — e sobrevivem a copiar, colar e imprimir.
+  // Camuflagem: invisibilidade que não depende de estilo nenhum. Caractere sem
+  // glifo — tag, largura zero, controle bidi — e /ActualText divergente entregam
+  // à extração um texto que a folha impressa nunca mostra, e sobrevivem a
+  // copiar, colar e imprimir. O argumento é o mesmo para as cinco famílias:
+  // nenhuma depende de cor, de corpo nem do modo de renderização do PDF.
   const actualTextComPayload = estruturaisRelevantes.some(
     (it) => it?.type === 'actualtext' && falaComIa(revelarTextoOculto(String(it?.text ?? ''))),
   )
   const camuflagemComPayload = por('unicode').payload || actualTextComPayload
 
+  // Varredura interrompida no limite não é documento limpo: é documento não
+  // examinado até o fim. Sem esta guarda, encher o arquivo de streams inócuos
+  // antes do payload devolve "Limpo" com toda a confiança do mundo.
+  const varreduraIncompleta =
+    r.varreduraCompleta === false || r.hiddenTextAnalysis?.varreduraCompleta === false
+
   const derivado = ((): NivelInjecao => {
-    if (!camadas.some((c) => c.encontrou)) return 'limpo'
+    if (!camadas.some((c) => c.encontrou)) return varreduraIncompleta ? 'atipico' : 'limpo'
     if (sitiosComPayload.length >= 2) return 'coordenado'
     if (camuflagemComPayload) return 'camuflado'
     if (comPayload.some((c) => c.id !== 'texto')) return 'injetado'
-    // Texto em tags sem palavra de IA legível continua invisível de fábrica e
-    // sem uso legítimo: ninguém plantou aquilo para ser lido por gente.
+    // Texto em codificação invisível sem palavra de IA legível continua
+    // invisível de fábrica e sem uso legítimo: ninguém plantou aquilo para ser
+    // lido por gente.
     if (por('unicode').encontrou) return 'injetado'
     if (por('texto').payload) return 'dirigido'
     if (camadas.some((c) => c.ocultacao)) return 'oculto'

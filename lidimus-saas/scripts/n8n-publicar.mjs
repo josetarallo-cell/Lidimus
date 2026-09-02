@@ -11,8 +11,14 @@
 // que o repo tenha acumulado (ou desfaria um ajuste feito na interface), o que é
 // exatamente o acidente que o script de diff existe para tornar visível.
 //
+// `--conexoes` é a exceção deliberada: religar nós muda o CAMINHO que o
+// documento percorre, não o que um nó faz, e não há como expressar isso trocando
+// `parameters`. Por ser mais larga que o resto do script — publica o mapa de
+// conexões inteiro, e com ele qualquer religação que o repo tenha acumulado —
+// exige a flag e imprime, antes de enviar, exatamente quais arestas mudam.
+//
 // Uso:
-//   node scripts/n8n-publicar.mjs <arquivo.json> <Nó A> [Nó B ...] [--dry-run]
+//   node scripts/n8n-publicar.mjs <arquivo.json> <Nó A> [Nó B ...] [--conexoes] [--dry-run]
 //
 // Exemplo:
 //   node scripts/n8n-publicar.mjs lidimus-OCR.json "Normalizar Texto" "Callback OCR"
@@ -23,10 +29,11 @@ import { lerEnvProducaoBruto, raizRepo, valorDoEnv } from './lidimus-update-comu
 
 const argv = process.argv.slice(2)
 const simulacao = argv.includes('--dry-run')
-const [arquivo, ...nomesDeNos] = argv.filter((a) => a !== '--dry-run')
+const publicarConexoes = argv.includes('--conexoes')
+const [arquivo, ...nomesDeNos] = argv.filter((a) => a !== '--dry-run' && a !== '--conexoes')
 
-if (!arquivo || nomesDeNos.length === 0) {
-  console.error('Uso: node scripts/n8n-publicar.mjs <arquivo.json> <Nó> [Nó ...] [--dry-run]')
+if (!arquivo || (nomesDeNos.length === 0 && !publicarConexoes)) {
+  console.error('Uso: node scripts/n8n-publicar.mjs <arquivo.json> <Nó> [Nó ...] [--conexoes] [--dry-run]')
   process.exit(1)
 }
 
@@ -91,7 +98,36 @@ for (const nome of nomesDeNos) {
   trocas.push({ nome, de: antes.length, para: depois.length })
 }
 
-if (trocas.length === 0) {
+// Conexões: lista aresta a aresta o que muda, para a religação ser conferida
+// antes de valer no ar — e não depois, num workflow que atende o site.
+const arestas = (mapa) =>
+  new Set(
+    Object.entries(mapa ?? {}).flatMap(([origem, portas]) =>
+      (portas.main ?? []).flatMap((saidas, i) =>
+        (saidas ?? []).map((d) => `${origem} [${i}] → ${d.node}`),
+      ),
+    ),
+  )
+
+let conexoesMudam = false
+if (publicarConexoes) {
+  const antes = arestas(remoto.connections)
+  const depois = arestas(local.connections)
+  const removidas = [...antes].filter((a) => !depois.has(a))
+  const criadas = [...depois].filter((a) => !antes.has(a))
+  conexoesMudam = removidas.length > 0 || criadas.length > 0
+
+  if (!conexoesMudam) {
+    console.log('= conexões — já idênticas, nada a fazer')
+  } else {
+    console.log('\nConexões que mudam no ar:')
+    for (const a of removidas) console.log(`  - ${a}`)
+    for (const a of criadas) console.log(`  + ${a}`)
+    remoto.connections = local.connections
+  }
+}
+
+if (trocas.length === 0 && !conexoesMudam) {
   console.log('Nada a publicar.')
   process.exit(0)
 }
@@ -190,4 +226,12 @@ for (const nome of trocas.map((t) => t.nome)) {
   const gravado = JSON.stringify(depoisDoPut.nodes.find((n) => n.name === nome)?.parameters)
   console.log(`${esperado === gravado ? '✓' : '✗'} ${nome} — parâmetros conferem no que está no ar`)
   if (esperado !== gravado) process.exitCode = 1
+}
+
+if (conexoesMudam) {
+  const esperadas = [...arestas(local.connections)].sort()
+  const gravadas = [...arestas(depoisDoPut.connections)].sort()
+  const conferem = JSON.stringify(esperadas) === JSON.stringify(gravadas)
+  console.log(`${conferem ? '✓' : '✗'} conexões conferem no que está no ar (${gravadas.length} arestas)`)
+  if (!conferem) process.exitCode = 1
 }

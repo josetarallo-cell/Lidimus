@@ -69,9 +69,21 @@ const workers = [
   startInjectionWorker(db, REDIS_URL, N8N_BASE_URL + N8N_INJECTION_WEBHOOK_PATH, N8N_CALLBACK_SECRET, publisher),
 ]
 
-// Expira jobs presos (callback do n8n que nunca chegou) e estorna os créditos
+// Expira jobs presos (callback do n8n que nunca chegou) e estorna os créditos.
+//
+// 15 e não 60 desde 01/09/2026. O número mede uma ETAPA, não o pipeline —
+// `jobs.updatedAt` tem `$onUpdate`, então o relógio zera a cada transição — e as
+// etapas reais cabem com folga: a janela do OCR (enfileiramento até o callback)
+// deu no máximo 100 s em produção, croqui 33 s, KML 58 s, e uma análise jurídica
+// completa medida ponta a ponta, 67 s. O que ocupava a hora era falha silenciosa
+// do n8n, e essa passou a voltar como callback de erro em segundos.
+//
+// Baixar tem custo se errarmos para menos: o job é morto e estornado enquanto o
+// n8n ainda trabalha, e o callback que chegar depois é recusado por
+// `transitionActiveJob` — o cliente fica com o estorno e sem o relatório. Por
+// isso o corte acompanha a medição, e não o palpite.
 const watchdog = startStuckJobWatchdog(db, publisher, {
-  timeoutMinutes: Number(process.env.STUCK_JOB_TIMEOUT_MINUTES ?? 60),
+  timeoutMinutes: Number(process.env.STUCK_JOB_TIMEOUT_MINUTES ?? 15),
 })
 
 // Revisão sem resposta segue sozinha depois do prazo — ver startRevisaoWatchdog

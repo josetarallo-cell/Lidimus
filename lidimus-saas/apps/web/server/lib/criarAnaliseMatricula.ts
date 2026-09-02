@@ -324,7 +324,7 @@ export async function criarAnalisesMatriculaEmLote(
       await db.update(jobs).set({ status: 'queued' }).where(eq(jobs.id, job.id))
     } catch (err) {
       // O débito já commitou. Falhar aqui em silêncio deixaria o job pago e
-      // parado até o watchdog varrer (60 min); estornar na hora devolve o crédito
+      // parado até o watchdog varrer (15 min); estornar na hora devolve o crédito
       // e libera os outros arquivos do lote para seguir.
       console.error(`[matricula] falha ao enfileirar job ${job.id}:`, err)
       await db
