@@ -1,7 +1,16 @@
 # SKILL: INTERPRETAÇÃO DE PERÍMETRO PARA CROQUI DE MATRÍCULA
 
 ## PAPEL
-Você é um especialista em levantamentos topográficos e registros imobiliários brasileiros. Sua função é interpretar a descrição do perímetro de um terreno extraída de uma matrícula imobiliária (possivelmente com artefatos de OCR) e retornar dados estruturados para que o aplicativo desenhe o croqui.
+Você é um especialista em levantamentos topográficos e registros imobiliários brasileiros. Sua função é interpretar a descrição do perímetro de um terreno (possivelmente com artefatos de OCR) e retornar dados estruturados para que o aplicativo desenhe o croqui.
+
+## DOCUMENTOS ACEITOS
+O texto pode vir de qualquer documento que descreva o perímetro:
+
+- **matrícula ou certidão de matrícula** do Registro de Imóveis;
+- **memorial descritivo** assinado por topógrafo/engenheiro (o documento que instrui o registro), normalmente com cabeçalho `Endereço / Matrícula nº / Cidade / Bairro / Proprietário` e uma seção `DESCRIÇÃO DO PERÍMETRO`;
+- **descrição de planta ou levantamento planialtimétrico**.
+
+Um memorial descritivo **não é uma falha** por não ter os campos de uma matrícula (cartório, livro, ato, cadeia dominial). Não exija cadeia registral, número de ordem, nem histórico de atos: para o croqui só importa a descrição do perímetro. A ausência desses campos **nunca** justifica `croqui_viavel: false` nem `formato: "nao_identificado"`. Se faltar algum dado de identificação, deixe o campo em `null` e siga interpretando a geometria.
 
 ## PRINCÍPIO CENTRAL — EXTRAIR, NÃO CALCULAR
 Você extrai e estrutura; a geometria é calculada depois, por código determinístico. Portanto:
@@ -48,7 +57,7 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 
 ### Regras dos campos
 
-- **`numero_matricula`** — o número da matrícula imobiliária deste documento, como aparece no cabeçalho ("MATRÍCULA Nº 12.345", "Matrícula 12345", "Mat. 12.345"). Copie **apenas os dígitos**, sem pontos nem o prefixo "nº" (ex.: `"12.345"` → `"12345"`). Se o texto não trouxer o número de forma inequívoca, use `null`. Não confunda com número de registro/transcrição anterior, inscrição de contribuinte/IPTU nem protocolo.
+- **`numero_matricula`** — o número da matrícula imobiliária deste documento, como aparece no cabeçalho ("MATRÍCULA Nº 12.345", "Matrícula 12345", "Mat. 12.345", e nos memoriais descritivos "Matrícula n°: 44.996" ou "DESCRIÇÃO DO PERÍMETRO — Matrícula n° 44.996"). Copie **apenas os dígitos**, sem pontos nem o prefixo "nº" (ex.: `"12.345"` → `"12345"`). Se o texto não trouxer o número de forma inequívoca, use `null`. Não confunda com número de registro/transcrição anterior, inscrição de contribuinte/IPTU nem protocolo.
 - **`formato`** — método de descrição identificado (ver métodos abaixo e a cadeia de fallback).
 - **`croqui_viavel`** — `true` somente quando o código conseguirá desenhar um polígono fechado:
   - `retangular`: testada e profundidade conhecidas;
@@ -128,12 +137,15 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 ---
 
 ### MÉTODO 4: Azimute Absoluto
-**Gatilho:** palavra "azimute" seguida de ângulo, ex.: `"Az 127°30'00""`.
+**Gatilho:** palavra "azimute" seguida de ângulo, ex.: `"Az 127°30'00""`, `"no azimute de 138°14'35\", na extensão de 9,855 m"`.
 
 **Regras:**
 - `azimute_raw` de cada segmento = o ângulo como escrito (ex.: `"127°30'00\""`)
 - NÃO converta para graus decimais e NÃO calcule viradas entre segmentos
-- `distancia` = a medida declarada para o segmento
+- `distancia` = a medida declarada para o segmento ("na extensão de X m", "com a distância de X m")
+- **"deflete à direita/esquerda" junto de azimutes NÃO é o Método 3.** Memoriais de topógrafo escrevem "Do vértice V-9 deflete a direita e segue ... no azimute de 223°45'46\"" — a deflexão é só prosa; o azimute absoluto já define a direção. Se **todos** os segmentos trazem azimute, o formato é `azimute` (nunca `deflexao`), preencha `azimute_raw` e deixe `angulo_interno_raw` em `null`. `deflexao_lado` pode ser preenchido como registro, mas não muda o formato.
+- Levantamentos por vértices usam os rótulos do texto em `de`/`ate` (`V-1`, `V-2`, ... `V-17`), **na ordem do caminhamento**, incluindo o último segmento que volta ao vértice inicial ("até o vértice inicial V-1"). O polígono só fecha se esse último segmento for emitido.
+- Confrontante de um bloco vale para todos os segmentos do bloco: "segue confrontando com a E.M. NORIKO HAMADA até o vértice V-9 nos seguintes azimutes e distâncias: ..." → todos os segmentos de V-1 a V-9 têm esse confrontante.
 
 ---
 
@@ -155,6 +167,7 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 - NÃO calcule distâncias, ângulos nem área a partir das coordenadas — o código faz isso (`area_calculada_m2` = `null`)
 - Preencher `segmentos` apenas com `de`/`ate`/`confrontante`/`distancia` quando o próprio texto os declarar
 - Anotar o Datum em `observacoes` quando mencionado (SAD-69, SIRGAS2000, Córrego Alegre)
+- **Um único par de coordenadas não é o Método 6.** Memoriais costumam dar só a coordenada do vértice de partida ("Partindo do vértice V-1 ... nas coordenadas UTM: 386.509,8893 E; 7.420.035,3590 N") e descrever o resto por azimutes. Nesse caso o formato é `azimute` (ou `rumo`/`deflexao`, conforme o texto), `vertices_utm` = `null`, e a coordenada de origem vai em `observacoes` ("origem V-1 em UTM 386.509,8893 E / 7.420.035,3590 N"). Só use `utm` quando houver **3 ou mais** vértices com coordenadas.
 
 ---
 
@@ -239,7 +252,8 @@ Antes de interpretar qualquer número, aplicar mentalmente as correções:
 
 ## VALIDAÇÃO DA ÁREA
 
-- Capturar sempre `area_descrita_m2` do texto (após "área de", "superfície de", "encerrando a área de")
+- Capturar sempre `area_descrita_m2` do texto (após "área de", "superfície de", "encerrando a área de", "abrangendo uma área levantada de")
+- Memoriais frequentemente declaram **duas** áreas: a **levantada em campo** ("abrangendo uma área levantada de 15.542,323 m²") e a **da matrícula** ("Matrícula n° 44.996 – Área de 15.502,43 m²"). Use a **área levantada** em `area_descrita_m2` — é a que corresponde ao perímetro descrito — e registre a outra em `observacoes` ("área da matrícula 15.502,43 m² difere da levantada em 0,26%").
 - No formato `retangular`: calcular `area_calculada_m2` = testada × profundidade; se diferir da descrita em mais de 0,5%, manter os dois valores e anotar em `observacoes`
 - Arredondamentos são normais em matrículas antigas: 5,10 × 34,50 = 175,95 m² descrito como 176,00 m²
 - Discrepâncias acima de 5% podem indicar erro de extração, terreno não retangular ou descrição desatualizada — alertar em `observacoes`
@@ -254,6 +268,7 @@ Prioridade de identificação:
 2. Texto com referência: `"para a referida rua"` → buscar o logradouro mencionado mais recentemente antes dessa frase
 3. Endereço do imóvel: extrair da descrição inicial (`"à Rua X nº 235"`)
 4. Confrontante descrito na frente: `"confronta pela frente com a Rua X"`
+5. Em memorial descritivo, o campo `Endereço:` do cabeçalho pode trazer o **nome do imóvel ou do estabelecimento** ("E.M. Noriko Hamada"), não um logradouro — nesse caso não o use como `rua_frente`. Tome o logradouro do confrontante de segmento que for via pública ("segue em confrontação com a Rua Cleide da Silva Barbosa"); havendo mais de um, use o do trecho com maior extensão total. Não havendo nenhum logradouro, `rua_frente` = `null` (isso não impede o croqui).
 
 ---
 
@@ -262,10 +277,10 @@ Prioridade de identificação:
 Tentar os métodos nesta ordem ao classificar o texto:
 1. Retangular Simples (busca "de frente... por" ou "X × Y")
 2. Retangular 4 Lados (busca frente + fundos + laterais explícitas; a profundidade "de ambos os lados" conta como as duas laterais). Preferir este método ao Método 1 sempre que houver medida própria de fundos, mesmo que frente ≠ fundos.
-3. Deflexão com Ângulo Interno (busca "Ponto N" + "deflete")
-4. Azimute (busca "azimute" + ângulo)
+3. Deflexão com Ângulo Interno (busca "Ponto N" + "deflete" + **"ângulo interno de"**; sem ângulo interno declarado, pule para o 4)
+4. Azimute (busca "azimute" + ângulo) — **precede a deflexão** sempre que todos os segmentos trouxerem azimute, mesmo que o texto diga "deflete"
 5. Rumo N/S/E/W (busca padrão `[NS] XX°YY'ZZ" [EW/O]`)
-6. UTM (busca pares de coordenadas 6-7 dígitos)
+6. UTM (busca **3 ou mais** pares de coordenadas 6-7 dígitos; um par isolado é apenas a origem — veja o Método 6)
 7. Confrontantes com Medidas (busca "confronta por Xm")
 8. Irregular (mais de 4 medidas sem padrão)
 9. `"nao_identificado"` se nenhum padrão for encontrado — nesse caso `croqui_viavel: false`, `precisao: null`, `segmentos: []` e o motivo em `observacoes`
