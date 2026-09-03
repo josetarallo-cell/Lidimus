@@ -88,6 +88,18 @@ function dataFmt(iso: string): string {
       </p>
     </header>
 
+    <div class="enviar">
+      <UploadCard
+        title="Enviar matrícula ou memorial descritivo em PDF"
+        description="Para documentos que ainda não passaram pelo Leitor: enviamos o PDF para leitura e desenhamos o croqui a partir da descrição do perímetro. Vale matrícula, certidão ou memorial descritivo de topógrafo."
+        accept=".pdf,application/pdf"
+        :uploading="uploading"
+        :custo-base="12"
+        :custo-por-pagina="3"
+        @submit="onSubmit"
+      />
+    </div>
+
     <!-- Reaproveitar leitura já feita: sem OCR novo, custo mínimo -->
     <section v-if="matriculasProntas.length" class="ld-painel reaproveitar">
       <header class="reaproveitar-cabecalho">
@@ -116,16 +128,6 @@ function dataFmt(iso: string): string {
       </ul>
     </section>
 
-    <UploadCard
-      title="Enviar matrícula em PDF"
-      description="Para matrículas que ainda não passaram pelo Leitor: enviamos o PDF para leitura e desenhamos o croqui a partir da descrição do perímetro."
-      accept=".pdf,application/pdf"
-      :uploading="uploading"
-      :custo-base="12"
-      :custo-por-pagina="3"
-      @submit="onSubmit"
-    />
-
     <p v-if="erro" class="ld-erro pagina-erro" role="alert">
       {{ erro.texto }}
       <NuxtLink v-if="erro.linkTo" :to="erro.linkTo" class="pagina-erro-link">{{ erro.linkLabel }}</NuxtLink>
@@ -151,7 +153,7 @@ function dataFmt(iso: string): string {
   max-width: 60ch;
 }
 
-.reaproveitar {
+.enviar {
   margin-bottom: var(--ld-space-lg);
 }
 .reaproveitar-cabecalho {

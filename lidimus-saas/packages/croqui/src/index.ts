@@ -2,7 +2,15 @@
 // croqui-matricula extrai da matrícula e devolve o desenho em SVG + validações.
 // Nenhum LLM aqui — toda a geometria é código, testável e versionada.
 
-import type { CroquiData, CroquiResultado, Desenho, Formato, Precisao, Segmento } from './types.ts'
+import type {
+  CroquiData,
+  CroquiResultado,
+  Desenho,
+  Formato,
+  Georreferencia,
+  Precisao,
+  Segmento,
+} from './types.ts'
 import {
   construirCaminhada,
   construirIrregular,
@@ -12,8 +20,18 @@ import {
   shoelace,
 } from './poligono.ts'
 import { renderSvg } from './svg.ts'
+import { gerarKml } from './kml.ts'
 
-export type { CroquiData, CroquiResultado, Segmento, Formato, Precisao } from './types.ts'
+export type {
+  CroquiData,
+  CroquiResultado,
+  Segmento,
+  Formato,
+  Precisao,
+  Georreferencia,
+} from './types.ts'
+export { gerarKml } from './kml.ts'
+export { utmParaLatLon, meridianoCentral, fusoDoMeridiano } from './utm.ts'
 export { parseDms, rumoParaAzimute } from './angulos.ts'
 export { fmtNum } from './svg.ts'
 
@@ -95,6 +113,11 @@ export function gerarCroqui(bruto: unknown): CroquiResultado {
     areaDescritaM2: areaDescrita,
   })
 
+  // KML só sai quando o desenho pôde ser amarrado ao globo; os avisos da
+  // amarração (hemisfério assumido, datum antigo) entram junto com os da geometria
+  const kml = gerarKml(data, desenho)
+  avisos.push(...kml.avisos)
+
   return {
     ok: true,
     motivo: null,
@@ -105,6 +128,8 @@ export function gerarCroqui(bruto: unknown): CroquiResultado {
     erroFechamentoPct: erroFechamentoPct != null ? arred2(erroFechamentoPct) : null,
     precisao: data.precisao ?? null,
     avisos,
+    kml: kml.kml,
+    kmlMotivo: kml.motivo,
   }
 }
 
@@ -119,6 +144,8 @@ function falha(motivo: string, data?: CroquiData): CroquiResultado {
     erroFechamentoPct: null,
     precisao: data?.precisao ?? null,
     avisos: [],
+    kml: null,
+    kmlMotivo: null,
   }
 }
 
@@ -172,6 +199,22 @@ function normalizar(bruto: unknown): CroquiData | null {
         .map((v) => ({ e: num(v.e) ?? NaN, n: num(v.n) ?? NaN, rotulo: str(v.rotulo) }))
     : null
 
+  const geoBruto = (d.georreferencia ?? null) as Record<string, unknown> | null
+  let georreferencia: Georreferencia | null = null
+  if (geoBruto && typeof geoBruto === 'object') {
+    const o = (geoBruto.origem ?? null) as Record<string, unknown> | null
+    const oe = o ? num(o.e) : null
+    const on = o ? num(o.n) : null
+    const fuso = num(geoBruto.fuso)
+    georreferencia = {
+      datum: str(geoBruto.datum),
+      fuso: fuso != null && Number.isInteger(fuso) && fuso >= 1 && fuso <= 60 ? fuso : null,
+      hemisferio: geoBruto.hemisferio === 'N' || geoBruto.hemisferio === 'S' ? geoBruto.hemisferio : null,
+      meridiano_central: num(geoBruto.meridiano_central),
+      origem: oe != null && on != null ? { e: oe, n: on, rotulo: o ? str(o.rotulo) : null } : null,
+    }
+  }
+
   const precisao: Precisao | null =
     d.precisao === 'exata' || d.precisao === 'aproximada' || d.precisao === 'esquematica'
       ? d.precisao
@@ -193,6 +236,7 @@ function normalizar(bruto: unknown): CroquiData | null {
     area_calculada_m2: num(d.area_calculada_m2),
     segmentos,
     vertices_utm: verticesUtm,
+    georreferencia,
     observacoes: str(d.observacoes),
   }
 }

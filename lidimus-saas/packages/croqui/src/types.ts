@@ -35,6 +35,19 @@ export interface VerticeUtm {
   rotulo?: string | null
 }
 
+// Amarração do perímetro ao globo, quando o documento a declara. Sem fuso não
+// há como converter UTM em latitude/longitude: os mesmos E/N caem em qualquer
+// um dos 60 fusos. Por isso nada aqui é inferido — só o que o texto declara.
+export interface Georreferencia {
+  datum?: string | null
+  fuso?: number | null
+  hemisferio?: 'N' | 'S' | null
+  meridiano_central?: number | null
+  // Coordenada do vértice de partida, nos levantamentos que descrevem o
+  // perímetro por azimutes a partir de um ponto amarrado
+  origem?: VerticeUtm | null
+}
+
 export interface CroquiData {
   // Número da matrícula do documento (só dígitos), extraído do cabeçalho. Não
   // participa da geometria — serve para identificar o documento no painel.
@@ -50,6 +63,7 @@ export interface CroquiData {
   area_calculada_m2?: number | null
   segmentos: Segmento[]
   vertices_utm?: VerticeUtm[] | null
+  georreferencia?: Georreferencia | null
   observacoes?: string | null
 }
 
@@ -90,4 +104,8 @@ export interface CroquiResultado {
   erroFechamentoPct: number | null
   precisao: Precisao | null
   avisos: string[]
+  // KML do perímetro em coordenadas geográficas, quando o desenho pôde ser
+  // georreferenciado. `kmlMotivo` diz por que não, para a tela explicar.
+  kml: string | null
+  kmlMotivo: string | null
 }

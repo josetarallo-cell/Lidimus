@@ -51,6 +51,13 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
     }
   ],
   "vertices_utm": null,
+  "georreferencia": {
+    "datum": "SIRGAS2000 | SAD-69 | Córrego Alegre | WGS84 | null",
+    "fuso": 23,
+    "hemisferio": "S",
+    "meridiano_central": -45,
+    "origem": { "rotulo": "V-1", "e": 386509.8893, "n": 7420035.3590 }
+  },
   "observacoes": "alertas, ambiguidades, unidades convertidas, perímetros não interpretados"
 }
 ```
@@ -75,6 +82,13 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 - **`deflexao_lado`** — `"direita"` ou `"esquerda"`, quando o texto declara deflexão ou curva para um lado.
 - **`vertices_utm`** — apenas no formato `utm`: lista `[{"e": 345678.12, "n": 7401234.56, "rotulo": "P1"}]` na ordem de aparição no texto, valores copiados como escritos. Nos demais formatos, `null`.
 - **`area_calculada_m2`** — preencha SOMENTE no formato `retangular` (testada × profundidade). Nos demais, `null` — o código calcula.
+- **`georreferencia`** — o que amarra o desenho ao globo, e é o que permite exportar o croqui em KML. **Só copie o que o texto declarar; não deduza nada.**
+  - `origem` — a coordenada UTM do vértice de partida do caminhamento ("Partindo do vértice V-1 ... nas coordenadas UTM: 386.509,8893 E; 7.420.035,3590 N"): `rotulo` é o nome do vértice, `e` e `n` são os valores como escritos. É o caso mais comum em memorial descrito por azimutes. Sem coordenada declarada, `null`.
+  - `fuso` — o número do fuso UTM, quando o texto o diz ("Fuso 23", "Zona 23S", "UTM 23S"). **Nunca chute o fuso pela cidade ou pelo estado**: o KML sai no lugar errado do planeta e ninguém percebe. Não declarado = `null`.
+  - `meridiano_central` — em graus, negativo a oeste, quando o texto traz "MC -45", "MC 45°W" ou "Meridiano Central 45° WGr". O código deriva o fuso daí quando o fuso não vem escrito.
+  - `hemisferio` — `"S"` ou `"N"`, só se declarado (o "S" de "23S" conta). Não declarado = `null`.
+  - `datum` — "SIRGAS2000", "SAD-69", "Córrego Alegre", "WGS84", como escrito. Não declarado = `null`.
+  - O objeto inteiro pode ser `null` se o documento não trouxer nada disso. Isso **não** afeta o croqui: só desliga a exportação em KML.
 - **`area_descrita_m2`** — a área declarada no texto ("área de X m²", "superfície de X m²", "encerrando a área de..."), convertida para m² se estiver em outra unidade.
 
 ---
@@ -166,8 +180,8 @@ Retorne **exclusivamente** um JSON válido — sem cercas de código (```), sem 
 - Preencher `vertices_utm` com todos os pontos na ordem de aparição, valores numéricos copiados como escritos, `rotulo` = identificador do ponto no texto (`P1`, `M-01`...)
 - NÃO calcule distâncias, ângulos nem área a partir das coordenadas — o código faz isso (`area_calculada_m2` = `null`)
 - Preencher `segmentos` apenas com `de`/`ate`/`confrontante`/`distancia` quando o próprio texto os declarar
-- Anotar o Datum em `observacoes` quando mencionado (SAD-69, SIRGAS2000, Córrego Alegre)
-- **Um único par de coordenadas não é o Método 6.** Memoriais costumam dar só a coordenada do vértice de partida ("Partindo do vértice V-1 ... nas coordenadas UTM: 386.509,8893 E; 7.420.035,3590 N") e descrever o resto por azimutes. Nesse caso o formato é `azimute` (ou `rumo`/`deflexao`, conforme o texto), `vertices_utm` = `null`, e a coordenada de origem vai em `observacoes` ("origem V-1 em UTM 386.509,8893 E / 7.420.035,3590 N"). Só use `utm` quando houver **3 ou mais** vértices com coordenadas.
+- Anotar o Datum, o fuso e o meridiano central em `georreferencia` quando mencionados (SAD-69, SIRGAS2000, Córrego Alegre; "Fuso 23S"; "MC -45")
+- **Um único par de coordenadas não é o Método 6.** Memoriais costumam dar só a coordenada do vértice de partida ("Partindo do vértice V-1 ... nas coordenadas UTM: 386.509,8893 E; 7.420.035,3590 N") e descrever o resto por azimutes. Nesse caso o formato é `azimute` (ou `rumo`/`deflexao`, conforme o texto), `vertices_utm` = `null`, e a coordenada de origem vai em **`georreferencia.origem`** (não em `observacoes`) — é ela que permite exportar o KML. Só use `utm` quando houver **3 ou mais** vértices com coordenadas.
 
 ---
 

@@ -112,6 +112,11 @@ const avisos = computed(() => {
   return lista
 })
 
+// Por que o KML não saiu — a tela explica em vez de só omitir o botão
+const motivoSemKml = computed(() =>
+  resultado.value?.ok && !resultado.value.kml ? resultado.value.kmlMotivo : null,
+)
+
 const protocolo = computed(() => String(jobId.value ?? '').slice(0, 8).toUpperCase())
 
 const emitidoEm = computed(() => {
@@ -154,6 +159,22 @@ function baixarSvg() {
   URL.revokeObjectURL(url)
 }
 
+// KML só existe quando o perímetro pôde ser amarrado ao globo (azimute/rumo com
+// coordenada de origem, ou coordenadas UTM) — ver packages/croqui/src/kml.ts
+const kmlDisponivel = computed(() => !!resultado.value?.kml)
+
+function baixarKml() {
+  const kml = resultado.value?.kml
+  if (!kml) return
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `croqui-${protocolo.value.toLowerCase()}.kml`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function exportarPdf() {
   window.print()
 }
@@ -173,6 +194,13 @@ function exportarPdf() {
       </NuxtLink>
       <template v-if="job?.status === 'done' && resultado?.ok">
         <button class="ld-btn ld-btn--secondary acoes-baixar" @click="baixarSvg">Baixar SVG</button>
+        <button
+          v-if="kmlDisponivel"
+          class="ld-btn ld-btn--secondary"
+          @click="baixarKml"
+        >
+          Baixar KML
+        </button>
         <button class="ld-btn ld-btn--primary" @click="exportarPdf">Exportar PDF</button>
       </template>
     </div>
@@ -261,10 +289,11 @@ function exportarPdf() {
       </section>
 
       <!-- Avisos da geometria e observações da extração -->
-      <section v-if="avisos.length" class="secao secao-avisos" aria-labelledby="sec-avisos">
+      <section v-if="avisos.length || motivoSemKml" class="secao secao-avisos" aria-labelledby="sec-avisos">
         <h2 id="sec-avisos">Observações</h2>
         <ul class="avisos-lista">
           <li v-for="(a, i) in avisos" :key="i">{{ a }}</li>
+          <li v-if="motivoSemKml">Sem exportação em KML: {{ motivoSemKml }}</li>
         </ul>
       </section>
 
