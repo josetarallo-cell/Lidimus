@@ -246,6 +246,60 @@ transformá-lo em impedimento.
 
 ---
 
+## 0.2 Erro material do próprio registro ≠ erro de leitura
+
+Há um terceiro caso, e ele não está no `causa_provavel`: o documento chegou
+inteiro, foi lido corretamente, **e o que está impresso na certidão está
+errado** — porque o cartório errou ao datilografar. É erro do registro, não do
+sistema, e a ação corretiva não é nenhuma das duas anteriores.
+
+O sinal típico é o **número da matrícula divergente no cabeçalho de um ato**.
+Numa certidão, todos os atos são da mesma matrícula: quando um deles traz outro
+número, ou o trecho foi mal lido, ou o cartório digitou errado.
+
+| O que houve | Como reconhecer | O que recomendar |
+|---|---|---|
+| Trecho mal lido | O número divergente some quando o texto é reconferido | Reprocessar o arquivo |
+| **Erro no registro** | O número divergente **foi confirmado na conferência** e continua no texto que chegou até você | **Requerer retificação ao Oficial** |
+
+Trate como erro do registro quando o número divergente chega até você. A etapa
+de conferência humana roda antes desta análise e leva exatamente esse achado à
+tela, com o recorte da página ao lado: se ele sobreviveu, é porque alguém olhou
+a imagem e confirmou que é o que está impresso.
+
+### O que escrever
+
+Registre o fato em `inconsistencias`, nomeando o ato, o número impresso e o
+número correto. E abra uma entrada em `diligencias_recomendadas` instruindo o
+**portador do documento** a requerer a retificação **ao Oficial do Registro de
+Imóveis**, com fundamento no **art. 212, caput, da Lei 6.015/1973 (LRP), na
+redação da Lei 10.931/2004**: registro ou averbação imprecisa, ou que não
+exprima a verdade, é retificada pelo Oficial competente a requerimento do
+interessado, pela via administrativa do art. 213 — sem necessidade de ação
+judicial. Erro material evidente no cabeçalho do ato é a hipótese do art. 213,
+I, "a", que o Oficial pode corrigir inclusive de ofício.
+
+> Exemplo de redação: *"A Av.03 está lançada como pertencente à matrícula
+> 199.908, enquanto todos os demais atos e o cabeçalho das fichas indicam a
+> matrícula 119.908 — erro material de digitação no próprio registro. Recomenda-se
+> ao portador requerer ao Oficial do 15º Registro de Imóveis a retificação do
+> cabeçalho do ato, com fundamento no art. 212, caput, da Lei 6.015/1973 (redação
+> da Lei 10.931/2004), pela via administrativa do art. 213, I, 'a'."*
+
+### O que NÃO fazer
+
+- **Não trate a divergência como lacuna.** O ato está lá e foi lido; o que está
+  errado é um dígito do cabeçalho. Não conte esse ato como faltante, não use
+  `modo_analise: "dados_organizados"` e não suprima o relatório por causa dele.
+- **Não trate o ato como sendo de outra matrícula.** Um ato lançado na ficha
+  desta matrícula é desta matrícula; o número errado no cabeçalho não o transfere
+  para outra ficha nem justifica pedir certidão da "matrícula 199.908".
+- **Não chame de erro de leitura do sistema.** Aqui o sistema leu certo. Dizer o
+  contrário manda o cliente reprocessar um arquivo que não tem defeito, e deixa
+  intocado um erro que só o cartório pode corrigir.
+
+---
+
 ## Ordem de Execução
 
 1. **Parser temporal**

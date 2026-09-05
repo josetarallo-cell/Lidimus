@@ -122,6 +122,47 @@ describe('gerarKml', () => {
     expect(r.kmlMotivo).toContain('orientação geográfica')
   })
 
+  it('sinaliza que só falta o fuso quando há amarração', () => {
+    const semFuso = {
+      ...quadrado,
+      georreferencia: { ...quadrado.georreferencia, fuso: null, meridiano_central: null },
+    }
+    const r = gerarCroqui(semFuso)
+    expect(r.kmlPendeFuso).toBe(true)
+    // sem amarração nenhuma não adianta pedir fuso
+    expect(gerarCroqui({ ...quadrado, georreferencia: null }).kmlPendeFuso).toBe(false)
+  })
+
+  it('usa o fuso informado na tela quando o documento não o declara', () => {
+    const semFuso = {
+      ...quadrado,
+      georreferencia: { ...quadrado.georreferencia, fuso: null, meridiano_central: null },
+    }
+    const r = gerarCroqui(semFuso, { fusoUtm: 23, hemisferioUtm: 'S' })
+    expect(r.kml).toContain('fuso 23S')
+    expect(r.kmlPendeFuso).toBe(false)
+    expect(r.avisos.join(' ')).toContain('informado na tela')
+    // e a âncora volta para a tela conferir onde caiu
+    expect(r.kmlAncora!.lat).toBeGreaterThan(-23.5)
+    expect(r.kmlAncora!.lat).toBeLessThan(-23.3)
+  })
+
+  it('o fuso do documento vence o informado na tela', () => {
+    const r = gerarCroqui(quadrado, { fusoUtm: 19, hemisferioUtm: 'S' })
+    expect(r.kml).toContain('fuso 23S')
+    expect(r.avisos.join(' ')).not.toContain('informado na tela')
+  })
+
+  it('fuso errado leva o lote para longe — é o que a conferência na tela mostra', () => {
+    const semFuso = {
+      ...quadrado,
+      georreferencia: { ...quadrado.georreferencia, fuso: null, meridiano_central: null },
+    }
+    const certo = gerarCroqui(semFuso, { fusoUtm: 23, hemisferioUtm: 'S' })
+    const errado = gerarCroqui(semFuso, { fusoUtm: 19, hemisferioUtm: 'S' })
+    expect(Math.abs(certo.kmlAncora!.lon - errado.kmlAncora!.lon)).toBeGreaterThan(20)
+  })
+
   it('escapa XML nos rótulos vindos do documento', () => {
     const comAspas = {
       ...quadrado,

@@ -71,9 +71,17 @@ useHead({
 })
 
 // ─── O croqui: extração (LLM, no n8n) + desenho (determinístico, aqui) ────────
+// Fuso informado na tela, para os documentos que trazem a coordenada de
+// amarração mas não dizem em que fuso ela está (comum em memorial descritivo)
+const fusoEscolhido = ref<number | null>(null)
+const hemisferioEscolhido = ref<'N' | 'S'>('S')
+
 const resultado = computed(() => {
   if (job.value?.status !== 'done') return null
-  return gerarCroqui(job.value.result)
+  return gerarCroqui(job.value.result, {
+    fusoUtm: fusoEscolhido.value,
+    hemisferioUtm: hemisferioEscolhido.value,
+  })
 })
 
 // O desenho é gerado por código próprio, mas os rótulos (confrontantes, rua)
@@ -163,6 +171,23 @@ function baixarSvg() {
 // coordenada de origem, ou coordenadas UTM) — ver packages/croqui/src/kml.ts
 const kmlDisponivel = computed(() => !!resultado.value?.kml)
 
+// Fuso ausente no documento: em vez de esconder a exportação, a tela pede o
+// fuso. Fusos 18 a 25 cobrem o território brasileiro.
+const pedeFuso = computed(() => resultado.value?.kmlPendeFuso === true)
+const FUSOS = [18, 19, 20, 21, 22, 23, 24, 25]
+
+// Onde a amarração caiu no fuso em uso — a conferência que evita o chute cego
+const conferencia = computed(() => resultado.value?.kmlAncora ?? null)
+
+const linkMapa = computed(() =>
+  conferencia.value
+    ? `https://www.google.com/maps?q=${conferencia.value.lat.toFixed(6)},${conferencia.value.lon.toFixed(6)}`
+    : null,
+)
+
+const coord = (n: number, pos: string, neg: string) =>
+  `${Math.abs(n).toFixed(5)}° ${n >= 0 ? pos : neg}`
+
 function baixarKml() {
   const kml = resultado.value?.kml
   if (!kml) return
@@ -204,6 +229,38 @@ function exportarPdf() {
         <button class="ld-btn ld-btn--primary" @click="exportarPdf">Exportar PDF</button>
       </template>
     </div>
+
+    <!-- Amarração UTM sem fuso declarado: o usuário informa, e confere onde caiu
+         antes de baixar — o croqui em si não depende disto. -->
+    <section v-if="pedeFuso || (kmlDisponivel && fusoEscolhido)" class="fuso print-hidden">
+      <div class="fuso-linha">
+        <p class="fuso-texto">
+          O documento traz a coordenada de amarração, mas não diz o fuso UTM.
+          Informe o fuso para gerar o KML:
+        </p>
+        <label class="fuso-campo">
+          <span>Fuso</span>
+          <select v-model.number="fusoEscolhido" class="ld-input">
+            <option :value="null">—</option>
+            <option v-for="f in FUSOS" :key="f" :value="f">{{ f }}</option>
+          </select>
+        </label>
+        <label class="fuso-campo">
+          <span>Hemisfério</span>
+          <select v-model="hemisferioEscolhido" class="ld-input">
+            <option value="S">Sul</option>
+            <option value="N">Norte</option>
+          </select>
+        </label>
+      </div>
+      <p v-if="conferencia" class="fuso-confere">
+        Com o fuso {{ fusoEscolhido }}{{ hemisferioEscolhido }}, o primeiro vértice cai em
+        <strong>{{ coord(conferencia.lat, 'N', 'S') }}, {{ coord(conferencia.lon, 'L', 'O') }}</strong>
+        —
+        <a :href="linkMapa" target="_blank" rel="noopener">conferir no mapa</a>
+        antes de baixar.
+      </p>
+    </section>
 
     <!-- Processando -->
     <EstadoProcessando
@@ -323,6 +380,44 @@ function exportarPdf() {
 }
 .acoes-baixar {
   margin-left: auto;
+}
+
+.fuso {
+  margin-bottom: var(--ld-space-lg);
+  padding: var(--ld-space-md) var(--ld-space-lg);
+  background: var(--ld-certidao-papel);
+  border: 1px solid var(--ld-certidao-filete);
+  border-radius: var(--ld-r-md);
+}
+.fuso-linha {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ld-space-md);
+  flex-wrap: wrap;
+}
+.fuso-texto {
+  margin: 0;
+  flex: 1 1 22rem;
+  font-size: 0.9375rem;
+  color: var(--ld-tinta-suave);
+}
+.fuso-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--ld-tinta-suave);
+}
+.fuso-campo select {
+  min-width: 6rem;
+}
+.fuso-confere {
+  margin: var(--ld-space-sm) 0 0;
+  font-size: 0.875rem;
+}
+.fuso-confere a {
+  color: var(--ld-carimbo-tinta);
+  font-weight: 600;
 }
 
 /* A régua de etapas e a tela de espera vivem em EstadoProcessando.vue — esta

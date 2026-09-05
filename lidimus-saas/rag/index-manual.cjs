@@ -54,6 +54,7 @@ const CAP_TEMAS = {
   ch27: ['parcelamento do solo', 'loteamento'],
   ch28: ['procedimento de duvida', 'qualificacao'],
   ch29: ['abertura de matricula', 'registro anterior', 'transporte de onus', 'continuidade', 'cadeia dominial', 'concentracao dos atos'],
+  ch30: ['retificacao', 'erro material', 'erro de digitacao', 'art 212', 'art 213', 'procedimento administrativo'],
   skill: ['principios', 'indice', 'jurisprudencia', 'legislacao'],
   cheatsheet: ['resumo', 'consulta rapida'],
   glossary: ['glossario', 'terminologia'],

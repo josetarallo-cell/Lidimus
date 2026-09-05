@@ -361,6 +361,37 @@ complementar as seções "Na imprensa" por depoimentos e/ou contadores de uso re
 
 ---
 
+## Pendência técnica — os embeddings do RAG ainda são do Mistral
+
+Em 04/09/2026 o Mistral saiu dos dois lugares onde fazia trabalho de modelo de linguagem: a
+`Extração de Campos` do `lidimus-Juridico` e a `Extracao Croqui` do `lidimus-croqui` passaram a
+chamar a Anthropic (`claude-sonnet-5`). O motivo imediato foi operacional — a conta caiu para o
+tier gratuito, o `mistral-large` já respondia 403 `tier_not_allowed` desde 01/09 e o
+`mistral-medium` passou a responder 429 `rate_limited`, derrubando análises de cliente (execução
+879). Só `ministral-8b`, `open-mistral-nemo` e `mistral-embed` continuaram respondendo.
+
+**Sobrou uma dependência**: o nó `Embeddings Consultas` do `lidimus-Juridico` usa `mistral-embed`
+para vetorizar a consulta antes de buscar no Qdrant. Ele funciona (o endpoint de embeddings
+responde mesmo no tier gratuito), então não há urgência — mas enquanto ele existir, encerrar a
+conta Mistral quebra o RAG do jurídico.
+
+Trocar de modelo de embedding **não é mudar uma string**. A coleção no Qdrant foi indexada com
+vetores do `mistral-embed`; outro modelo produz vetores de outra dimensionalidade, e consultar
+com um modelo diferente do que indexou devolve vizinhos aleatórios sem erro nenhum — falha
+silenciosa, que aparece como fundamentação legal ruim no laudo, não como exceção. Migrar exige:
+
+1. escolher o novo provedor de embedding e conferir a dimensionalidade;
+2. recriar a coleção no Qdrant com a nova dimensão (`rag/index-manual.cjs`);
+3. reindexar os 205 chunks do manual;
+4. trocar o nó `Embeddings Consultas` **na mesma janela** da reindexação — coleção nova com nó
+   velho, ou o contrário, é o cenário da falha silenciosa acima;
+5. conferir com `rag/query-manual.cjs` que as buscas voltam a trazer os trechos esperados.
+
+Gatilho para fazer: qualquer decisão de encerrar a conta Mistral, ou a primeira vez que o
+`mistral-embed` também for limitado. Até lá, é dívida conhecida e barata de carregar.
+
+---
+
 ## Decisões que dependem do negócio, não da engenharia
 
 | Decisão | Onde impacta | Quem decide |

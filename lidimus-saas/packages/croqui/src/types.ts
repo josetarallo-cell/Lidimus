@@ -108,4 +108,9 @@ export interface CroquiResultado {
   // georreferenciado. `kmlMotivo` diz por que não, para a tela explicar.
   kml: string | null
   kmlMotivo: string | null
+  // o perímetro está amarrado em UTM e só falta o fuso: a tela pede o fuso em
+  // vez de esconder a exportação
+  kmlPendeFuso: boolean
+  // latitude/longitude do primeiro vértice, para conferir o fuso escolhido
+  kmlAncora: { lat: number; lon: number } | null
 }

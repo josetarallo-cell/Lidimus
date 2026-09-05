@@ -19,14 +19,36 @@ export interface ResultadoKml {
   kml: string | null
   motivo: string | null
   avisos: string[]
+  // true quando o perímetro TEM amarração UTM e só falta saber o fuso — a tela
+  // então pede o fuso ao usuário em vez de simplesmente esconder a exportação
+  pendeFuso: boolean
+  // onde o primeiro vértice caiu, para a tela conferir o fuso antes de baixar
+  ancora: LatLon | null
 }
 
-const semKml = (motivo: string): ResultadoKml => ({ kml: null, motivo, avisos: [] })
+export interface OpcoesKml {
+  // fuso e hemisfério informados na tela, quando o documento não os declara
+  fusoUtm?: number | null
+  hemisferioUtm?: 'N' | 'S' | null
+}
 
-export function gerarKml(data: CroquiData, desenho: Desenho): ResultadoKml {
+const semKml = (motivo: string, pendeFuso = false): ResultadoKml => ({
+  kml: null,
+  motivo,
+  avisos: [],
+  pendeFuso,
+  ancora: null,
+})
+
+export function gerarKml(data: CroquiData, desenho: Desenho, opcoes?: OpcoesKml): ResultadoKml {
   const geo = data.georreferencia ?? null
 
-  const fuso = geo?.fuso ?? (geo?.meridiano_central != null ? fusoDoMeridiano(geo.meridiano_central) : null)
+  // o que o documento declara tem precedência; o informado na tela é o socorro
+  const fuso =
+    geo?.fuso ??
+    (geo?.meridiano_central != null ? fusoDoMeridiano(geo.meridiano_central) : null) ??
+    (opcoes?.fusoUtm ?? null)
+  const fusoVeioDaTela = geo?.fuso == null && geo?.meridiano_central == null && opcoes?.fusoUtm != null
   const avisos: string[] = []
 
   // Os vértices em UTM, conforme o caminho de amarração disponível
@@ -48,12 +70,18 @@ export function gerarKml(data: CroquiData, desenho: Desenho): ResultadoKml {
   if (fuso == null) {
     return semKml(
       'O documento não informa o fuso UTM (nem o meridiano central). Os mesmos valores de E/N existem nos 60 fusos, então situar o terreno exigiria adivinhar o fuso.',
+      true,
+    )
+  }
+  if (fusoVeioDaTela) {
+    avisos.push(
+      `Fuso ${fuso} informado na tela, não no documento — confira a posição do lote ao abrir o KML.`,
     )
   }
 
   // Quase todo o Brasil está no hemisfério sul; só Amapá, Roraima e o norte do
   // Pará e do Amazonas ficam ao norte. Sem declaração, assume-se sul e avisa-se.
-  let hemisferio = geo?.hemisferio ?? null
+  let hemisferio = geo?.hemisferio ?? opcoes?.hemisferioUtm ?? null
   if (!hemisferio) {
     hemisferio = 'S'
     avisos.push('Hemisfério não declarado no documento — o KML assume hemisfério sul.')
@@ -75,7 +103,13 @@ export function gerarKml(data: CroquiData, desenho: Desenho): ResultadoKml {
   if (pontos.length < 3) return semKml('Menos de três vértices georreferenciados — não há polígono.')
 
   const rotulos = rotulosDeVertice(desenho, pontos.length)
-  return { kml: montarKml(data, pontos, rotulos, fuso, hemisferio, datum), motivo: null, avisos }
+  return {
+    kml: montarKml(data, pontos, rotulos, fuso, hemisferio, datum),
+    motivo: null,
+    avisos,
+    pendeFuso: false,
+    ancora: pontos[0],
+  }
 }
 
 // Rótulos dos vértices (V-1, P2…) na ordem do desenho, quando o texto os traz

@@ -106,6 +106,27 @@ describe('detectarAtos', () => {
     const texto = 'Rua 25 de Março, Av. Paulista, 1000, pelo valor de R$ 5/6 avos'
     expect(detectarAtos(texto, ANO)).toHaveLength(0)
   })
+
+  // A matrícula 119.908 do 15º RI de São Paulo: o cartório escreve
+  // "Av.01 - 119.908 - São Paulo, ..." e o carimbo diagonal da certidão comeu o
+  // hífen em sete dos dez atos. Sem aceitar espaço como separador, nenhum
+  // cabeçalho é reconhecido e o detector desiste no piso de três — que foi
+  // exatamente o que deixou a digitação errada do Av.03 passar sem conferência.
+  it('lê cabeçalho cujo separador o OCR comeu', () => {
+    const texto = 'Av.01 119.908 em 1990. Av.02 119.908 em 1990. Av.03 199.908 em 1990.'
+    const divergente = detectarAtos(texto, ANO).find((a) => a.rotulo.includes('outra matrícula'))
+    expect(divergente).toBeDefined()
+    expect(texto.slice(divergente!.inicio, divergente!.fim)).toBe('199.908')
+  })
+
+  // "Av. 417529" é "Av. 4/7529" com a barra lida como 1 — o caso real da
+  // matrícula 7.529. Se o separador virar opcional, o número do ato sai 41.
+  it('não parte dígitos colados quando falta separador', () => {
+    const texto = 'R.1/7.529 em 1998. Av. 417529 em 2001. Av.6/7.529 em 2005.'
+    for (const achado of detectarAtos(texto, ANO)) {
+      expect(achado.rotulo).not.toContain('41')
+    }
+  })
 })
 
 describe('detectarValores', () => {

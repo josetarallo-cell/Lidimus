@@ -77,6 +77,36 @@ as ressalvas expressas do §1º do art. 54.
 Nunca converta isso em impedimento nem em incompletude documental: é ressalva de
 escopo com diligência nomeada (matrícula, ato e cartório).
 
+## Retificação de erro no próprio registro
+
+Quando o que está impresso na certidão está errado — número de matrícula
+divergente no cabeçalho de um ato, elemento do título transposto com erro,
+qualificação pessoal desatualizada —, o caminho é a retificação registral, e ela
+é **administrativa**: não exige ação judicial.
+
+- **Lei 6.015/1973, art. 212, caput** (redação da Lei 10.931/2004): registro ou
+  averbação omisso, impreciso ou que não exprima a verdade é retificado pelo
+  **Oficial do Registro de Imóveis competente**, a requerimento do interessado,
+  pelo procedimento administrativo do art. 213 — facultado ao interessado optar
+  pela via judicial.
+- **Art. 212, parágrafo único**: optar pelo procedimento administrativo não
+  exclui a prestação jurisdicional, a requerimento da parte prejudicada.
+- **Art. 213, I**: hipóteses que o Oficial retifica **de ofício ou a requerimento
+  do interessado** — alínea "a", *omissão ou erro cometido na transposição de
+  qualquer elemento do título*, é a que cobre erro material de digitação no
+  cabeçalho do ato.
+- **Art. 213, II**: retificação a requerimento do interessado quando envolver
+  inserção ou alteração de medida perimetral — aí com anuência dos confrontantes.
+
+**A distinção decisória.** Erro do registro não é lacuna documental nem falha de
+leitura: o documento está inteiro e foi lido corretamente. A recomendação é
+dirigida ao **portador**, para requerer ao **Oficial**, e o relatório segue sendo
+emitido normalmente — o erro entra em `inconsistencias`, nunca como impedimento.
+
+**Art. 214 não é isto.** Nulidade de pleno direito leva a *cancelamento*, não a
+retificação, e depende de processo próprio. Não confunda um dígito errado no
+cabeçalho com vício que invalida o ato.
+
 ## Distinções que mudam a recomendação
 
 - **Indisponibilidade** impede a alienação. **Penhora** não impede: torna a alienação ineficaz perante o exequente.

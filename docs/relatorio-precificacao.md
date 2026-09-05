@@ -9,6 +9,9 @@ Base de cálculo: consumo real medido em ambiente de testes (611.935 tokens, 19 
 
 ### 1.1 Custo de IA por unidade de trabalho
 
+> **Desatualizado desde 04/09/2026 nas duas linhas do Mistral.** Este relatório é um documento
+> datado e as tabelas abaixo ficam como estavam; o que mudou está registrado logo após a tabela.
+
 | Workflow | Modelo | Custo nominal | Grossed up (1,45x) |
 |---|---|---|---|
 | Análise de matrícula | Claude Sonnet 4.6 | R$ 0,91 | R$ 1,32 |
@@ -18,6 +21,22 @@ Base de cálculo: consumo real medido em ambiente de testes (611.935 tokens, 19 
 | Render (DOCX/PDF), storage | — | R$ 0,10 | R$ 0,10 |
 
 > **Atenção:** o painel mostra Document AI com 0 tokens. OCR é cobrado por **página**, não por token — o custo existe e está invisível. Uma matrícula de 10–20 páginas custa de US$ 0,015 (OCR básico) a US$ 0,30 (Layout/Form Parser).
+
+**Revisão de 04/09/2026 — saída do Mistral.** A conta Mistral caiu para o tier gratuito (`mistral-large`
+com 403 `tier_not_allowed` desde 01/09, `mistral-medium` com 429 desde 04/09), derrubando análises de
+cliente. As duas etapas que usavam Mistral passaram para `claude-sonnet-5`. Medido contra a API real,
+no mesmo câmbio (US$ 1 = R$ 5,45) e mesmo gross-up (1,45x):
+
+| Workflow | Modelo | Custo nominal | Grossed up | Era |
+|---|---|---|---|---|
+| Análise de matrícula (auxiliar) | Claude Sonnet 5 | R$ 0,16 | **R$ 0,23** | R$ 0,10 |
+| Croqui / memorial | Claude Sonnet 5 | R$ 0,28 | **R$ 0,40** | R$ 0,18 |
+
+Amostras: matrícula de 7 páginas (9.812 tokens de entrada) para o auxiliar; croqui de 14 segmentos com
+cache de prompt quente para o croqui. O croqui é o caso a observar — sozinho, a linha de IA passou o
+**R$ 0,33 de planejamento** da unidade inteira em 1.2. Duas alavancas antes de mexer em preço: o
+`effort` do nó (medido `low` = mesmo resultado nessa amostra, ~40% menos tokens de saída) e a franquia
+do plano Croqui.
 
 ### 1.2 Custo variável consolidado
 

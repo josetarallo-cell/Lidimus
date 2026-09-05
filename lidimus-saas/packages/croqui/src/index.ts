@@ -20,7 +20,7 @@ import {
   shoelace,
 } from './poligono.ts'
 import { renderSvg } from './svg.ts'
-import { gerarKml } from './kml.ts'
+import { gerarKml, type OpcoesKml } from './kml.ts'
 
 export type {
   CroquiData,
@@ -31,6 +31,7 @@ export type {
   Georreferencia,
 } from './types.ts'
 export { gerarKml } from './kml.ts'
+export type { OpcoesKml } from './kml.ts'
 export { utmParaLatLon, meridianoCentral, fusoDoMeridiano } from './utm.ts'
 export { parseDms, rumoParaAzimute } from './angulos.ts'
 export { fmtNum } from './svg.ts'
@@ -47,7 +48,7 @@ const FORMATOS: Formato[] = [
   'nao_identificado',
 ]
 
-export function gerarCroqui(bruto: unknown): CroquiResultado {
+export function gerarCroqui(bruto: unknown, opcoes?: OpcoesKml): CroquiResultado {
   const data = normalizar(bruto)
   if (!data) return falha('Dados do croqui ausentes ou malformados.')
 
@@ -115,7 +116,7 @@ export function gerarCroqui(bruto: unknown): CroquiResultado {
 
   // KML só sai quando o desenho pôde ser amarrado ao globo; os avisos da
   // amarração (hemisfério assumido, datum antigo) entram junto com os da geometria
-  const kml = gerarKml(data, desenho)
+  const kml = gerarKml(data, desenho, opcoes)
   avisos.push(...kml.avisos)
 
   return {
@@ -130,6 +131,8 @@ export function gerarCroqui(bruto: unknown): CroquiResultado {
     avisos,
     kml: kml.kml,
     kmlMotivo: kml.motivo,
+    kmlPendeFuso: kml.pendeFuso,
+    kmlAncora: kml.ancora,
   }
 }
 
@@ -146,6 +149,8 @@ function falha(motivo: string, data?: CroquiData): CroquiResultado {
     avisos: [],
     kml: null,
     kmlMotivo: null,
+    kmlPendeFuso: false,
+    kmlAncora: null,
   }
 }
 

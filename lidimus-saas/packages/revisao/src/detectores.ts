@@ -204,9 +204,23 @@ export function detectarDatas(texto: string, anoAtual = new Date().getFullYear()
 // ─── Cabeçalhos de ato (R.5/12.345, Av.2/7529) ────────────────────────────────
 
 // O prefixo não pode ser seguido de letra (senão "AVENIDA" e "Rua" entrariam), e
-// o miolo exige o formato `número/matrícula` — é essa forma, e não a palavra
-// "R" ou "Av", que identifica um cabeçalho de ato.
-const RE_ATO = /\b(R|AV)(?![A-Za-zÀ-ÿ])\s*[.\-]?\s*(\d{1,3})\s*[/-]\s*(\d[\d.]{1,11})\b/gi
+// o miolo exige o formato `número<separador>matrícula` — é essa forma, e não a
+// palavra "R" ou "Av", que identifica um cabeçalho de ato.
+//
+// O separador aceita ESPAÇO além de `/` e `-`, e não por elegância: o 15º RI de
+// São Paulo escreve "Av.01 - 119.908 - São Paulo, 27 de abril de 1.990.", e o
+// carimbo diagonal da certidão eletrônica come o hífen com frequência. Na
+// matrícula 119.908 sobrou "Av.01 119.908" em sete dos dez atos — nenhum
+// cabeçalho foi reconhecido, `detectarAtos` desistiu no piso de três e a
+// digitação errada do cartório no Av.03 ("199.908" em lugar de "119.908") nunca
+// chegou à conferência humana. É justamente o erro que esta função existe para
+// pegar.
+//
+// O que o separador NÃO pode ser é opcional. Em "Av. 417529" (a barra de
+// "4/7529" lida como 1, na matrícula 7.529) os dígitos correm juntos, e sem
+// separador obrigatório o número do ato sairia como 41.
+const RE_ATO =
+  /\b(R|AV)(?![A-Za-zÀ-ÿ])\s*[.\-]?\s*(\d{1,3})(?:\s*[/-]\s*|\s+)(\d[\d.]{1,11})\b/gi
 
 type Cabecalho = {
   numero: number
