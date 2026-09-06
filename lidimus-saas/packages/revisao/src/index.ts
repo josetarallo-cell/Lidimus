@@ -58,12 +58,28 @@ export const MAX_CANDIDATOS = 8
 const MAX_REPETICOES = 20
 
 /**
- * Devolve a pontuação de frase que a expansão até a borda do token arrastou.
+ * Devolve a pontuação de frase e o espaço em branco que a expansão até a borda
+ * do token arrastou.
  *
  * O token do OCR engole a vírgula que separa a oração: o CPF vira
  * "007.552.588-86," e o usuário teria que redigitar a vírgula junto. O ponto
  * final fica de fora da poda de propósito — em "Av." ele é da abreviatura, e
  * cortá-lo trocaria um erro por outro.
+ *
+ * O espaço em branco entrou nesta poda depois de quebrar uma matrícula em
+ * produção, e a lição vale ser escrita por extenso. O offset de token do
+ * Document AI termina DEPOIS da quebra de linha que separa o token do seguinte,
+ * então o campo da tela mostrava "199.908⏎". O usuário fez exatamente o certo —
+ * viu o erro de digitação do cartório na imagem e digitou "119.908" — e a
+ * substituição literal levou a quebra de linha junto: o texto virou
+ * "Av.03 119.908São Paulo", com a matrícula colada na palavra seguinte, e o
+ * parser de atos deixou de reconhecer o cabeçalho. Um candidato irmão, cujo
+ * trecho era "Av.05 " com o espaço no fim, virou "Av.05119.908" e destruiu um
+ * ato que até então era lido.
+ *
+ * Ou seja: pedir espaço em branco de volta ao usuário não é só incômodo, é o
+ * caminho para trocar um erro de leitura por um erro de estrutura. O que se
+ * pede para redigitar é o texto, nunca o que o separa do próximo.
  */
 function aparar(
   texto: string,
@@ -71,8 +87,8 @@ function aparar(
   expandido: { inicio: number; fim: number },
 ): { inicio: number; fim: number } {
   let { inicio, fim } = expandido
-  while (fim > original.fim && /[,;:-]/.test(texto[fim - 1])) fim--
-  while (inicio < original.inicio && /[,;:-]/.test(texto[inicio])) inicio++
+  while (fim > original.fim && /[\s,;:-]/.test(texto[fim - 1])) fim--
+  while (inicio < original.inicio && /[\s,;:-]/.test(texto[inicio])) inicio++
   return { inicio, fim }
 }
 

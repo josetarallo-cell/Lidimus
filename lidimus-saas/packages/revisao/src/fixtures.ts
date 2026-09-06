@@ -15,16 +15,35 @@ export type OpcoesTokenizar = {
   palavrasPorPagina?: number
   /** Desvio da horizontal, em graus — o carimbo diagonal fica em ~45 */
   angulo?: number
+  /**
+   * Estende o offset do token até o espaço ou a quebra de linha que o separa do
+   * próximo — como o Document AI de verdade faz.
+   *
+   * Fica atrás de uma opção, e não como padrão, porque a geometria dos outros
+   * testes foi escrita contra o token justo. Mas é a forma REAL, e ignorá-la
+   * custou caro: o `aparar` não podava espaço em branco, o campo da tela pedia
+   * "199.908⏎" de volta, e a correção do usuário colou a matrícula na palavra
+   * seguinte. Nenhum teste pegou porque este fixture não reproduzia o
+   * comportamento do serviço.
+   */
+  comSeparador?: boolean
 }
 
 export function tokenizar(texto: string, opcoes: OpcoesTokenizar = {}): TokenOcr[] {
-  const { confianca = 0.99, porBytes = false, palavrasPorPagina = 1000, angulo = 0 } = opcoes
+  const {
+    confianca = 0.99, porBytes = false, palavrasPorPagina = 1000, angulo = 0,
+    comSeparador = false,
+  } = opcoes
   const tokens: TokenOcr[] = []
   let n = 0
 
   for (const m of texto.matchAll(/\S+/g)) {
     const inicio = m.index!
-    const fim = inicio + m[0].length
+    let fim = inicio + m[0].length
+    if (comSeparador) {
+      const espaco = texto.slice(fim).match(/^\s+/)
+      if (espaco) fim += espaco[0].length
+    }
     const naPagina = n % palavrasPorPagina
     tokens.push({
       p: Math.floor(n / palavrasPorPagina) + 1,

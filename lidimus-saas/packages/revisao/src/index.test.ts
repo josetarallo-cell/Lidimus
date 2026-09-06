@@ -40,6 +40,23 @@ describe('levantarCandidatos', () => {
     expect(texto.slice(c.inicio, c.fim)).toBe(c.textoLido)
   })
 
+  // A matrícula 119.908 em produção: o offset do token do Document AI termina
+  // depois da quebra de linha, o campo da tela pedia "199.908⏎" e a correção do
+  // usuário levou a quebra junto — "Av.03 119.908São Paulo". O cabeçalho parou
+  // de ser reconhecido, e um candidato irmão ("Av.05 ", com o espaço) virou
+  // "Av.05119.908" e destruiu um ato que era lido antes.
+  it('não pede de volta o espaço que separa o trecho do próximo', () => {
+    const texto = 'Av.01 119.908 em 1990.\nAv.02 119.908 em 1990.\nAv.03 199.908\nSão Paulo.'
+    const tokens = tokenizar(texto, { comSeparador: true })
+    const candidatos = levantarCandidatos(texto, tokens, { anoAtual: ANO })
+    const divergente = candidatos.find((c) => c.rotulo.includes('outra matrícula'))
+    expect(divergente).toBeDefined()
+    expect(divergente!.textoLido).toBe('199.908')
+    // O que vale de verdade: nenhum candidato entrega espaço em branco na ponta,
+    // porque é ele que o usuário apaga sem perceber ao redigitar.
+    for (const c of candidatos) expect(c.textoLido).toBe(c.textoLido.trim())
+  })
+
   it('nunca passa do teto de itens', () => {
     // Documento inteiro lido mal: são dezenas de suspeitas de confiança
     const texto = Array.from({ length: 60 }, (_, i) => `palavra${i}`).join(' ')
