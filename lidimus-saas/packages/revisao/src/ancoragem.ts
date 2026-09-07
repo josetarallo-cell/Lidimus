@@ -60,6 +60,7 @@ export function ancorar(
   inicio: number,
   fim: number,
   folga = 0.35,
+  larguraMaxima = LARGURA_MAXIMA,
 ): Ancora | null {
   const porPagina = new Map<number, { cobertura: number; caixa: [number, number, number, number] }>()
 
@@ -97,7 +98,7 @@ export function ancorar(
   const [x0, y0, x1, y1] = melhor.caixa
 
   // Grande demais para ser palavra: assinatura, carimbo, moldura. Ver os tetos.
-  if (y1 - y0 > ALTURA_MAXIMA || x1 - x0 > LARGURA_MAXIMA) return null
+  if (y1 - y0 > ALTURA_MAXIMA || x1 - x0 > larguraMaxima) return null
   const altura = Math.max(y1 - y0, 0.004)
   const margemY = altura * folga
   // A folga horizontal usa a altura, e não a largura: proporcional à largura,
@@ -113,6 +114,51 @@ export function ancorar(
       Math.min(1, x1 + margemX),
       Math.min(1, y1 + margemY),
     ],
+  }
+}
+
+/**
+ * Margem esquerda do corpo de texto de uma página: o 10º percentil dos `x0`.
+ *
+ * Percentil, e não o mínimo: número de ficha, marca d'água e borda de moldura
+ * ficam fora da coluna de texto, e o mínimo seria a caixa de um deles.
+ */
+function margemEsquerda(tokens: TokenOcr[], pagina: number): number | null {
+  const xs = tokens.filter((t) => t.p === pagina).map((t) => t.b[0]).sort((a, b) => a - b)
+  if (xs.length < 10) return null
+  return xs[Math.floor(xs.length * 0.1)]
+}
+
+/**
+ * Como `ancorar`, mas estende a caixa até a margem esquerda da página.
+ *
+ * Existe para um caso só: a linha cujo começo o OCR não leu. A caixa dos tokens
+ * sobreviventes mostraria exatamente o pedaço que JÁ está no texto e esconderia
+ * o que se quer ler — o trecho sob a tarja, quase sempre legível para um olho
+ * humano e nunca para o Document AI. Mostrar "Paulo, 18 de setembro de 1990."
+ * quando a pergunta é "que ato é este?" seria recortar a resposta fora da foto.
+ *
+ * O teto de largura sai do caminho aqui, e com motivo: ele recusa forma
+ * indefinida (rubrica, moldura), e nesta chamada a forma é conhecida por
+ * construção — uma linha de texto, achada como linha. `ALTURA_MAXIMA` continua
+ * fazendo o trabalho de verdade.
+ */
+export function ancorarLinha(
+  tokens: TokenOcr[],
+  inicio: number,
+  fim: number,
+  folga = 0.35,
+): Ancora | null {
+  const base = ancorar(tokens, inicio, fim, folga, 1)
+  if (!base) return null
+
+  const margem = margemEsquerda(tokens, base.pagina)
+  if (margem === null || margem >= base.caixa[0]) return base
+
+  const altura = Math.max(base.caixa[3] - base.caixa[1], 0.004)
+  return {
+    pagina: base.pagina,
+    caixa: [Math.max(0, margem - altura * folga * 2), base.caixa[1], base.caixa[2], base.caixa[3]],
   }
 }
 

@@ -12,7 +12,7 @@
 //
 // Nada aqui é corrigido automaticamente: ver o cabeçalho de detectores.ts.
 
-import { ancorar, contexto, expandirParaTokens } from './ancoragem.ts'
+import { ancorar, ancorarLinha, contexto, expandirParaTokens } from './ancoragem.ts'
 import {
   detectarAtos,
   detectarConfianca,
@@ -178,7 +178,11 @@ export function levantarCandidatos(
     // repetição de um candidato já aceito, e vale mais recolhê-la que parar.
     if (candidatos.length >= max) continue
 
-    const ancora = ancorar(tokens, inicio, fim)
+    // O cabeçalho encoberto é o único achado em que o trecho lido NÃO é o que
+    // se quer mostrar: o que interessa está à esquerda dele, sob a tarja.
+    const ancora = s.recorteLargo
+      ? ancorarLinha(tokens, inicio, fim)
+      : ancorar(tokens, inicio, fim)
     if (!ancora) continue
 
     ocupados.push({ inicio, fim })

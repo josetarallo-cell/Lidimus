@@ -57,6 +57,43 @@ describe('levantarCandidatos', () => {
     for (const c of candidatos) expect(c.textoLido).toBe(c.textoLido.trim())
   })
 
+  // O cabeçalho encoberto é o único achado em que o trecho lido não é o que se
+  // quer mostrar: o que interessa está à ESQUERDA dele, sob a tarja. Recortar a
+  // caixa dos tokens sobreviventes mostraria "Paulo, 18 de setembro de 1990." —
+  // ou seja, recortaria a resposta para fora da foto.
+  it('estende o recorte até a margem quando o começo da linha não foi lido', () => {
+    const texto = [
+      'Av.04 119.908',
+      'São Paulo, 27 de abril de 1.990.',
+      'Do requerimento de 06 de março de 1.990, verifica-se que o prédio foi demolido.',
+      'Av.05 119.908',
+      'São Paulo, 27 de abril de 1.990.',
+      'Do requerimento de 06 de março de 1.990, verifica-se que foi construído um prédio.',
+      'Paulo, 18 de setembro de 1990.',
+      'Do requerimento de 13 de setembro de 1990, verifica-se que houve englobamento.',
+      'Av.07 119.908',
+      'São Paulo, 12 de dezembro de 1994.',
+    ].join('\n')
+
+    // A linha órfã começa recuada: é isso que a tarja deixa para trás quando
+    // come o começo dela.
+    const tokens = tokenizar(texto)
+    const orfa = texto.indexOf('Paulo, 18 de setembro')
+    let x0Sobrevivente = 1
+    for (const t of tokens) {
+      if (t.s < orfa || t.s > orfa + 30) continue
+      t.b = [t.b[0] + 0.45, t.b[1], t.b[2] + 0.45, t.b[3]]
+      x0Sobrevivente = Math.min(x0Sobrevivente, t.b[0])
+    }
+
+    const c = levantarCandidatos(texto, tokens, { anoAtual: ANO })
+      .find((x) => x.motivo === 'cabecalho')
+    expect(c).toBeDefined()
+    expect(c!.recorteLargo).toBe(true)
+    // A caixa começa bem à esquerda do que sobrou — na margem do corpo de texto.
+    expect(c!.caixa[0]).toBeLessThan(x0Sobrevivente - 0.3)
+  })
+
   it('nunca passa do teto de itens', () => {
     // Documento inteiro lido mal: são dezenas de suspeitas de confiança
     const texto = Array.from({ length: 60 }, (_, i) => `palavra${i}`).join(' ')

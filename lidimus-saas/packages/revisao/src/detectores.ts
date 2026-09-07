@@ -27,6 +27,17 @@ export const PESOS = {
   cpf_cnpj: 100,
   homoglifo: 96,
   ato_matricula: 94,
+  /**
+   * Cabeçalho de ato encoberto pela tarja: sobrou a cauda da linha, a lacuna
+   * está cercada e a data cabe entre as vizinhas.
+   *
+   * Não é verificação dura — é conjunção de quatro sinais —, mas fica acima das
+   * demais heurísticas porque é o único achado que, ficando sem resposta,
+   * SUPRIME o relatório inteiro: o parser vê salto de numeração, conclui
+   * "matrícula incompleta" e manda o cliente comprar uma certidão que traria
+   * exatamente o mesmo arquivo.
+   */
+  ato_cabecalho_perdido: 92,
   data_invalida: 90,
   data_fora_de_ordem: 72,
   ato_salto: 70,
@@ -277,6 +288,158 @@ function moda(valores: number[]): number | null {
  * dígito* do ano — 2019 lido como 2079, 1998 como 1908 — a explicação
  * esmagadoramente mais provável é o OCR, não o cartório.
  */
+// ─── Cabeçalho encoberto pela tarja ───────────────────────────────────────────
+//
+// A tarja diagonal da certidão eletrônica ("PARA SIMPLES CONSULTA — NÃO VALE
+// COMO CERTIDÃO") passa por cima do texto e o Document AI simplesmente não lê o
+// que está embaixo. Na matrícula 119.908 o cabeçalho "AV. 06 - 119.908 - São"
+// não existe no texto do OCR, nem no bruto: sobrou só o fim da linha,
+// "Paulo, 18 de setembro de 1990.".
+//
+// O parser jurídico então vê salto de numeração, classifica como página
+// ausente e suprime o relatório — mandando comprar do cartório o mesmo arquivo
+// que já está na mão. É um falso negativo caro, e a tarja é padrão do ONR: o
+// caso se repete em certidão eletrônica de todo o país.
+//
+// A evidência de que o ato existe é o resto dele: a cauda da linha do cabeçalho
+// e o corpo da averbação vieram. A página CHEGOU — o que faltou foi ler o
+// rótulo. É a diferença entre "a face não veio" e "a face veio e o rótulo se
+// perdeu", e é ela que este detector mede.
+
+// A cauda: "<Cidade>, <data>" sozinha numa linha.
+//
+// A âncora de linha inteira (^…$ com /m) é o que segura o detector, e não é
+// detalhe: matrícula cita "escritura lavrada em São Paulo, 18 de setembro de
+// 1990, no 5º Tabelião" o tempo todo. Medido no corpus de 20 certidões reais, o
+// regex sem a âncora acende 33 vezes num único documento; com ela, e com os
+// filtros abaixo, o total cai a zero fora do documento defeituoso.
+const RE_CAUDA_EXTENSO =
+  /^[ \t]*([^\n,]{1,40}),[ \t]*(\d{1,2})[ \t]+de[ \t]+([A-Za-zÀ-ÿ]{3,12})[ \t]+de[ \t]+(\d{1,2}\.?\d{3})[ \t]*\.?[ \t]*$/gm
+const RE_CAUDA_NUMERICA =
+  /^[ \t]*([^\n,]{1,40}),[ \t]*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})[ \t]*\.?[ \t]*$/gm
+
+// O topo de cada ficha repete "LIVRO N° 2 / matrícula / 82.662 / ficha / 04" e
+// logo abaixo a data de abertura da face, na mesma forma "Cidade, data" — foi o
+// único falso positivo do corpus (matrícula 82.662), e só a vizinhança o
+// distingue de uma cauda de verdade.
+const RE_BLOCO_FICHA = /LIVRO\s*N|matr[íi]cula\s*\n|\bficha\b|CNM:|Oficial:|REGISTRO\s*\n?\s*GERAL/i
+
+// Fragmentos que abrem linha de protocolo, não de ato.
+const RE_CAUDA_RUIDO = /Prenota|Livro|ficha|CERTIFICO|Protocolo|SOLICITADO/i
+
+/** Ano escrito "1990" ou "1.990", como a ficha datilografada faz. */
+function anoDe(trecho: string): number | null {
+  const m = trecho.match(/\b(1[89]\d{2}|20\d{2}|[12]\.\d{3})\b/)
+  if (!m) return null
+  const n = Number(m[1].replace('.', ''))
+  return Number.isFinite(n) ? n : null
+}
+
+type Cauda = { inicio: number; fim: number; texto: string; ano: number }
+
+/**
+ * A cauda órfã que explica um número ausente entre dois atos lidos.
+ *
+ * Devolve `null` quando não há — e o silêncio é o desfecho certo: sem a cauda
+ * não há evidência de que a face chegou, e a lacuna continua sendo lacuna.
+ */
+function caudaOrfa(
+  texto: string,
+  cabecalhos: Cabecalho[],
+  anterior: Cabecalho,
+  seguinte: Cabecalho,
+  quantosAusentes: number,
+): Cauda | null {
+  const anoAnterior = anoDe(texto.slice(anterior.fimDoMatch, anterior.fimDoMatch + 300))
+  const anoSeguinte = anoDe(texto.slice(seguinte.fimDoMatch, seguinte.fimDoMatch + 300))
+
+  const achadas: Cauda[] = []
+  for (const re of [RE_CAUDA_EXTENSO, RE_CAUDA_NUMERICA]) {
+    for (const m of texto.matchAll(new RegExp(re.source, re.flags))) {
+      // Entre os dois atos que cercam a lacuna, e em nenhum outro lugar.
+      if (m.index! <= anterior.fimDoMatch || m.index! >= seguinte.nInicio) continue
+
+      const fragmento = m[1]
+      if (RE_CAUDA_RUIDO.test(fragmento)) continue
+      if (re === RE_CAUDA_EXTENSO && !MESES.includes(m[3].toLowerCase())) continue
+
+      // Coberta por um cabeçalho que FOI lido: é a cauda dele, não órfã.
+      if (cabecalhos.some((c) => m.index! >= c.nInicio && m.index! < c.fimDoMatch)) continue
+
+      // Topo de ficha, não cabeçalho de ato.
+      if (RE_BLOCO_FICHA.test(texto.slice(Math.max(0, m.index! - 260), m.index!))) continue
+
+      // Cauda de um cabeçalho que quebrou de linha, ou linha de abertura que
+      // vem colada num ato lido: nos dois casos não falta rótulo nenhum.
+      const antes = texto.slice(0, m.index!).split('\n').filter((l) => l.trim()).slice(-2)
+      const depois = texto.slice(m.index! + m[0].length).split('\n').find((l) => l.trim()) ?? ''
+      const ehCabecalho = (l: string) => new RegExp(RE_ATO.source, 'i').test(l)
+      if (antes.some(ehCabecalho) || ehCabecalho(depois)) continue
+
+      const ano = anoDe(m[0])
+      if (ano === null) continue
+      // Cronologia: registro feito hoje de escritura antiga é rotina, então uma
+      // data fora da janela dos vizinhos não prova nada e o detector cala.
+      if (anoAnterior !== null && ano < anoAnterior) continue
+      if (anoSeguinte !== null && ano > anoSeguinte) continue
+
+      const recuo = m[0].length - m[0].trimStart().length
+      const inicio = m.index! + recuo
+      const semRabo = fragmento.replace(/\s+$/, '')
+      if (!semRabo) continue
+      achadas.push({ inicio, fim: inicio + semRabo.length, texto: semRabo, ano })
+    }
+  }
+
+  // Contagem casada: uma cauda justifica um ato, não seis. Sem isto, uma linha
+  // solta explicaria um bloco inteiro de páginas que nunca chegaram.
+  if (achadas.length !== quantosAusentes) return null
+  return achadas[0] ?? null
+}
+
+/**
+ * O cabeçalho provável, para pré-preencher o campo.
+ *
+ * A letra sai do CORPO do ato, não de chute: averbação abre com "Do requerimento
+ * … verifica-se que" e registro com "TRANSMITENTE/ADQUIRENTE/TÍTULO". Errar a
+ * letra troca a natureza do ato — registro transmite domínio, averbação não —,
+ * e por isso a tela pede confirmação na imagem mesmo com o campo preenchido.
+ */
+function cabecalhoProvavel(
+  texto: string,
+  cauda: Cauda,
+  numero: number,
+  matricula: number,
+  irmaos: Cabecalho[],
+): string {
+  const corpo = texto.slice(cauda.fim, cauda.fim + 400)
+  const ehRegistro = /TRANSMITENTE|ADQUIRENTE|T[ÍI]TULO\s*:|FORMA DO T[ÍI]TULO|VALOR\s*:/i.test(corpo)
+  const ehAverbacao = /requerimento|verifica-se|procedo|averba[çc][ãa]o|nos termos d/i.test(corpo)
+  const letra = ehRegistro && !ehAverbacao ? 'R' : 'AV'
+
+  // A cidade vem de um irmão: o OCR leu "Paulo" aqui, mas "São Paulo" nos
+  // outros atos. Reconstruir com o fragmento mutilado devolveria um cabeçalho
+  // sutilmente errado, que é pior que um evidentemente incompleto.
+  const cidades = new Map<string, number>()
+  for (const c of irmaos) {
+    const m = texto.slice(c.fimDoMatch, c.fimDoMatch + 60).match(/^[\s\-]*([^\n,]{2,40}),/)
+    if (!m) continue
+    const nome = m[1].trim()
+    if (nome) cidades.set(nome, (cidades.get(nome) ?? 0) + 1)
+  }
+  let cidade = cauda.texto
+  let max = 0
+  for (const [nome, n] of cidades) {
+    if (n > max && nome.toLowerCase().endsWith(cauda.texto.toLowerCase())) {
+      max = n
+      cidade = nome
+    }
+  }
+
+  const mat = String(matricula).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${letra}.${String(numero).padStart(2, '0')} - ${mat} - ${cidade}`
+}
+
 function umDigitoResolve(ano: number, piso: number, teto: number): boolean {
   const s = String(ano)
   for (let i = 0; i < s.length; i++) {
@@ -317,13 +480,40 @@ export function detectarAtos(texto: string, anoAtual = new Date().getFullYear())
   // mão distingue os dois.
   const porNumero = [...daMatricula].sort((a, b) => a.numero - b.numero)
   for (let i = 1; i < porNumero.length; i++) {
-    const salto = porNumero[i].numero - porNumero[i - 1].numero
+    const anterior = porNumero[i - 1]
+    const seguinte = porNumero[i]
+    const salto = seguinte.numero - anterior.numero
     if (salto <= 1 || salto > 20) continue
+
+    // Quando a cauda órfã explica a lacuna, ela SUBSTITUI o aviso de salto — os
+    // dois são o mesmo achado. E é o aviso de salto que perde: ele ancora no
+    // número do ato SEGUINTE, ou seja, mostra ao usuário o recorte do ato
+    // errado, e não lhe dá nada para digitar. Somar os dois também gastaria
+    // duas das oito vagas da tela com a mesma pergunta.
+    const cauda = dominante !== null ? caudaOrfa(texto, cabecalhos, anterior, seguinte, salto - 1) : null
+    if (cauda) {
+      const ausente = anterior.numero + 1
+      achados.push({
+        motivo: 'cabecalho',
+        rotulo: `O cabeçalho do ato ${ausente} não foi lido; esta linha começa no meio`,
+        inicio: cauda.inicio,
+        fim: cauda.fim,
+        peso: PESOS.ato_cabecalho_perdido,
+        ajuda:
+          'A tarja da certidão encobriu o começo desta linha e o cabeçalho do ato não foi lido. '
+          + 'Confira na imagem e digite o cabeçalho inteiro até o nome da cidade — '
+          + 'em especial a letra: AV é averbação, R é registro, e são coisas juridicamente diferentes.',
+        sugestao: cabecalhoProvavel(texto, cauda, ausente, dominante, daMatricula),
+        recorteLargo: true,
+      })
+      continue
+    }
+
     achados.push({
       motivo: 'ato',
-      rotulo: `Numeração salta de ${porNumero[i - 1].numero} para ${porNumero[i].numero}`,
-      inicio: porNumero[i].nInicio,
-      fim: porNumero[i].nFim,
+      rotulo: `Numeração salta de ${anterior.numero} para ${seguinte.numero}`,
+      inicio: seguinte.nInicio,
+      fim: seguinte.nFim,
       peso: PESOS.ato_salto,
     })
   }

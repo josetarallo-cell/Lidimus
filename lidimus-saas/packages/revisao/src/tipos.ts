@@ -44,6 +44,7 @@ export type MotivoSuspeita =
   | 'cpf_cnpj'
   | 'data'
   | 'ato'
+  | 'cabecalho'
   | 'valor'
   | 'homoglifo'
   | 'confianca'
@@ -59,6 +60,31 @@ export type Suspeita = {
   fim: number
   /** Prioridade de exibição — ver PESOS em detectores.ts */
   peso: number
+  /**
+   * Instrução específica deste achado, quando o rótulo não basta.
+   *
+   * A ajuda fixa da tela ("corrija só a parte no campo") serve para trocar um
+   * trecho lido errado. Não serve para o cabeçalho encoberto pela tarja, em que
+   * o usuário precisa DIGITAR o que o sistema não leu — e precisa saber que a
+   * letra (AV ou R) muda a natureza jurídica do ato.
+   */
+  ajuda?: string
+  /**
+   * Texto sugerido para o campo, quando ele difere do que foi lido.
+   *
+   * Só o cabeçalho encoberto usa isto: o campo mostra a reconstrução provável
+   * em vez do fragmento sobrevivente, porque digitar o cabeçalho inteiro a
+   * partir do zero é atrito grande num achado que aparece em toda certidão com
+   * tarja. A sugestão é palpite de máquina e a tela precisa dizer isso.
+   */
+  sugestao?: string
+  /**
+   * O recorte precisa da largura da linha inteira, sem caber na coluna.
+   *
+   * Uma faixa de 2480 px reduzida a ~700 px pela folha de estilo deixa o texto
+   * sob a tarja ilegível — que é justamente o que se pede para ler.
+   */
+  recorteLargo?: boolean
 }
 
 /** Uma posição do mesmo trecho no texto, com o contexto que a re-ancora. */
@@ -146,6 +172,14 @@ export type CorrecaoAplicada = {
   para: string
   /** Quantas posições do texto a correção emendou */
   ocorrencias: number
+  /**
+   * O texto aplicado é, palavra por palavra, o palpite que o sistema pôs no
+   * campo? Só existe nos candidatos que vêm com `sugestao`.
+   *
+   * É a medida de quanto o pré-preenchimento está sendo confirmado sem leitura
+   * da imagem — e o dado que permite rever essa decisão depois.
+   */
+  igualASugestao?: boolean
 }
 
 export type ResultadoAplicacao = {

@@ -39,8 +39,14 @@ const emit = defineEmits<{
 }>()
 
 // Preenchido com o que foi lido: conferir e emendar, não redigitar.
+//
+// A exceção é o cabeçalho encoberto pela tarja, que vem com `sugestao`: ali o
+// que foi lido é um fragmento no meio da linha ("Paulo"), e emendar não é o
+// gesto certo — o que se pede é o cabeçalho inteiro, que o sistema não leu. O
+// campo abre com a reconstrução provável, e a ajuda manda conferir a letra na
+// imagem, porque AV e R são atos juridicamente diferentes.
 const valores = reactive<Record<string, string>>(
-  Object.fromEntries(props.candidatos.map((c) => [c.id, c.textoLido])),
+  Object.fromEntries(props.candidatos.map((c) => [c.id, c.sugestao ?? c.textoLido])),
 )
 
 // "Isto não é texto": o OCR transcreveu uma rubrica ou um carimbo como se fosse
@@ -49,6 +55,25 @@ const descartados = reactive<Record<string, boolean>>({})
 
 function mudou(c: Candidato): boolean {
   return descartados[c.id] === true || valores[c.id]?.trim() !== c.textoLido
+}
+
+/**
+ * Descartar o cabeçalho encoberto apagaria a data do ato junto — o pior
+ * desfecho possível, e hoje estaria a um clique. O botão some nesse caso.
+ */
+function podeDescartar(c: Candidato): boolean {
+  return c.motivo !== 'cabecalho'
+}
+
+/**
+ * O campo ainda está com o palpite da máquina, palavra por palavra?
+ *
+ * Serve para a tela pedir a conferência com mais ênfase enquanto ninguém tocou
+ * na sugestão — e, no callback, para a auditoria registrar que o texto aplicado
+ * foi o que a máquina propôs, e não algo lido da imagem.
+ */
+function aindaEhSugestao(c: Candidato): boolean {
+  return c.sugestao !== undefined && valores[c.id]?.trim() === c.sugestao.trim()
 }
 
 const alterados = computed(() => props.candidatos.filter(mudou).length)
@@ -65,7 +90,7 @@ function enviar() {
 }
 
 function restaurar(c: Candidato) {
-  valores[c.id] = c.textoLido
+  valores[c.id] = c.sugestao ?? c.textoLido
   descartados[c.id] = false
 }
 
@@ -120,7 +145,11 @@ function contexto(bruto: string, lado: 'antes' | 'depois'): string {
           </div>
         </div>
 
-        <figure v-if="c.recorte" class="item-recorte">
+        <figure
+          v-if="c.recorte"
+          class="item-recorte"
+          :class="{ 'item-recorte--largo': c.recorteLargo }"
+        >
           <img :src="c.recorte" :alt="`Trecho da página ${c.pagina} do documento enviado`" />
         </figure>
 
@@ -144,9 +173,20 @@ function contexto(bruto: string, lado: 'antes' | 'depois'): string {
             <span class="item-vizinho mono">{{ contexto(c.ctxDepois, 'depois') }}</span>
           </p>
 
-          <p :id="`corretor-ajuda-${c.id}`" class="item-ajuda">
+          <p
+            :id="`corretor-ajuda-${c.id}`"
+            class="item-ajuda"
+            :class="{ 'item-ajuda--atencao': aindaEhSugestao(c) }"
+          >
             <template v-if="descartados[c.id]">
               Este trecho vai sair do documento.
+            </template>
+            <template v-else-if="c.ajuda">
+              {{ c.ajuda }}
+              <template v-if="aindaEhSugestao(c)">
+                <strong>O campo está preenchido com uma sugestão do sistema — confira na
+                imagem antes de continuar.</strong>
+              </template>
             </template>
             <template v-else>
               Corrija só a parte no campo — o texto ao redor fica como está.
@@ -155,6 +195,7 @@ function contexto(bruto: string, lado: 'antes' | 'depois'): string {
 
           <div class="item-acoes">
             <button
+              v-if="podeDescartar(c)"
               type="button"
               class="ld-btn ld-btn--ghost ld-btn--sm"
               :disabled="enviando"
@@ -308,6 +349,14 @@ function contexto(bruto: string, lado: 'antes' | 'depois'): string {
   image-rendering: crisp-edges;
 }
 
+/* A linha inteira, quando o começo dela não foi lido: aqui encolher para caber
+   na coluna é perder o caso de uso. Uma faixa de 2480 px reduzida a ~700 px
+   deixa ilegível justamente o texto sob a tarja, que é o que se pede para ler.
+   Sai em tamanho natural e rola na horizontal, no `overflow-x` que já existe. */
+.item-recorte--largo img {
+  max-width: none;
+}
+
 .item-campo {
   margin-top: var(--space-sm);
 }
@@ -347,6 +396,13 @@ function contexto(bruto: string, lado: 'antes' | 'depois'): string {
   margin: var(--space-xs) 0 0;
   font-size: 0.8125rem;
   opacity: 0.7;
+}
+
+/* Enquanto o campo estiver com o palpite do sistema, a ajuda deixa de ser nota
+   de rodapé: é ela que separa "confirmei na imagem" de "cliquei sem olhar", e a
+   diferença entre AV e R muda a natureza jurídica do ato. */
+.item-ajuda--atencao {
+  opacity: 1;
 }
 
 .item-acoes {

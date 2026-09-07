@@ -129,6 +129,96 @@ describe('detectarAtos', () => {
   })
 })
 
+// A matrícula 119.908: a tarja da certidão eletrônica passou por cima do
+// "AV. 06 - 119.908 - São" e o Document AI não leu nada disso — nem no texto
+// bruto. Sobrou a cauda da linha, e é ela que prova que a PÁGINA chegou.
+describe('detectarAtos — cabeçalho encoberto pela tarja', () => {
+  const comCauda = [
+    'Av.04 119.908',
+    'São Paulo, 27 de abril de 1.990.',
+    'Do requerimento de 06 de março de 1.990, verifica-se que o prédio foi demolido.',
+    'Av.05 119.908',
+    'São Paulo, 27 de abril de 1.990.',
+    'Do requerimento de 06 de março de 1.990, verifica-se que foi construído um prédio.',
+    'Paulo, 18 de setembro de 1990.',
+    'Do requerimento de 13 de setembro de 1990, verifica-se que em virtude do englobamento.',
+    'Av.07 119.908',
+    'São Paulo, 12 de dezembro de 1994.',
+  ].join('\n')
+
+  it('acusa o cabeçalho que não foi lido, ancorado na cauda órfã', () => {
+    const achado = detectarAtos(comCauda, ANO).find((a) => a.motivo === 'cabecalho')
+    expect(achado).toBeDefined()
+    expect(achado!.rotulo).toContain('ato 6')
+    // Âncora é o fragmento ANTES da data: a data fica fora do campo e, por
+    // construção, o usuário não tem como errá-la ao redigitar.
+    expect(comCauda.slice(achado!.inicio, achado!.fim)).toBe('Paulo')
+  })
+
+  it('substitui o aviso de salto em vez de somar a ele', () => {
+    const achados = detectarAtos(comCauda, ANO)
+    expect(achados.filter((a) => a.rotulo.includes('salta'))).toHaveLength(0)
+    expect(achados.filter((a) => a.motivo === 'cabecalho')).toHaveLength(1)
+  })
+
+  it('sugere o cabeçalho com a cidade dos irmãos e a letra tirada do corpo', () => {
+    const achado = detectarAtos(comCauda, ANO).find((a) => a.motivo === 'cabecalho')
+    // "São Paulo" vem dos outros atos — o OCR só leu "Paulo" nesta linha, e
+    // reconstruir com o fragmento mutilado daria um cabeçalho sutilmente errado.
+    // "AV" vem de "Do requerimento … verifica-se", que é linguagem de averbação.
+    expect(achado!.sugestao).toBe('AV.06 - 119.908 - São Paulo')
+  })
+
+  it('sugere R quando o corpo do ato é de registro', () => {
+    const texto = comCauda.replace(
+      'Do requerimento de 13 de setembro de 1990, verifica-se que em virtude do englobamento.',
+      'TRANSMITENTE: FULANO. ADQUIRENTE: BELTRANO. TÍTULO: COMPRA E VENDA. VALOR: R$ 1,00.',
+    )
+    const achado = detectarAtos(texto, ANO).find((a) => a.motivo === 'cabecalho')
+    expect(achado!.sugestao).toBe('R.06 - 119.908 - São Paulo')
+  })
+
+  it('cala quando a data da cauda não cabe entre as vizinhas', () => {
+    // Registro feito hoje de escritura antiga é rotina; data fora da janela não
+    // prova ato nenhum, e a direção segura é o silêncio.
+    const texto = comCauda.replace('Paulo, 18 de setembro de 1990.', 'Paulo, 18 de setembro de 2001.')
+    expect(detectarAtos(texto, ANO).filter((a) => a.motivo === 'cabecalho')).toHaveLength(0)
+  })
+
+  it('cala quando uma cauda só teria de explicar vários atos ausentes', () => {
+    // Contagem casada: página faltando leva embora um bloco de atos, e uma
+    // linha solta não justifica seis. É o que protege a matrícula 54.204.
+    const texto = comCauda.replace('Av.07 119.908', 'Av.11 119.908')
+    expect(detectarAtos(texto, ANO).filter((a) => a.motivo === 'cabecalho')).toHaveLength(0)
+  })
+
+  it('cala no topo de ficha, que tem a mesma forma', () => {
+    // Falso positivo real da matrícula 82.662: o cabeçalho da ficha repete
+    // "Cidade, data" logo abaixo de "LIVRO N° 2 / matrícula / ficha".
+    const texto = comCauda.replace(
+      'Paulo, 18 de setembro de 1990.',
+      'LIVRO N° 2\nmatrícula\n119.908\nficha\n04\nSão Paulo, 18 de setembro de 1990.',
+    )
+    expect(detectarAtos(texto, ANO).filter((a) => a.motivo === 'cabecalho')).toHaveLength(0)
+  })
+
+  it('cala quando a linha é a cauda de um cabeçalho que foi lido', () => {
+    // Aqui não falta rótulo nenhum: cada "Cidade, data" pertence ao cabeçalho
+    // logo acima. O salto de 5 para 7 continua sendo acusado como salto.
+    const texto = [
+      'Av.04 119.908',
+      'São Paulo, 27 de abril de 1.990.',
+      'Av.05 119.908',
+      'São Paulo, 27 de abril de 1.990.',
+      'Av.07 119.908',
+      'São Paulo, 12 de dezembro de 1994.',
+    ].join('\n')
+    const achados = detectarAtos(texto, ANO)
+    expect(achados.filter((a) => a.motivo === 'cabecalho')).toHaveLength(0)
+    expect(achados.filter((a) => a.rotulo.includes('salta'))).toHaveLength(1)
+  })
+})
+
 describe('detectarValores', () => {
   it('aceita valores e medidas bem formados', () => {
     const texto = 'pelo valor de R$ 1.234,56 e área de 10.000,00 m2, com 203,00 metros'

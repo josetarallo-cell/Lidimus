@@ -234,4 +234,44 @@ describe('ida e volta com o levantamento', () => {
     expect(r.texto.startsWith('Av. 2/7529')).toBe(true)
     expect(r.descartadas).toHaveLength(0)
   })
+
+  // O campo do cabeçalho encoberto abre pré-preenchido com um palpite do
+  // sistema. A auditoria precisa distinguir quem conferiu a imagem de quem
+  // clicou adiante — é o dado que permite rever essa decisão depois.
+  describe('auditoria do palpite pré-preenchido', () => {
+    const texto = 'Av.05 119.908\nPaulo, 18 de setembro de 1990.\nDo requerimento.'
+    const posicao = texto.indexOf('Paulo, 18')
+    const comSugestao = candidato({
+      id: 'r1',
+      motivo: 'cabecalho',
+      inicio: posicao,
+      fim: posicao + 'Paulo'.length,
+      textoLido: 'Paulo',
+      sugestao: 'AV.06 - 119.908 - São Paulo',
+      ctxAntes: 'Av.05 119.908\n',
+      ctxDepois: ', 18 de setembro',
+    })
+
+    it('marca quando o texto aplicado é o palpite intocado', () => {
+      const r = aplicarCorrecoes(texto, [comSugestao], [
+        { id: 'r1', texto: 'AV.06 - 119.908 - São Paulo' },
+      ])
+      expect(r.aplicadas[0].igualASugestao).toBe(true)
+      expect(r.texto).toContain('AV.06 - 119.908 - São Paulo, 18 de setembro de 1990.')
+    })
+
+    it('marca quando a pessoa corrigiu o palpite na imagem', () => {
+      const r = aplicarCorrecoes(texto, [comSugestao], [
+        { id: 'r1', texto: 'R.06 - 119.908 - São Paulo' },
+      ])
+      expect(r.aplicadas[0].igualASugestao).toBe(false)
+    })
+
+    it('não inventa a marca em candidato sem sugestão', () => {
+      const r = aplicarCorrecoes(texto, [{ ...comSugestao, sugestao: undefined }], [
+        { id: 'r1', texto: 'Sao Paulo' },
+      ])
+      expect(r.aplicadas[0].igualASugestao).toBeUndefined()
+    })
+  })
 })

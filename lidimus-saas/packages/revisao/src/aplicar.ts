@@ -183,6 +183,14 @@ export function aplicarCorrecoes(
       de: r.candidato.textoLido,
       para: r.para,
       ocorrencias: 1,
+      // Quando o campo veio pré-preenchido com um palpite do sistema, registrar
+      // se o que foi aplicado é palavra por palavra esse palpite. É o único
+      // jeito de saber, depois, se as pessoas estão conferindo a imagem ou
+      // clicando adiante — e de rever a decisão de pré-preencher com dado em
+      // vez de opinião.
+      ...(r.candidato.sugestao !== undefined
+        ? { igualASugestao: r.para === r.candidato.sugestao }
+        : {}),
       primeira: r.inicio,
     })
   }
