@@ -282,10 +282,23 @@
           "name": "Evolution API - apikey"
         }
       },
-      "onError": "continueRegularOutput",
+      "onError": "continueErrorOutput",
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "errorMessage": "Evolution recusou o envio no WhatsApp — ver a saída de erro do \"Enviar WhatsApp\"."
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        376
+      ],
+      "id": "23e00b1f-af53-49b3-81fd-71e40d95808c",
+      "name": "Falha no envio"
     }
   ],
   "connections": {
@@ -429,6 +442,18 @@
         [
           {
             "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Falha no envio",
             "type": "main",
             "index": 0
           }
