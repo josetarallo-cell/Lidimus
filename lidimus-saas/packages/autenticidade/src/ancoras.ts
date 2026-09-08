@@ -164,12 +164,22 @@ export function seloDoQr(selo25: string): SeloTjsp | null {
 
 // ─── CNM — Código Nacional de Matrícula ─────────────────────────────────────
 //
-// `CCCCC.L.NNNNNNN-DD`: CNS(5) + Livro(1) + nº de ordem(7) + DV(2), Provimento
+// `CCCCCC.L.NNNNNNN-DD`: CNS(6) + Livro(1) + nº de ordem(7) + DV(2), Provimento
 // CNJ 89/2019. A forma pontuada é específica o bastante para não confundir com
 // texto solto; o fallback sem pontuação só aceita se o DV fechar.
+//
+// O CNS tem SEIS dígitos, não cinco. Até 07/09/2026 os dois padrões pediam
+// cinco, e com isso nenhum CNM real era reconhecido: nem o `111252.2.0119908-34`
+// da matrícula 119.908, nem o `145573.2.0002653-37` da 2.853 casavam com o
+// pontuado, e no fallback 16 dígitos nunca são 15. O teste não pegava porque a
+// fixture `14557.2.0000001-72` era sintética e nasceu do mesmo engano, um dígito
+// a menos. Os dois códigos reais fecham o ISO 7064 lidos como 16 dígitos, o que
+// confirma a leitura — e `decomporSelo`, acima, já usava `slice(0, 6)` para o
+// CNS do selo, de modo que um CNM de 5 ainda faria o veredito acusar
+// `cns_diverge_entre_fontes` toda vez que as duas âncoras aparecessem juntas.
 
-const CNM_PONTUADO = /\b(\d{5})\.(\d)\.(\d{7})-(\d{2})\b/g
-const CNM_SEM_PONTUACAO = /\b\d{15}\b/g
+const CNM_PONTUADO = /\b(\d{6})\.(\d)\.(\d{7})-(\d{2})\b/g
+const CNM_SEM_PONTUACAO = /\b\d{16}\b/g
 
 function decomporCnm(cns: string, livro: string, numeroOrdem: string, dv: string, corrigido: boolean, dvFecha: boolean): Cnm {
   return {
@@ -201,10 +211,10 @@ export function extrairCnm(texto: string): Cnm | null {
 
   for (const m of texto.matchAll(CNM_SEM_PONTUACAO)) {
     const bloco = m[0]
-    const base = bloco.slice(0, 13)
-    const dv = bloco.slice(13, 15)
+    const base = bloco.slice(0, 14)
+    const dv = bloco.slice(14, 16)
     if (iso7064Fecha(base + dv)) {
-      return decomporCnm(base.slice(0, 5), base.slice(5, 6), base.slice(6, 13), dv, false, true)
+      return decomporCnm(base.slice(0, 6), base.slice(6, 7), base.slice(7, 14), dv, false, true)
     }
   }
 

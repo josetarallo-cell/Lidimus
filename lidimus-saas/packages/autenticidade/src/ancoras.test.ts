@@ -3,7 +3,11 @@ import { extrairCnm, extrairSelo, seloDoQr, tentarComCorrecaoDv } from './ancora
 import { luhnModNFecha } from './luhn.ts'
 
 const SELO_VALIDO = '9999991CE0000000000030184' // spec §4.9, DV confirmado em luhn.test.ts
-const CNM_VALIDO = '14557.2.0000001-72' // base/DV confirmados em iso7064.test.ts
+// CNS(6) + Livro(1) + ordem(7) + DV(2) — o CNS tem seis dígitos, e a fixture
+// anterior ('14557.2.0000001-72') tinha cinco. Como o regex fora escrito com o
+// mesmo erro, o teste passava enquanto nenhum CNM real era reconhecido. DV
+// calculado pelo próprio ISO 7064 MOD 97-10 sobre '14557320000001'.
+const CNM_VALIDO = '145573.2.0000001-39'
 
 describe('extrairSelo', () => {
   it('encontra o selo rotulado e confirma que o DV fecha', () => {
@@ -76,34 +80,47 @@ describe('extrairCnm', () => {
   it('encontra e valida o CNM pontuado', () => {
     const cnm = extrairCnm(`Matrícula registrada sob CNM ${CNM_VALIDO}.`)
     expect(cnm).not.toBeNull()
-    expect(cnm?.cns).toBe('14557')
+    expect(cnm?.cns).toBe('145573')
     expect(cnm?.livro).toBe('2')
     expect(cnm?.numeroOrdem).toBe('0000001')
-    expect(cnm?.dv).toBe('72')
+    expect(cnm?.dv).toBe('39')
     expect(cnm?.dvFecha).toBe(true)
     expect(cnm?.livroEhRegistroGeral).toBe(true)
   })
 
+  // Guarda contra a regressão que motivou a correção de 07/09/2026: os dois
+  // códigos abaixo saíram de matrículas reais lidas pelo pipeline (a 119.908 e
+  // a 2.853) e não eram reconhecidos enquanto o CNS era lido com cinco dígitos.
+  it.each(['111252.2.0119908-34', '145573.2.0002653-37'])(
+    'reconhece o CNM real %s, com CNS de seis dígitos',
+    (codigo) => {
+      const cnm = extrairCnm(`MATRÍCULA (CNM) ${codigo}`)
+      expect(cnm?.codigo).toBe(codigo)
+      expect(cnm?.cns).toHaveLength(6)
+      expect(cnm?.dvFecha).toBe(true)
+    },
+  )
+
   it('CNM com DV errado volta como achado inválido', () => {
-    const cnm = extrairCnm('CNM 14557.2.0000001-00')
+    const cnm = extrairCnm('CNM 145573.2.0000001-00')
     expect(cnm).not.toBeNull()
     expect(cnm?.dvFecha).toBe(false)
   })
 
   it('encontra CNM sem pontuação, só quando o DV fecha', () => {
-    const semPontuacao = '145572000000172'
+    const semPontuacao = '1455732000000139'
     const cnm = extrairCnm(`bloco de dígitos ${semPontuacao} no meio do texto`)
     expect(cnm?.codigo).toBe(CNM_VALIDO)
   })
 
-  it('não confunde 15 dígitos aleatórios com CNM (DV não fecha)', () => {
-    expect(extrairCnm('numero qualquer 123456789012345 aqui')).toBeNull()
+  it('não confunde 16 dígitos aleatórios com CNM (DV não fecha)', () => {
+    expect(extrairCnm('numero qualquer 1234567890123456 aqui')).toBeNull()
   })
 
   it('livroEhRegistroGeral é false quando o livro não é 2', () => {
     // Mesma base do CNM_VALIDO, trocando livro=2 por livro=1 — DV recalculado
     // pelo próprio algoritmo (ISO 7064 MOD 97-10) para fechar de verdade.
-    const cnm = extrairCnm('14557.1.0000001-09')
+    const cnm = extrairCnm('145573.1.0000001-73')
     expect(cnm?.dvFecha).toBe(true)
     expect(cnm?.livroEhRegistroGeral).toBe(false)
   })
