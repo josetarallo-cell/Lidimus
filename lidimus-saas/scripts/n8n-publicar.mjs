@@ -17,8 +17,16 @@
 // conexões inteiro, e com ele qualquer religação que o repo tenha acumulado —
 // exige a flag e imprime, antes de enviar, exatamente quais arestas mudam.
 //
+// `--acrescentar` é a outra exceção: sem ela, nó nomeado que não existe no ar é
+// erro — a suposição sadia é que o nome foi digitado errado. Com ela, o nó vem
+// inteiro do repo (id incluído, para o diff seguinte casar) e entra no
+// documento. É o que faltava para publicar uma etapa nova: até 07/09/2026 este
+// script só sabia trocar `parameters` de nó existente, e acrescentar um exigia
+// script próprio. Continua estreita: só acrescenta nó nomeado na linha de
+// comando, e nunca remove nada.
+//
 // Uso:
-//   node scripts/n8n-publicar.mjs <arquivo.json> <Nó A> [Nó B ...] [--conexoes] [--dry-run]
+//   node scripts/n8n-publicar.mjs <arquivo.json> <Nó A> [Nó B ...] [--conexoes] [--acrescentar] [--dry-run]
 //
 // Exemplo:
 //   node scripts/n8n-publicar.mjs lidimus-OCR.json "Normalizar Texto" "Callback OCR"
@@ -30,10 +38,12 @@ import { lerEnvProducaoBruto, raizRepo, valorDoEnv } from './lidimus-update-comu
 const argv = process.argv.slice(2)
 const simulacao = argv.includes('--dry-run')
 const publicarConexoes = argv.includes('--conexoes')
-const [arquivo, ...nomesDeNos] = argv.filter((a) => a !== '--dry-run' && a !== '--conexoes')
+const podeAcrescentar = argv.includes('--acrescentar')
+const BANDEIRAS = new Set(['--dry-run', '--conexoes', '--acrescentar'])
+const [arquivo, ...nomesDeNos] = argv.filter((a) => !BANDEIRAS.has(a))
 
 if (!arquivo || (nomesDeNos.length === 0 && !publicarConexoes)) {
-  console.error('Uso: node scripts/n8n-publicar.mjs <arquivo.json> <Nó> [Nó ...] [--conexoes] [--dry-run]')
+  console.error('Uso: node scripts/n8n-publicar.mjs <arquivo.json> <Nó> [Nó ...] [--conexoes] [--acrescentar] [--dry-run]')
   process.exit(1)
 }
 
@@ -76,6 +86,7 @@ const remoto = await resposta.json()
 
 const localPorNome = new Map(local.nodes.map((n) => [n.name, n]))
 const trocas = []
+const acrescentados = []
 
 for (const nome of nomesDeNos) {
   const doRepo = localPorNome.get(nome)
@@ -85,8 +96,20 @@ for (const nome of nomesDeNos) {
   }
   const noVivo = remoto.nodes.find((n) => n.name === nome)
   if (!noVivo) {
-    console.error(`Nó "${nome}" não existe no workflow ao vivo.`)
-    process.exit(1)
+    if (!podeAcrescentar) {
+      console.error(`Nó "${nome}" não existe no workflow ao vivo. Use --acrescentar para criá-lo a partir do repo.`)
+      process.exit(1)
+    }
+    // Nó novo entra como está no repo. O `id` vem junto de propósito: sem ele o
+    // n8n gera outro e o n8n-diff.mjs seguinte acusaria divergência num nó que
+    // acabou de ser publicado a partir do próprio arquivo.
+    if (remoto.nodes.some((n) => n.id === doRepo.id)) {
+      console.error(`Nó "${nome}": o id ${doRepo.id} já existe no workflow ao vivo com outro nome.`)
+      process.exit(1)
+    }
+    remoto.nodes.push(structuredClone(doRepo))
+    acrescentados.push(nome)
+    continue
   }
   const antes = JSON.stringify(noVivo.parameters)
   const depois = JSON.stringify(doRepo.parameters)
@@ -127,13 +150,16 @@ if (publicarConexoes) {
   }
 }
 
-if (trocas.length === 0 && !conexoesMudam) {
+if (trocas.length === 0 && acrescentados.length === 0 && !conexoesMudam) {
   console.log('Nada a publicar.')
   process.exit(0)
 }
 
 for (const t of trocas) {
   console.log(`~ ${t.nome} — parameters ${t.de} → ${t.para} bytes`)
+}
+for (const nome of acrescentados) {
+  console.log(`+ ${nome} — nó novo, vindo de ${entrada.arquivo}`)
 }
 
 if (simulacao) {
