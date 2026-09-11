@@ -103,6 +103,24 @@ async function copiar(e: MouseEvent, chave: string) {
               existe; se isso for importante para a sua integração, fale com o suporte.
             </p>
           </div>
+
+          <div class="aviso">
+            <p>
+              <strong>A correção de leitura não vale para a API.</strong> No painel, quando um
+              trecho do documento sai da leitura óptica com dúvida — tarja por cima da linha, dígito
+              ilegível, data impossível —, a análise pausa e mostra o recorte da página para uma
+              pessoa conferir antes de seguir. Pela API isso não acontece: não há tela nem ninguém
+              do outro lado, e segurar o job por quinze minutos em cada chamada transformaria a
+              etapa num travamento da sua integração. <strong>A análise roda sobre a leitura como
+              ela saiu do OCR</strong>, sem conferência humana.
+            </p>
+            <p>
+              O efeito prático é sobre documento de leitura difícil: certidão digitalizada torta,
+              ficha datilografada, carimbo por cima do texto. Se a conferência importa naquela
+              matrícula, envie-a pelo painel. A etapa está descrita em
+              <NuxtLink to="/docs/matriculas#correcao">Correção de leitura</NuxtLink>.
+            </p>
+          </div>
         </section>
 
         <!-- ── Antes de começar ────────────────────────────────────────── -->
@@ -362,7 +380,8 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td><code class="est est--espera">processing</code></td>
                 <td>
                   Em andamento. O campo <code>etapa</code> mostra onde:
-                  <code>ocr</code> (leitura), <code>juridico</code> (análise) ou
+                  <code>ocr</code> (leitura), <code>revisao</code> (correção de leitura, só em
+                  análise criada no painel), <code>juridico</code> (análise) ou
                   <code>doc</code> (montagem do relatório).
                 </td>
               </tr>
@@ -405,6 +424,18 @@ async function copiar(e: MouseEvent, chave: string) {
   "erro": null,
   "resultado": null
 }</code></pre>
+          </div>
+
+          <div class="nota">
+            <p>
+              <strong><code>etapa: "revisao"</code> quer dizer que alguém precisa olhar a tela.</strong>
+              Análise sua enviada pela API nunca chega a esse estado; mas uma análise
+              <strong>criada no painel</strong> e consultada pela sua integração pode estar parada
+              esperando a conferência de um trecho de leitura. Para você ela é
+              <code>processing</code>, e é mesmo — ou a pessoa responde, ou o prazo de cerca de 15
+              minutos corre e a análise segue sozinha. Não há nada a fazer do lado da integração
+              além de continuar consultando.
+            </p>
           </div>
 
           <p>
@@ -943,6 +974,13 @@ async function copiar(e: MouseEvent, chave: string) {
               <tr><td>Arquivos por lote</td><td>10, somando no máximo 120 MB</td></tr>
               <tr><td>Chaves ativas</td><td>5 por empresa</td></tr>
               <tr><td>Validade da chave</td><td>1 ano</td></tr>
+              <tr>
+                <td>Correção de leitura</td>
+                <td>
+                  <strong>não se aplica</strong> — envio pela API, unitário ou em lote, não pausa
+                  para conferência humana
+                </td>
+              </tr>
             </tbody>
           </table>
           <p>

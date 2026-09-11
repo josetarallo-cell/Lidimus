@@ -92,6 +92,43 @@ function arquivarExecucao(execucao) {
   }
 }
 
+// Códigos de saída do Windows (NTSTATUS) em que o processo nem chegou a rodar,
+// ou morreu de um jeito que não é culpa do script.
+//
+// Sem esta tabela a falha chega ao WhatsApp como um número cru. Em 09/09/2026 as
+// duas execuções do dia reportaram só "o script terminou sem relatório legível"
+// e "3221225794" — descobrir que 3221225794 é 0xC0000142, o antivírus impedindo
+// o node de inicializar, custou uma investigação inteira num incidente que não
+// tinha nada a ver com o Lidimus.
+const FALHAS_DO_WINDOWS = new Map([
+  [0xC0000142, ['STATUS_DLL_INIT_FAILED', 'o node não conseguiu inicializar suas DLLs — costuma ser DLL de antivírus em estado ruim (o Bitdefender injeta a atcuf64.dll em todo processo novo); reiniciar o Windows resolve']],
+  [0xC0000135, ['STATUS_DLL_NOT_FOUND', 'falta uma DLL para o node subir — instalação do Node.js ou runtime do Visual C++ danificada']],
+  [0xC0000017, ['STATUS_NO_MEMORY', 'o Windows não tinha memória para criar o processo']],
+  [0xC000012D, ['STATUS_COMMITMENT_LIMIT', 'acabou a memória virtual da máquina — o build come a RAM do host']],
+  [0xC0000005, ['STATUS_ACCESS_VIOLATION', 'o node quebrou com violação de acesso']],
+  [0xC00000FD, ['STATUS_STACK_OVERFLOW', 'o node quebrou com estouro de pilha']],
+  [0xC0000409, ['STATUS_STACK_BUFFER_OVERRUN', 'o node foi abortado por corrupção de pilha']],
+  [0xC000013A, ['STATUS_CONTROL_C_EXIT', 'o processo foi interrompido (Ctrl+C ou o console fechou)']],
+])
+
+function explicarSaida(codigo, sinal, saida) {
+  if (sinal) return `o script foi morto pelo sinal ${sinal}`
+
+  const conhecido = FALHAS_DO_WINDOWS.get(codigo >>> 0)
+  if (conhecido) {
+    const [nome, porque] = conhecido
+    const hex = `0x${(codigo >>> 0).toString(16).toUpperCase().padStart(8, '0')}`
+    return `o Windows barrou a execução (${hex} ${nome}): ${porque}`
+  }
+
+  // Saída vazia separa "o processo nunca existiu" de "rodou e não imprimiu o
+  // relatório". Os dois chegavam aqui com a mesma frase, e só o segundo tem log
+  // para procurar.
+  return saida.trim()
+    ? `o script terminou sem relatório legível (código de saída ${codigo})`
+    : `o script terminou sem imprimir nada (código de saída ${codigo})`
+}
+
 function executarDeploy(script, argumentos) {
   return new Promise((resolver) => {
     const filho = spawn('node', [script, ...argumentos], {
@@ -104,7 +141,28 @@ function executarDeploy(script, argumentos) {
     filho.stdout.on('data', (p) => { saida += p; process.stdout.write(p) })
     filho.stderr.on('data', (p) => { saida += p; process.stderr.write(p) })
 
-    filho.on('close', (codigo) => {
+    // 'error' e 'close' podem disparar os dois na mesma falha; o primeiro a
+    // chegar é quem responde.
+    let respondido = false
+    const concluir = (relatorio) => {
+      if (respondido) return
+      respondido = true
+      resolver(relatorio)
+    }
+
+    // Sem este listener o Node promove o evento 'error' a exceção não tratada e
+    // derruba o agente inteiro — que não religa sozinho, então a 8099 fica muda
+    // e nem a execução seguinte é reportada. A falha tem de virar relatório.
+    filho.on('error', (e) => {
+      concluir({
+        resultado: 'erro-do-agente',
+        motivo: `não consegui nem iniciar o script: ${e.message}`,
+        codigoDeSaida: null,
+        saida: saida.slice(-3000),
+      })
+    })
+
+    filho.on('close', (codigo, sinal) => {
       // O script imprime log legível e, na última linha, o relatório JSON. A
       // marca separa os dois sem depender de o log ser silencioso.
       const marca = saida.lastIndexOf('FIM-DO-RELATORIO')
@@ -112,9 +170,9 @@ function executarDeploy(script, argumentos) {
       if (marca !== -1) {
         try { relatorio = JSON.parse(saida.slice(marca + 'FIM-DO-RELATORIO'.length).trim()) } catch { /* abaixo */ }
       }
-      resolver(relatorio ?? {
+      concluir(relatorio ?? {
         resultado: 'erro-do-agente',
-        motivo: 'o script terminou sem relatório legível',
+        motivo: explicarSaida(codigo, sinal, saida),
         codigoDeSaida: codigo,
         saida: saida.slice(-3000),
       })

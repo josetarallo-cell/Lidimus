@@ -19,7 +19,7 @@ const SECOES = [
   { id: 'o-que-faz', rotulo: 'O que a análise faz' },
   { id: 'tempo', rotulo: 'Quanto tempo leva' },
   { id: 'como-usar', rotulo: 'Como usar (e em lote)' },
-  { id: 'conferencia', rotulo: 'Conferência da leitura' },
+  { id: 'correcao', rotulo: 'Correção de leitura' },
   { id: 'o-que-recebe', rotulo: 'O que você recebe' },
   { id: 'custo', rotulo: 'Custo' },
   { id: 'limites', rotulo: 'Limites' },
@@ -110,14 +110,22 @@ const SECOES = [
         </div>
         <div class="doc-passo">
           <span class="doc-passo-num">2</span>
-          <p><strong>Extração.</strong> Identifica proprietários, área, endereço, atos e sequência.</p>
+          <p>
+            <strong>Correção de leitura.</strong> Quando um trecho sai duvidoso, a análise pausa e
+            mostra o recorte da página para você conferir. Veja
+            <a href="#correcao">Correção de leitura</a>.
+          </p>
         </div>
         <div class="doc-passo">
           <span class="doc-passo-num">3</span>
-          <p><strong>Análise jurídica.</strong> Classifica cada ato, separa o que está ativo do que foi cancelado e levanta riscos.</p>
+          <p><strong>Extração.</strong> Identifica proprietários, área, endereço, atos e sequência.</p>
         </div>
         <div class="doc-passo">
           <span class="doc-passo-num">4</span>
+          <p><strong>Análise jurídica.</strong> Classifica cada ato, separa o que está ativo do que foi cancelado e levanta riscos.</p>
+        </div>
+        <div class="doc-passo">
+          <span class="doc-passo-num">5</span>
           <p><strong>Relatório técnico.</strong> Conclusão, recomendação e a base legal de cada ponto.</p>
         </div>
       </div>
@@ -225,7 +233,9 @@ const SECOES = [
       </p>
       <p>
         Depois que o lote entra, cada análise segue por conta própria: uma que falhe tem só o
-        próprio crédito estornado, sem afetar as outras.
+        próprio crédito estornado, sem afetar as outras. E uma que precise de
+        <a href="#correcao">correção de leitura</a> espera por você sem segurar as demais — a
+        página do lote diz quantas estão nessa situação.
       </p>
 
       <h3>Pela API</h3>
@@ -242,6 +252,11 @@ const SECOES = [
         Há também <code>/api/v1/matriculas/lote</code>, com a mesma garantia de cobrança da tela.
         O envio, o acompanhamento e o formato completo da resposta estão na
         <NuxtLink to="/docs/api#lote">documentação da API</NuxtLink>.
+      </p>
+      <p>
+        <strong>Uma diferença que vale saber antes de integrar:</strong> análise enviada pela API
+        não passa pela <a href="#correcao">correção de leitura</a> — ela não pausa para perguntar,
+        porque não há ninguém na tela para responder.
       </p>
 
       <h3>Opções de envio</h3>
@@ -264,31 +279,177 @@ const SECOES = [
       </table>
     </section>
 
-    <!-- ── Conferência da leitura ──────────────────────────────────────── -->
-    <section id="conferencia">
-      <h2>Conferência da leitura</h2>
+    <!-- ── Correção de leitura ─────────────────────────────────────────
+         A única etapa do produto em que a bola fica com o cliente. A página
+         precisa dizer isso com a mesma clareza da tela: o que aparece, o que
+         não aparece, e o que acontece quando ninguém responde. -->
+    <section id="correcao">
+      <h2>Correção de leitura</h2>
       <p>
-        Certidão digitalizada torta, carimbo por cima do texto, datilografia dos anos 80: às vezes
-        um trecho sai da leitura sem certeza — e um dígito trocado num CPF ou num ano muda a
+        Certidão digitalizada torta, tarja diagonal por cima do texto, datilografia dos anos 80: às
+        vezes um trecho sai da leitura sem certeza — e um dígito trocado num CPF ou num ano muda a
         análise inteira.
       </p>
       <p>
-        Quando isso acontece, a análise <strong>pausa e pergunta</strong>. A tela mostra o recorte
-        da própria página, com a dúvida dentro, e um campo já preenchido com o que foi lido. Você
-        compara, corrige o que estiver diferente e a análise segue com o texto corrigido. São no
-        máximo oito trechos, e a maioria dos documentos não gera nenhum.
+        Quando isso acontece, a análise <strong>pausa e pergunta</strong>, entre a leitura óptica e
+        a análise jurídica. A tela mostra o recorte da própria página, com a dúvida dentro, e um
+        campo já preenchido com o que foi lido — encaixado no meio da frase de onde o trecho saiu.
+        Você compara com a imagem, emenda o que estiver diferente, envia tudo de uma vez, e a
+        análise segue com o texto corrigido. São no máximo oito trechos por análise, e a maioria
+        dos documentos não gera nenhum.
+      </p>
+
+      <figure>
+        <img
+          src="/docs/corretor-tarja.png"
+          alt="Trecho da correção de leitura: recorte de uma página de matrícula em que uma tarja
+            diagonal cruza a linha do ato; o campo de correção mostra &quot;U FIDUCIARIAMENTE&quot;,
+            entre o texto &quot;10º qualificada, representada&quot; e &quot;por Fulano de Tal Filho.
+            ALIEN…&quot;, com o rótulo &quot;Leitura duvidosa (32% de confiança)&quot; e a página 4"
+        />
+        <figcaption>
+          A tarja da certidão eletrônica passa por cima da linha do ato e come o começo da palavra:
+          o que voltou da leitura foi <code>U FIDUCIARIAMENTE</code>. O recorte existe justamente
+          para isso — na imagem dá para ler o que o texto perdeu, sem abrir o PDF ao lado. Tela
+          real de uma análise de produção; o nome que aparecia na linha de contexto foi trocado por
+          um genérico, porque esta página é pública.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <img
+          src="/docs/corretor-palavra.png"
+          alt="Trecho da correção de leitura: recorte em que a tarja diagonal cruza as palavras
+            &quot;o imóvel&quot;; o campo mostra &quot;o inovel&quot;, entre o texto &quot;art. 23 da
+            Lei Fed. 9.514/97,&quot; e &quot;desta matrícula ao HSBC BANK B…&quot;, com o rótulo
+            &quot;Leitura duvidosa (32% de confiança)&quot; e a página 4"
+        />
+        <figcaption>
+          <code>o inovel</code> por <code>o imóvel</code>: a tarja apagou o acento e transformou o
+          <em>m</em> em <em>n</em>. Erro pequeno, numa frase que diz a quem o imóvel foi alienado.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <img
+          src="/docs/corretor-trecho.png"
+          alt="Trecho da correção de leitura: recorte com poucos caracteres sob uma tarja diagonal;
+            o campo mostra &quot;no&quot;, entre o texto &quot;…a arco E (equivalente cravado&quot; e
+            &quot;alinhamento da Av desapropriad…&quot;, com o rótulo &quot;Leitura duvidosa (38% de
+            confiança)&quot; e a página 1"
+        />
+        <figcaption>
+          O campo mostra <strong>só o pedaço que será trocado</strong>; o texto em volta, em cinza,
+          fica como está. Sem isso a correção mais comum seria redigitar a frase inteira dentro do
+          campo — e o documento terminaria com a frase duplicada.
+        </figcaption>
+      </figure>
+
+      <h3>O que faz um trecho aparecer aqui</h3>
+      <p>
+        Não é palpite. Primeiro entram os erros que se provam sem olhar a imagem: CPF ou CNPJ cujo
+        dígito verificador não fecha, data que não existe no calendário, ato numerado fora da
+        sequência da matrícula, cabeçalho de ato que a tarja encobriu, valor com pontuação
+        impossível, letra de outro alfabeto no meio de uma palavra. Só depois deles entram os
+        trechos que a leitura óptica marcou com pouca confiança — abaixo de 85%, como os três
+        acima.
       </p>
       <p>
-        O que faz um trecho aparecer aqui não é palpite: CPF ou CNPJ cujo dígito verificador não
-        fecha, data que não existe no calendário, ato numerado fora da sequência da matrícula,
-        valor com pontuação impossível, letra de outro alfabeto no meio de uma palavra. Só depois
-        disso entram os trechos que o sistema simplesmente leu com pouca confiança.
+        A ordem importa porque as vagas são oito: documento com muitos erros comprovados gasta as
+        oito com eles, e nenhum palpite chega à tela.
+      </p>
+
+      <h3>O que você pode fazer em cada trecho</h3>
+      <ul class="lista">
+        <li><strong>Corrigir</strong> — emendar o texto do campo. É o caso normal.</li>
+        <li>
+          <strong>Não é texto (assinatura, carimbo)</strong> — quando a leitura transformou uma
+          rubrica ou um carimbo em palavra. O trecho sai do documento em vez de ser corrigido.
+        </li>
+        <li>
+          <strong>Desfazer</strong> — devolve o campo ao que foi lido, se você mudou de ideia.
+        </li>
+        <li>
+          <strong>Seguir sem corrigir</strong> — nenhum trecho é obrigatório. O que você não tocar
+          entra na análise como foi lido.
+        </li>
+      </ul>
+      <p>
+        Quando o mesmo trecho foi lido igual em vários pontos do documento, a tela avisa — “aparece
+        mais 3 vezes no documento” — e a sua correção vale para todos eles.
+      </p>
+
+      <h3>Limites — o que esta etapa não é</h3>
+      <ul class="lista">
+        <li>
+          <strong>Não é revisão do documento.</strong> São oito trechos, escolhidos por regra. Um
+          <code>3</code> lido como <code>8</code> com alta confiança, num número que não viola
+          nenhuma regra, não aparece — e segue para a análise. A etapa reduz o risco de erro de
+          leitura; não o elimina.
+        </li>
+        <li>
+          <strong>O que você digita vira verdade.</strong> Ninguém confere a sua correção contra a
+          imagem depois. Digitar apressado aqui é pior que não corrigir nada.
+        </li>
+        <li>
+          <strong>Corrige leitura, não conclusão.</strong> O que muda é o texto que a análise
+          jurídica vai ler. Os ônus, a classificação de risco e o relatório continuam sendo
+          produzidos pelo sistema.
+        </li>
+        <li>
+          <strong>Nem toda análise passa por aqui.</strong> Matrícula limpa não gera trecho nenhum,
+          e documento cuja leitura não devolve as coordenadas de cada palavra segue direto para a
+          análise — sem coordenada não há recorte, e sem recorte não há o que perguntar.
+        </li>
+        <li>
+          <strong>Quem tem acesso somente de leitura não corrige.</strong> A correção altera o
+          texto que vira o relatório da organização, e por isso é gesto de quem tem acesso de
+          escrita.
+        </li>
+        <li>
+          <strong>Não muda o custo.</strong> A etapa não cobra crédito nem estorna. O que ela muda
+          é o relógio: o tempo que a análise espera é o tempo que você levar para responder.
+        </li>
+      </ul>
+
+      <div class="nota">
+        <p>
+          <strong>Você não fica preso a isso.</strong> Se ninguém responder em cerca de 15 minutos,
+          a análise segue sozinha com a leitura original — nenhum crédito se perde e o relatório
+          sai do mesmo jeito. Fechar a aba não cancela nada.
+        </p>
+      </div>
+
+      <h3>No envio em lote</h3>
+      <p>
+        Lote enviado pelo painel passa pela correção normalmente, mas <strong>uma análise de cada
+        vez</strong>: cada arquivo pausa por conta própria, quando chega a vez dele. A página do
+        lote conta quantas esperam — “3 aguardam sua conferência” — e marca cada linha com
+        <em>Aguardando sua conferência</em>; você abre uma, corrige, volta e abre a seguinte. Não
+        existe uma tela única que junte os trechos das dez.
       </p>
       <p>
-        <strong>Você não fica preso a isso.</strong> Se ninguém responder em 15 minutos, a análise
-        segue sozinha com a leitura original — nenhum crédito se perde e o relatório sai do mesmo
-        jeito. Análises enviadas pela API nunca pausam, pelo mesmo motivo: não há ninguém na tela
-        para responder.
+        <strong>O prazo corre por análise, não pelo lote.</strong> Ele começa quando aquela análise
+        para, e não na hora do envio — as dez não vencem todas juntas. Na prática: lote grande
+        deixado sozinho termina do mesmo jeito, só que as análises que ninguém atendeu seguem com a
+        leitura original. Se a conferência importa para o seu caso, envie lotes do tamanho que você
+        consegue acompanhar.
+      </p>
+
+      <h3>Pela API</h3>
+      <p>
+        <strong>Análise enviada pela API nunca pausa para correção.</strong> Não há tela nem pessoa
+        do outro lado, e segurar o processamento por quinze minutos a cada chamada transformaria a
+        etapa num travamento da integração. A análise roda sobre a leitura como ela saiu da leitura
+        óptica.
+      </p>
+      <p>
+        Duas consequências para quem integra. A primeira: documento de leitura difícil não terá
+        ninguém para corrigi-lo — se isso importa naquela matrícula, o caminho é enviá-la pelo
+        painel. A segunda: uma análise <em>criada no painel</em> e consultada pela API pode estar
+        parada esperando conferência; ela aparece como <code>processing</code>, com
+        <code>etapa: "revisao"</code>. Está em andamento mesmo — só que a bola está com quem abriu a
+        tela. Veja a <NuxtLink to="/docs/api#acompanhar">documentação da API</NuxtLink>.
       </p>
     </section>
 

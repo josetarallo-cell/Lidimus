@@ -170,9 +170,23 @@ curl https://SEU_DOMINIO/api/v1/matriculas/$ID \
 | `status` | Significado |
 |---|---|
 | `queued` | Na fila. |
-| `processing` | Em andamento; `etapa` diz onde (`ocr`, `juridico`, `doc`). |
+| `processing` | Em andamento; `etapa` diz onde (`ocr`, `revisao`, `juridico`, `doc`). |
 | `done` | Concluída. `resultado` preenchido. |
 | `error` | Falhou. `erro` preenchido e **o crédito foi estornado**. |
+
+### A correção de leitura não vale para a API
+
+Análise enviada pela API **nunca pausa** no corretor de leitura: sem tela, não há
+quem responda, e parar o job transformaria a etapa num timeout de 15 minutos em
+cada chamada (`server/lib/revisaoDaLeitura.ts` corta pelo `inputMeta.origem`). A
+análise roda sobre a leitura como o OCR entregou — a limpeza da tarja continua
+valendo, porque ela não pergunta nada a ninguém.
+
+`awaiting_review` não existe no contrato público: sai como `processing` com
+`etapa: "revisao"`. Quem chega nesse estado é um job **criado no painel** e
+consultado pela integração — ou a pessoa responde, ou o watchdog solta em
+`REVISAO_PRAZO_MINUTOS` (padrão 15). Nada a fazer do lado do cliente além de
+continuar consultando.
 
 `erro` e `resultado` são mutuamente exclusivos; enquanto processa, os dois são
 nulos. `etapa` serve para mostrar progresso — não ramifique lógica nela. `lote`
