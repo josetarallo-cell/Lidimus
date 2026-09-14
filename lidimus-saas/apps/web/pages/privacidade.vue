@@ -225,9 +225,11 @@ const VIGENCIA = '7 de agosto de 2026'
         também <code>HttpOnly</code>: nenhum script consegue lê-los.
       </p>
       <p>
-        Guardamos também, na memória local do navegador (<code>localStorage</code>), a chave
-        <code>nuxt-color-mode</code>, com a preferência de tema da interface. Ela não identifica
-        você e não é enviada aos nossos servidores.
+        Guardamos também, na memória local do navegador (<code>localStorage</code>), duas chaves de
+        preferência da interface: <code>nuxt-color-mode</code>, com o tema escolhido, e
+        <code>ld_corretor_leitura</code>, que lembra se você quer conferir os trechos de leitura
+        duvidosa antes da análise de matrícula. Nenhuma das duas identifica você nem é enviada aos
+        nossos servidores.
       </p>
       <p class="dica">
         Você pode bloquear ou apagar cookies nas configurações do seu navegador. Como todos os

@@ -1,10 +1,8 @@
 import { requireApiKey } from '../../../lib/requireApiKey'
-import {
-  criarAnalisesMatriculaEmLote,
-  paramsMatriculaSchema,
-} from '../../../lib/criarAnaliseMatricula'
+import { criarAnalisesMatriculaEmLote } from '../../../lib/criarAnaliseMatricula'
 import { ipDoCliente } from '../../../lib/ipDoCliente'
 import { defineRotaApi, erroApi } from '../../../lib/v1/erroApi'
+import { lerParamsMatriculaApi } from '../../../lib/v1/paramsMatricula'
 
 // POST /api/v1/matriculas/lote — várias matrículas numa requisição só.
 //
@@ -56,19 +54,7 @@ export default defineRotaApi(async (event) => {
     )
   }
 
-  const paramsPart = form.find((f) => f.name === 'params')
-  let params
-  try {
-    params = paramsMatriculaSchema.parse(
-      paramsPart?.data ? JSON.parse(paramsPart.data.toString()) : {},
-    )
-  } catch {
-    throw erroApi(
-      400,
-      'requisicao_invalida',
-      'O campo "params" deve ser um JSON com as chaves incluirMemorial, incluirCroqui e geocodificar (todas booleanas e opcionais). Ele vale para todos os arquivos do lote.',
-    )
-  }
+  const params = lerParamsMatriculaApi(form.find((f) => f.name === 'params'), { noLote: true })
 
   const { loteId, itens, custoTotal, saldoRestante } = await criarAnalisesMatriculaEmLote({
     orgId,

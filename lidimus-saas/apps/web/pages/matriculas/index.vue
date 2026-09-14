@@ -18,7 +18,38 @@ const viaCortesia = computed(
 )
 
 const MAX_ARQUIVOS = 10
-const PARAMS = { incluirMemorial: true, incluirCroqui: false }
+
+// Corretor de leitura: a conferência dos trechos duvidosos antes da análise.
+// Marcado por padrão — é o comportamento que o painel sempre teve, e quem não
+// reparar no controle não perde precisão de leitura.
+const CHAVE_CORRETOR = 'ld_corretor_leitura'
+const corretor = ref(true)
+
+// A leitura fica no onMounted, e não no setup: o SSR não tem localStorage, e ler
+// antes da hidratação faria o HTML do servidor divergir do primeiro render do
+// navegador. Guardamos só o desligamento, então chave ausente ou corrompida cai
+// no padrão seguro.
+onMounted(() => {
+  try {
+    if (localStorage.getItem(CHAVE_CORRETOR) === 'off') corretor.value = false
+  } catch {
+    // Navegador com armazenamento bloqueado: fica no padrão, sem quebrar a tela.
+  }
+})
+
+watch(corretor, (ligado) => {
+  try {
+    localStorage.setItem(CHAVE_CORRETOR, ligado ? 'on' : 'off')
+  } catch {
+    // Idem: não poder lembrar a escolha não pode impedir o envio.
+  }
+})
+
+const params = computed(() => ({
+  incluirMemorial: true,
+  incluirCroqui: false,
+  corretorDeLeitura: corretor.value,
+}))
 
 const uploading = ref(false)
 const progresso = ref<number | null>(null)
@@ -30,7 +61,7 @@ async function onSubmit(file: File) {
   try {
     const form = new FormData()
     form.append('file', file)
-    form.append('params', JSON.stringify(PARAMS))
+    form.append('params', JSON.stringify(params.value))
 
     const { jobId } = await $fetch<{ jobId: string; custo: number; paginas: number }>(
       '/api/matriculas',
@@ -54,7 +85,7 @@ async function onSubmitLote(arquivos: File[]) {
 
   const form = new FormData()
   for (const f of arquivos) form.append('file', f)
-  form.append('params', JSON.stringify(PARAMS))
+  form.append('params', JSON.stringify(params.value))
 
   try {
     const { loteId } = await enviarComProgresso(form)
@@ -158,7 +189,25 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
         :max-arquivos="MAX_ARQUIVOS"
         @submit="onSubmit"
         @submit-lote="onSubmitLote"
-      />
+      >
+        <!-- O texto de ajuda fica fora do <label>: label aceita só conteúdo de
+             frase, e um <p> dentro dele é HTML inválido (mesmo arranjo do
+             campo de logradouro em /kml). -->
+        <template #campos>
+          <div class="ld-campo">
+            <label class="campo-corretor">
+              <input v-model="corretor" type="checkbox" :disabled="uploading" />
+              <span>Conferir os trechos de leitura duvidosa antes da análise</span>
+            </label>
+            <p class="campo-ajuda">
+              Marcado, a análise pausa e mostra o recorte da página para você emendar o que a
+              leitura óptica não teve certeza — uma análise de cada vez, quando chegar a vez de
+              cada arquivo. Desmarcado, a leitura segue direto para a análise jurídica e você não
+              precisa ficar na tela. A maioria dos documentos não gera trecho nenhum.
+            </p>
+          </div>
+        </template>
+      </UploadCard>
 
       <p v-if="erro" class="ld-erro pagina-erro" role="alert">
         {{ erro.texto }}
@@ -226,6 +275,39 @@ function enviarComProgresso(form: FormData): Promise<RespostaLote> {
   line-height: 1.5;
   color: var(--ld-verde-profundo);
   max-width: 62ch;
+}
+
+/* Mesma anatomia do aceite dos Termos em auth/register.vue: caixa alinhada à
+   primeira linha do texto, e o rótulo inteiro clicável. */
+.campo-corretor {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ld-space-sm);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ld-tinta);
+  cursor: pointer;
+}
+.campo-corretor input {
+  flex-shrink: 0;
+  margin-top: 1px;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--ld-verde);
+  cursor: pointer;
+}
+.campo-corretor input:disabled {
+  cursor: default;
+}
+/* Mesma regra do texto de ajuda do campo de logradouro em /kml — vive lá no
+   escopo daquela página; no dia em que um terceiro campo precisar dela, vale
+   promovê-la a .ld-campo-ajuda global. */
+.campo-ajuda {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ld-tinta-suave);
+  max-width: 68ch;
 }
 
 .pagina-erro {

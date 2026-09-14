@@ -63,3 +63,34 @@ export function tokenizar(texto: string, opcoes: OpcoesTokenizar = {}): TokenOcr
 
   return tokens
 }
+
+/**
+ * Página com carimbo diagonal: monta texto + índice a partir de linhas marcadas.
+ * Linha começando com '@' é carimbo (girada); as demais são o documento.
+ *
+ * Diferente de `tokenizar`, que aplica um ângulo só ao texto inteiro, aqui o
+ * corpo e o carimbo convivem na mesma página — que é a situação real da certidão
+ * eletrônica do ONR e a única em que `removerCarimbo` tem o que fazer.
+ */
+export function documento(linhas: string[], anguloCorpo = 0, anguloCarimbo = 45) {
+  const limpas = linhas.map((l) => (l.startsWith('@') ? l.slice(1) : l))
+  const texto = limpas.join('\n')
+  const tokens: TokenOcr[] = []
+
+  let base = 0
+  for (const [i, linha] of limpas.entries()) {
+    const girada = linhas[i]!.startsWith('@')
+    for (const m of linha.matchAll(/\S+/g)) {
+      tokens.push({
+        p: 1,
+        b: [0.1, 0.1, 0.2, 0.12],
+        c: 0.9,
+        a: girada ? anguloCarimbo : anguloCorpo,
+        s: base + m.index!,
+        e: base + m.index! + m[0].length,
+      })
+    }
+    base += linha.length + 1
+  }
+  return { texto, tokens }
+}

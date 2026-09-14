@@ -8,6 +8,11 @@ export type MatriculaParams = {
   incluirMemorial?: boolean
   incluirCroqui?: boolean
   geocodificar?: boolean
+  // Escolha de quem enviou pelo painel: conferir os trechos de leitura duvidosa
+  // antes da análise. O n8n ignora a chave — quem a lê é o callback do OCR, ao
+  // decidir se o job desvia para a etapa de revisão (ver revisaoDaLeitura.ts).
+  // Ausente significa ligado.
+  corretorDeLeitura?: boolean
 }
 
 // Etapa 1: OCR — n8n baixa o PDF via fileUrl e devolve texto_ocr

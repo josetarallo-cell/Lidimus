@@ -29,6 +29,12 @@ export const paramsMatriculaSchema = z.object({
   incluirMemorial: z.boolean().optional().default(true),
   incluirCroqui: z.boolean().optional().default(false),
   geocodificar: z.boolean().optional().default(true),
+  // Corretor de leitura: a etapa que pausa a análise para uma pessoa conferir os
+  // trechos que saíram da leitura com dúvida. Sem `.default()` de propósito — a
+  // regra "ausente é ligado" mora em querCorretorDeLeitura e em nenhum outro
+  // lugar. Um default aqui a duplicaria, e job já enfileirado no momento do
+  // deploy não passaria por ele de qualquer forma.
+  corretorDeLeitura: z.boolean().optional(),
 })
 
 export type ParamsMatricula = z.infer<typeof paramsMatriculaSchema>

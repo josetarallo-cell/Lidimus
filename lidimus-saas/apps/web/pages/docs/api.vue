@@ -108,17 +108,30 @@ async function copiar(e: MouseEvent, chave: string) {
             <p>
               <strong>A correção de leitura não vale para a API.</strong> No painel, quando um
               trecho do documento sai da leitura óptica com dúvida — tarja por cima da linha, dígito
-              ilegível, data impossível —, a análise pausa e mostra o recorte da página para uma
-              pessoa conferir antes de seguir. Pela API isso não acontece: não há tela nem ninguém
-              do outro lado, e segurar o job por quinze minutos em cada chamada transformaria a
-              etapa num travamento da sua integração. <strong>A análise roda sobre a leitura como
-              ela saiu do OCR</strong>, sem conferência humana.
+              ilegível, data impossível —, a análise pode pausar e mostrar o recorte da página para
+              uma pessoa conferir antes de seguir. É um <strong>auxílio de leitura opcional</strong>,
+              que quem envia pela tela liga e desliga a cada envio. Pela API isso não acontece: não
+              há tela nem ninguém do outro lado, e segurar o job por quinze minutos em cada chamada
+              transformaria a etapa num travamento da sua integração. <strong>A análise roda sobre a
+              leitura como ela saiu do OCR</strong>, sem conferência humana.
+            </p>
+            <p>
+              Não é uma opção desligada por padrão — ela não existe aqui. Mandar
+              <code>corretorDeLeitura</code> em <code>params</code> recebe <code>400
+              requisicao_invalida</code>, e não um aceite silencioso: melhor uma recusa clara na
+              primeira chamada do que uma integração rodando meses na crença de ter ligado uma
+              conferência que nunca aconteceu.
             </p>
             <p>
               O efeito prático é sobre documento de leitura difícil: certidão digitalizada torta,
               ficha datilografada, carimbo por cima do texto. Se a conferência importa naquela
-              matrícula, envie-a pelo painel. A etapa está descrita em
+              matrícula, envie-a pelo painel, com a caixa marcada. A etapa está descrita em
               <NuxtLink to="/docs/matriculas#correcao">Correção de leitura</NuxtLink>.
+            </p>
+            <p>
+              A <strong>limpeza da tarja</strong> continua valendo na API: o carimbo diagonal da
+              certidão eletrônica é retirado do texto antes da análise dos dois lados, porque essa
+              parte não pergunta nada a ninguém.
             </p>
           </div>
         </section>
@@ -202,7 +215,9 @@ async function copiar(e: MouseEvent, chave: string) {
                 <td>
                   JSON com opções: <code>incluirMemorial</code> (padrão <code>true</code>),
                   <code>incluirCroqui</code> (<code>false</code>) e <code>geocodificar</code>
-                  (<code>true</code>).
+                  (<code>true</code>). São essas três e nenhuma outra —
+                  <code>corretorDeLeitura</code>, que existe no painel, é
+                  <strong>recusado com <code>400</code></strong> aqui.
                 </td>
               </tr>
             </tbody>
@@ -430,8 +445,9 @@ async function copiar(e: MouseEvent, chave: string) {
             <p>
               <strong><code>etapa: "revisao"</code> quer dizer que alguém precisa olhar a tela.</strong>
               Análise sua enviada pela API nunca chega a esse estado; mas uma análise
-              <strong>criada no painel</strong> e consultada pela sua integração pode estar parada
-              esperando a conferência de um trecho de leitura. Para você ela é
+              <strong>criada no painel</strong> por quem pediu a conferência — é uma caixa de
+              seleção no envio, e quem a desmarca também não passa por aqui — e consultada pela sua
+              integração pode estar parada esperando alguém. Para você ela é
               <code>processing</code>, e é mesmo — ou a pessoa responde, ou o prazo de cerca de 15
               minutos corre e a análise segue sozinha. Não há nada a fazer do lado da integração
               além de continuar consultando.

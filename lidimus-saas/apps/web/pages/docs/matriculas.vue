@@ -233,9 +233,10 @@ const SECOES = [
       </p>
       <p>
         Depois que o lote entra, cada análise segue por conta própria: uma que falhe tem só o
-        próprio crédito estornado, sem afetar as outras. E uma que precise de
-        <a href="#correcao">correção de leitura</a> espera por você sem segurar as demais — a
-        página do lote diz quantas estão nessa situação.
+        próprio crédito estornado, sem afetar as outras. E, se você tiver pedido a
+        <a href="#correcao">correção de leitura</a>, cada análise que precise dela espera por você
+        sem segurar as demais — a página do lote diz quantas estão nessa situação. Desmarcada a
+        caixa no envio, o lote inteiro roda sozinho.
       </p>
 
       <h3>Pela API</h3>
@@ -256,7 +257,9 @@ const SECOES = [
       <p>
         <strong>Uma diferença que vale saber antes de integrar:</strong> análise enviada pela API
         não passa pela <a href="#correcao">correção de leitura</a> — ela não pausa para perguntar,
-        porque não há ninguém na tela para responder.
+        porque não há ninguém na tela para responder. No painel a conferência é opcional e você
+        escolhe a cada envio; pela API ela não existe, e pedi-la é recusado com <code>400</code>
+        em vez de ignorado em silêncio.
       </p>
 
       <h3>Opções de envio</h3>
@@ -277,6 +280,12 @@ const SECOES = [
           </tr>
         </tbody>
       </table>
+      <p>
+        São essas três e nenhuma outra. A <a href="#correcao">correção de leitura</a>, que no
+        painel é uma caixa de seleção no envio, <strong>não tem equivalente aqui</strong>: mandar
+        <code>corretorDeLeitura</code> em <code>params</code> recebe <code>400</code>, para que
+        ninguém integre acreditando ter ligado uma conferência que nunca vai acontecer.
+      </p>
     </section>
 
     <!-- ── Correção de leitura ─────────────────────────────────────────
@@ -298,6 +307,21 @@ const SECOES = [
         análise segue com o texto corrigido. São no máximo oito trechos por análise, e a maioria
         dos documentos não gera nenhum.
       </p>
+
+      <div class="nota">
+        <p>
+          <strong>É você quem decide se essa etapa acontece.</strong> No envio há uma caixa —
+          <em>“Conferir os trechos de leitura duvidosa antes da análise”</em> — que vem
+          <strong>marcada</strong>. Desmarcada, a leitura segue direto para a análise jurídica e
+          nada pausa. A escolha fica guardada no seu navegador para os próximos envios, e vale
+          para todos os arquivos de um mesmo envio.
+        </p>
+        <p>
+          Marcada é o ajuste de quem quer a leitura mais apurada e está na frente da tela.
+          Desmarcada é o ajuste de quem manda um lote e vai fazer outra coisa — ver
+          <a href="#correcao-lote">No envio em lote</a>.
+        </p>
+      </div>
 
       <figure>
         <img
@@ -397,9 +421,16 @@ const SECOES = [
           produzidos pelo sistema.
         </li>
         <li>
-          <strong>Nem toda análise passa por aqui.</strong> Matrícula limpa não gera trecho nenhum,
-          e documento cuja leitura não devolve as coordenadas de cada palavra segue direto para a
-          análise — sem coordenada não há recorte, e sem recorte não há o que perguntar.
+          <strong>Nem toda análise passa por aqui.</strong> Antes de tudo, é preciso que você tenha
+          deixado a caixa marcada no envio. Marcada, ainda assim: matrícula limpa não gera trecho
+          nenhum, e documento cuja leitura não devolve as coordenadas de cada palavra segue direto
+          para a análise — sem coordenada não há recorte, e sem recorte não há o que perguntar.
+        </li>
+        <li>
+          <strong>É auxílio de leitura, não uma etapa obrigatória do produto.</strong> Desmarcá-la
+          não reduz o relatório nem muda o preço: a análise jurídica, a cadeia dominial, os ônus e
+          os alertas saem iguais. O que muda é só a chance de um trecho mal lido chegar à análise
+          sem ninguém ter olhado.
         </li>
         <li>
           <strong>Quem tem acesso somente de leitura não corrige.</strong> A correção altera o
@@ -420,20 +451,26 @@ const SECOES = [
         </p>
       </div>
 
-      <h3>No envio em lote</h3>
+      <h3 id="correcao-lote">No envio em lote</h3>
       <p>
-        Lote enviado pelo painel passa pela correção normalmente, mas <strong>uma análise de cada
+        É aqui que a caixa de seleção faz mais diferença. Com a conferência
+        <strong>marcada</strong>, o lote passa pela correção <strong>uma análise de cada
         vez</strong>: cada arquivo pausa por conta própria, quando chega a vez dele. A página do
         lote conta quantas esperam — “3 aguardam sua conferência” — e marca cada linha com
         <em>Aguardando sua conferência</em>; você abre uma, corrige, volta e abre a seguinte. Não
         existe uma tela única que junte os trechos das dez.
       </p>
       <p>
-        <strong>O prazo corre por análise, não pelo lote.</strong> Ele começa quando aquela análise
-        para, e não na hora do envio — as dez não vencem todas juntas. Na prática: lote grande
-        deixado sozinho termina do mesmo jeito, só que as análises que ninguém atendeu seguem com a
-        leitura original. Se a conferência importa para o seu caso, envie lotes do tamanho que você
-        consegue acompanhar.
+        <strong>Desmarcada, o lote roda sozinho do começo ao fim.</strong> É para isso que a opção
+        existe: dez matrículas que param uma a uma prendem à tela justamente quem mandou as dez
+        para não ficar nela. Você envia, fecha o navegador e volta com tudo pronto.
+      </p>
+      <p>
+        <strong>Deixando marcada, o prazo corre por análise, não pelo lote.</strong> Ele começa
+        quando aquela análise para, e não na hora do envio — as dez não vencem todas juntas. Na
+        prática: lote grande deixado sozinho termina do mesmo jeito, só que as análises que ninguém
+        atendeu seguem com a leitura original. Se a conferência importa para o seu caso, envie
+        lotes do tamanho que você consegue acompanhar.
       </p>
 
       <h3>Pela API</h3>
@@ -444,10 +481,17 @@ const SECOES = [
         óptica.
       </p>
       <p>
+        <strong>Não é uma opção desligada por padrão: ela não existe na API.</strong> Mandar
+        <code>corretorDeLeitura</code> em <code>params</code> recebe <code>400
+        requisicao_invalida</code>, e não um aceite silencioso — para que ninguém integre
+        acreditando ter ligado uma conferência que nunca vai acontecer.
+      </p>
+      <p>
         Duas consequências para quem integra. A primeira: documento de leitura difícil não terá
         ninguém para corrigi-lo — se isso importa naquela matrícula, o caminho é enviá-la pelo
-        painel. A segunda: uma análise <em>criada no painel</em> e consultada pela API pode estar
-        parada esperando conferência; ela aparece como <code>processing</code>, com
+        painel, com a caixa marcada. A segunda: uma análise <em>criada no painel</em> por quem pediu a
+        conferência, e consultada pela API, pode estar
+        parada esperando alguém; ela aparece como <code>processing</code>, com
         <code>etapa: "revisao"</code>. Está em andamento mesmo — só que a bola está com quem abriu a
         tela. Veja a <NuxtLink to="/docs/api#acompanhar">documentação da API</NuxtLink>.
       </p>

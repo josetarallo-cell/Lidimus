@@ -52,7 +52,7 @@ Envia uma matrícula para análise. `multipart/form-data`:
 | Campo | Obrigatório | Descrição |
 |---|---|---|
 | `file` | sim | PDF da matrícula. Assinatura do arquivo é validada; limite em `MAX_UPLOAD_SIZE_MB` (50 por padrão). |
-| `params` | não | JSON: `incluirMemorial` (padrão `true`), `incluirCroqui` (`false`), `geocodificar` (`true`). |
+| `params` | não | JSON: `incluirMemorial` (padrão `true`), `incluirCroqui` (`false`), `geocodificar` (`true`). Essas três e nenhuma outra: `corretorDeLeitura`, que o painel aceita, é **recusado com `400 requisicao_invalida`** (§4). |
 
 ```bash
 curl -X POST https://SEU_DOMINIO/api/v1/matriculas \
@@ -176,22 +176,80 @@ curl https://SEU_DOMINIO/api/v1/matriculas/$ID \
 
 ### A correção de leitura não vale para a API
 
-Análise enviada pela API **nunca pausa** no corretor de leitura: sem tela, não há
-quem responda, e parar o job transformaria a etapa num timeout de 15 minutos em
-cada chamada (`server/lib/revisaoDaLeitura.ts` corta pelo `inputMeta.origem`). A
-análise roda sobre a leitura como o OCR entregou — a limpeza da tarja continua
+No painel o corretor de leitura é um **auxílio opcional**: uma caixa de seleção
+no envio, marcada por padrão, que o usuário desliga quando manda um lote e não
+quer ficar na tela. Aqui ele não é uma opção desligada por padrão — **ele não
+existe**.
+
+Análise enviada pela API **nunca pausa**: sem tela, não há quem responda, e parar
+o job transformaria a etapa num timeout de 15 minutos em cada chamada. A regra
+está em `querCorretorDeLeitura` (`server/lib/revisaoDaLeitura.ts`), que recusa
+por duas causas independentes — `inputMeta.origem === 'api'` e
+`params.corretorDeLeitura === false`. A origem vem primeiro e não é negociável.
+
+A análise roda sobre a leitura como o OCR entregou — a limpeza da tarja continua
 valendo, porque ela não pergunta nada a ninguém.
 
+**Mandar `corretorDeLeitura` em `params` recebe `400 requisicao_invalida`**, com
+mensagem própria, em vez de ser descartado em silêncio pelo strip do zod
+(`server/lib/v1/paramsMatricula.ts`). A chave inteira é recusada — `true` e
+`false` —, para que a regra seja uma só: este parâmetro não é da v1. Aceitar
+`false` sugeriria que `true` também vale.
+
 `awaiting_review` não existe no contrato público: sai como `processing` com
-`etapa: "revisao"`. Quem chega nesse estado é um job **criado no painel** e
-consultado pela integração — ou a pessoa responde, ou o watchdog solta em
-`REVISAO_PRAZO_MINUTOS` (padrão 15). Nada a fazer do lado do cliente além de
-continuar consultando.
+`etapa: "revisao"`. Quem chega nesse estado é um job **criado no painel por quem
+pediu a conferência** e consultado pela integração — ou a pessoa responde, ou o
+watchdog solta em `REVISAO_PRAZO_MINUTOS` (padrão 15). Nada a fazer do lado do
+cliente além de continuar consultando.
 
 `erro` e `resultado` são mutuamente exclusivos; enquanto processa, os dois são
 nulos. `etapa` serve para mostrar progresso — não ramifique lógica nela. `lote`
 traz o `loteId` quando a análise veio de um envio em lote (§3), e `null` quando
 veio do envio unitário.
+
+### Estudo: dá para levar a correção de leitura à API?
+
+Registrado em 14/09/2026, quando o corretor virou opcional no painel e a pergunta
+natural foi se a integração também deveria poder pedi-lo. **Decisão: não agora**,
+e por um motivo que não é de implementação.
+
+**O que seria barato.** Quase toda a mecânica já existe e já é agnóstica de quem
+chama: `aplicarCorrecoes` e `semRecortes` (`@lidimus/revisao`), a transição
+condicional `awaiting_review → juridico`, o watchdog de `REVISAO_PRAZO_MINUTOS`,
+`trocarRecortesPorUrl` e — decisivo — o `getJobForOrg`, que a v1 já usa para
+autorizar por organização em vez de por sessão. O caminho seria extrair o miolo
+de `server/api/jobs/[id]/revisao.post.ts` para um `server/lib/aplicarRevisao.ts`
+e deixar duas rotas finas: a de sessão e uma `GET`/`POST
+/api/v1/matriculas/{id}/revisao`. Talvez um dia de trabalho.
+
+**O que seria caro.** O custo é de contrato, não de código:
+
+- `awaiting_review` teria de virar status público. Status novo em API pública não
+  se desfaz.
+- **Não existe webhook de saída.** Sem ele, a integração só descobre a pausa no
+  próximo poll, dentro de uma janela de 15 minutos que já está correndo. Quem
+  consulta a cada 30 s tem margem; quem consulta a cada 10 min perde a janela
+  quase sempre — paga a complexidade e não leva o benefício.
+- Os recortes são PNG em base64 dentro de `stage_data` enquanto o job espera.
+  Servi-los por chave de integração abre superfície nova (imagem de documento de
+  cartório atrás de um token compartilhável) e estende a retenção desses
+  recortes, contra o que [55-privacidade-lgpd.md](55-privacidade-lgpd.md) já
+  aponta como pendência.
+- E o mais incômodo: a etapa foi desenhada em torno de um humano olhando o
+  recorte da página. Uma integração que responda sozinha devolveria palpite de
+  máquina como se fosse conferência humana — e a etapa é explícita em que "o que
+  você digita vira verdade", sem ninguém checando depois.
+
+**A recomendação, que redireciona o pedido em vez de recusá-lo.** O que um
+integrador quer não é responder perguntas: é **saber onde a leitura ficou
+frágil**. O sistema já calcula isso e hoje joga fora na API —
+`levantarCandidatos` é suprimido inteiro pelo gate. Uma versão assíncrona e não
+interativa entregaria o valor sem inventar protocolo de ida e volta: rodar o
+levantamento também na origem `api`, **sem pausar nada**, e anexar ao resultado
+final um bloco de avisos de leitura (trecho, página, motivo, confiança) para o
+cliente decidir o que fazer — reenviar pelo painel, revisar à mão, ou marcar a
+matrícula para conferência no sistema dele. Sem status novo, sem endpoint novo,
+sem webhook. É a próxima entrega natural deste assunto, se houver demanda.
 
 ---
 
@@ -230,7 +288,7 @@ que lê o log e pode mudar de versão para versão.
 | HTTP | `codigo` | Quando |
 |---|---|---|
 | 400 | `tls_obrigatorio` | Chamada em `http://` em produção. |
-| 400 | `requisicao_invalida` | Corpo, `params` ou cursor malformados. |
+| 400 | `requisicao_invalida` | Corpo, `params` ou cursor malformados — e `params` trazendo `corretorDeLeitura`, que não é da v1 (§4). |
 | 400 | `arquivo_invalido` | `file` ausente. |
 | 415 | `arquivo_invalido` | `file` presente, mas não é um PDF (a assinatura do arquivo é conferida, não o `Content-Type` declarado). Até jul/2026 este caso respondia `500 erro_interno` — erro do cliente apresentado como falha nossa. |
 | 401 | `credencial_invalida` | Chave ausente, desconhecida, revogada ou expirada — **um código só**, de propósito: distinguir os casos confirmaria a quem sonda que o token em mãos existe. O motivo real aparece em Conta → API. |
@@ -344,6 +402,7 @@ done
 | Geração e hash da chave | `packages/db/src/apiKey.ts` |
 | Criação da análise (débito, fila) | `apps/web/server/lib/criarAnaliseMatricula.ts` |
 | Contrato da resposta | `apps/web/server/lib/v1/serializarJob.ts` |
+| Leitura e recusa do `params` | `apps/web/server/lib/v1/paramsMatricula.ts` |
 | Códigos de erro | `apps/web/server/lib/v1/erroApi.ts` |
 | Rotas | `apps/web/server/api/v1/matriculas/` |
 | Gestão pelo dono | `apps/web/server/api/account/api-keys/`, `pages/conta/api.vue` |

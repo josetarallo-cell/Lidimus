@@ -1,34 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { removerCarimbo } from './carimbo.ts'
 import { reconciliarOffsets } from './offsets.ts'
-import type { TokenOcr } from './tipos.ts'
-
-/**
- * Monta texto + índice de tokens a partir de linhas marcadas.
- * Linha começando com '@' é carimbo (girada); as demais são o documento.
- */
-function documento(linhas: string[], anguloCorpo = 0, anguloCarimbo = 45) {
-  const limpas = linhas.map((l) => (l.startsWith('@') ? l.slice(1) : l))
-  const texto = limpas.join('\n')
-  const tokens: TokenOcr[] = []
-
-  let base = 0
-  for (const [i, linha] of limpas.entries()) {
-    const girada = linhas[i].startsWith('@')
-    for (const m of linha.matchAll(/\S+/g)) {
-      tokens.push({
-        p: 1,
-        b: [0.1, 0.1, 0.2, 0.12],
-        c: 0.9,
-        a: girada ? anguloCarimbo : anguloCorpo,
-        s: base + m.index!,
-        e: base + m.index! + m[0].length,
-      })
-    }
-    base += linha.length + 1
-  }
-  return { texto, tokens }
-}
+import { documento } from './fixtures.ts'
 
 // Uma página com corpo suficiente para a mediana valer (>= 20 tokens)
 const CORPO = [

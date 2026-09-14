@@ -1,7 +1,8 @@
 import { requireApiKey } from '../../../lib/requireApiKey'
-import { criarAnaliseMatricula, paramsMatriculaSchema } from '../../../lib/criarAnaliseMatricula'
+import { criarAnaliseMatricula } from '../../../lib/criarAnaliseMatricula'
 import { ipDoCliente } from '../../../lib/ipDoCliente'
 import { defineRotaApi, erroApi } from '../../../lib/v1/erroApi'
+import { lerParamsMatriculaApi } from '../../../lib/v1/paramsMatricula'
 
 // POST /api/v1/matriculas — envia uma matrícula para análise.
 //
@@ -26,17 +27,7 @@ export default defineRotaApi(async (event) => {
     throw erroApi(400, 'arquivo_invalido', 'O campo "file" é obrigatório e deve conter o PDF da matrícula.')
   }
 
-  const paramsPart = form.find((f) => f.name === 'params')
-  let params
-  try {
-    params = paramsMatriculaSchema.parse(paramsPart?.data ? JSON.parse(paramsPart.data.toString()) : {})
-  } catch {
-    throw erroApi(
-      400,
-      'requisicao_invalida',
-      'O campo "params" deve ser um JSON com as chaves incluirMemorial, incluirCroqui e geocodificar (todas booleanas e opcionais).',
-    )
-  }
+  const params = lerParamsMatriculaApi(form.find((f) => f.name === 'params'))
 
   const { jobId, custo, paginas, saldoRestante } = await criarAnaliseMatricula({
     orgId,
