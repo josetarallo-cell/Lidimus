@@ -677,7 +677,7 @@ Os campos `onus` e `gravames` devem ser arrays de OBJETOS no formato `{tipo, ato
 
 `proprietarios_atuais` é um array de OBJETOS no formato `{nome, documento_tipo, documento_numero, qualificacao, estado_civil, regime_bens, endereco_domicilio, ato_aquisitivo, data_aquisicao, percentual, observacao}`. Use `null` no que não constar do documento.
 
-Proprietário atual é o **titular do domínio** segundo o **último ato dominial registrado** — compra e venda (grafada também como "venda e compra"), permuta, adjudicação, arrematação, dação em pagamento, integralização de capital, partilha ou herança — já atualizado pelas averbações posteriores de alteração de denominação, incorporação, cisão ou transformação societária que renomeiem esse titular. Quando houver renomeação, use a denominação atual e registre a anterior em `observacao`.
+Proprietário atual é o **titular do domínio** segundo o **último ato dominial registrado** — compra e venda (grafada também como "venda e compra"), permuta, adjudicação, arrematação, dação em pagamento, integralização de capital, partilha, herança ou usucapião (aquisição originária: o registro da sentença de usucapião é título de domínio, sem transmitente) — já atualizado pelas averbações posteriores de alteração de denominação, incorporação, cisão ou transformação societária que renomeiem esse titular. Quando houver renomeação, use a denominação atual e registre a anterior em `observacao`.
 
 Não confunda o proprietário atual com nenhum destes:
 
