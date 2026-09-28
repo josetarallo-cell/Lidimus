@@ -48,10 +48,12 @@ describe('secaoAutenticidade no parecer .docx', () => {
     expect(texto).toContain('A ausência de indícios não é garantia')
   })
 
-  it('aparece antes da seção Imóvel, na mesma ordem da tela', async () => {
+  it('é a última seção, depois dos ônus e antes do rodapé, na mesma ordem da tela', async () => {
     const texto = await textoDoDocx(
       await pareceMatriculaDocx(documentoCompleto, { autenticidade: AUTENTICIDADE_EDITADO }),
     )
-    expect(texto.indexOf('Autenticidade do documento')).toBeLessThan(texto.indexOf('Imóvel'))
+    const posicao = texto.indexOf('Autenticidade do documento')
+    expect(posicao).toBeGreaterThan(texto.indexOf('Ônus e gravames'))
+    expect(posicao).toBeLessThan(texto.indexOf('Documento gerado automaticamente'))
   })
 })

@@ -174,9 +174,9 @@ function secaoIncompleta(doc: Documento): (Paragraph | Table)[] {
 }
 
 // ── Verificador de autenticidade de documento ───────────────────────────────
-// Mesmo lugar da tela (BlocoAutenticidade.vue): depois da ressalva de matrícula
-// incompleta, antes do dado do imóvel — aviso antes do dado. Não bloqueia nada;
-// simplesmente não aparece quando o job não tem o resultado calculado.
+// Mesmo lugar da tela (BlocoAutenticidade.vue): a última seção, depois dos
+// ônus e antes do rodapé — fala do arquivo recebido, não do imóvel. Não
+// bloqueia nada; simplesmente não aparece quando o job não tem o resultado.
 const TITULO_CLASSIFICACAO: Record<Classificacao, string> = {
   original_assinado: 'Assinatura digital íntegra',
   copia_verificavel: 'Cópia verificável',
@@ -568,7 +568,6 @@ export function corpoDoParecer(doc: Documento, meta: MetaParecer = {}): (Paragra
   return [
     ...secaoTitulo(doc, meta),
     ...secaoIncompleta(doc),
-    ...secaoAutenticidade(meta),
     ...secaoImovel(doc),
     ...secaoCroqui(doc),
     ...secaoProprietarios(doc),
@@ -576,6 +575,7 @@ export function corpoDoParecer(doc: Documento, meta: MetaParecer = {}): (Paragra
     ...secaoAnalise(doc),
     ...secaoAtos(doc),
     ...secaoOnus(doc),
+    ...secaoAutenticidade(meta),
     ...rodapeDoParecer(doc),
   ]
 }

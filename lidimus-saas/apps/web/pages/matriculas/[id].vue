@@ -256,7 +256,15 @@ function sanitizarSvg(svg: unknown): string {
     : ''
 }
 
+// O "Salvar como PDF" do navegador sugere o nome do arquivo a partir do título
+// da aba — sem isso, todo laudo baixado se chamava "Relatório técnico de
+// matrícula — Lidimus.pdf" e a pasta do cliente virava uma pilha de homônimos.
+// O título volta ao normal quando o diálogo fecha.
 function exportarPdf() {
+  const tituloOriginal = document.title
+  const numero = doc.value?.cabecalho?.numero_matricula
+  if (numero) document.title = `Relatorio tecnico - Matricula ${numero}`
+  window.addEventListener('afterprint', () => (document.title = tituloOriginal), { once: true })
   window.print()
 }
 
@@ -421,10 +429,6 @@ async function gerarCroquiDaMatricula() {
           arquivo — são páginas que não constam do documento enviado, e reprocessá-lo não as traz.
         </p>
       </aside>
-
-      <!-- Verificador de autenticidade de documento: seção própria,
-           informativa, nunca bloqueia a leitura do relatório. -->
-      <BlocoAutenticidade v-if="autenticidade" :autenticidade="autenticidade" />
 
       <!-- Título do documento -->
       <div class="prancha-titulo">
@@ -675,6 +679,12 @@ async function gerarCroquiDaMatricula() {
         </p>
         <p v-else><span class="ld-selo ld-selo--verde">Nenhum ônus ativo identificado</span></p>
       </section>
+
+      <!-- Verificador de autenticidade de documento: seção própria,
+           informativa, nunca bloqueia a leitura do relatório. Fecha o laudo:
+           fala do arquivo recebido, não do imóvel — o leitor chega aqui depois
+           de ter lido o que a matrícula diz. -->
+      <BlocoAutenticidade v-if="autenticidade" :autenticidade="autenticidade" />
 
       <!-- Rodapé de metadados -->
       <footer class="prancha-rodape">
@@ -1242,10 +1252,100 @@ async function gerarCroquiDaMatricula() {
     -webkit-print-color-adjust: exact;
   }
 
-  #documento-matricula .secao,
+  /* Paginação. A seção inteira NÃO é indivisível: com `break-inside: avoid`
+     nela, Proprietários ou Análise jurídica maiores que a sobra da página
+     pulavam inteiros para a folha seguinte e deixavam meia página em branco.
+     Indivisíveis ficam só as unidades pequenas — um ato, um ônus, um
+     proprietário, um par rótulo/valor — e o título nunca fica órfão no pé. */
   #documento-matricula .onus,
-  #documento-matricula .pessoa {
+  #documento-matricula .pessoa,
+  #documento-matricula .ato,
+  #documento-matricula .meta-grid > div,
+  #documento-matricula .croqui,
+  #documento-matricula .avisos,
+  #documento-matricula .secao-autenticidade {
     break-inside: avoid;
+  }
+  #documento-matricula h2,
+  #documento-matricula h3,
+  #documento-matricula .secao-cabecalho {
+    break-after: avoid;
+  }
+  #documento-matricula p,
+  #documento-matricula li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Respiro de tela é desperdício de papel: a margem da folha já vem do
+     @page, então as seções só precisam afastar o texto do fundo colorido. */
+  #documento-matricula .prancha-titulo {
+    padding: 16px 20px 14px;
+  }
+  #documento-matricula .secao {
+    padding: 12px 20px 14px;
+  }
+  #documento-matricula .secao h2 {
+    margin-bottom: 8px;
+    font-size: 15px;
+  }
+  #documento-matricula .meta-grid {
+    margin-top: 10px;
+    gap: 8px 16px;
+  }
+  /* O cabeçalho cabe numa linha só na largura do A4 — com o respiro de tela,
+     "Emitido" descia sozinho para uma segunda faixa. */
+  #documento-matricula .carimbo {
+    flex-wrap: nowrap;
+  }
+  #documento-matricula .carimbo-cell {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  #documento-matricula .carimbo-label {
+    font-size: 9px;
+  }
+  /* Número, data e hora não se partem; quem cede espaço é o nome da análise */
+  #documento-matricula .carimbo-cell {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  #documento-matricula .carimbo-cell:nth-child(2) {
+    flex-shrink: 1;
+    white-space: normal;
+  }
+  #documento-matricula .carimbo-logo {
+    height: 22px;
+  }
+  /* Bloco, não flex: a coluna flex fragmenta pior entre páginas e empurrava a
+     subseção seguinte inteira, deixando sobra no pé da folha. */
+  #documento-matricula .analise {
+    display: block;
+  }
+  #documento-matricula .analise > div + div {
+    margin-top: 12px;
+  }
+  #documento-matricula .pessoa {
+    padding: 8px 0;
+  }
+  #documento-matricula .ato {
+    padding: 6px 0;
+  }
+  #documento-matricula .prosa,
+  #documento-matricula .parecer-texto {
+    max-width: none;
+  }
+  #documento-matricula .prancha-rodape {
+    padding: 10px 20px 0;
+  }
+  /* Um croqui alto não cabe em sobra de página nenhuma e empurraria a seção */
+  #documento-matricula .croqui {
+    padding: 8px;
+  }
+  #documento-matricula .croqui img,
+  #documento-matricula .croqui-svg svg {
+    max-height: 110mm;
+    width: auto;
   }
 
   #documento-matricula .prancha-titulo h1 {

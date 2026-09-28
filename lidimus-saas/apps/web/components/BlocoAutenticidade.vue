@@ -187,7 +187,7 @@ const indiciosOrdenados = computed(() =>
         </p>
       </div>
 
-      <div class="autenticidade-medidor print-hidden">
+      <div class="autenticidade-medidor">
         <MedidorArco :fatias="LEGENDA" :indice-atual="indiceAtual" />
       </div>
     </div>
@@ -268,5 +268,54 @@ const indiciosOrdenados = computed(() =>
   display: flex;
   justify-content: center;
   padding-top: var(--ld-space-sm);
+}
+
+/* No papel, o medidor encolhe e vai para o canto, ao lado do resumo; os
+   indícios descem para a largura inteira. Antes ele só sumia na impressão, mas
+   a grade continuava reservando os 320px da coluna dele — e os indícios saíam
+   espremidos numa tira de três palavras por linha. */
+@media print {
+  .autenticidade-corpo {
+    grid-template-columns: 1fr auto;
+    gap: 0 16px;
+  }
+  /* Os filhos da coluna de texto viram itens da grade: só o resumo divide a
+     linha com o medidor, o resto ocupa as duas colunas. */
+  .autenticidade-coluna-texto {
+    display: contents;
+  }
+  .autenticidade-resumo {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+    margin-bottom: 10px;
+  }
+  .autenticidade-indicios,
+  .autenticidade-links {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+  .autenticidade-indicios {
+    gap: 6px;
+  }
+  /* 0.9375rem é relativo à raiz de 16px, não aos 12px da folha impressa —
+     sem isto o indício saía maior que o próprio resumo. */
+  .autenticidade-indicio-texto {
+    max-width: none;
+    font-size: inherit;
+  }
+  /* `zoom`, e não `transform: scale`: o zoom encolhe também a caixa que o
+     medidor ocupa na grade. O padding abre espaço para os rótulos das pontas,
+     que ficam fora do palco de 300×150. */
+  .autenticidade-medidor {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+    zoom: 0.62;
+    padding: 34px 50px 0;
+  }
+  .autenticidade-medidor :deep(.medidor-tooltip) {
+    display: none;
+  }
 }
 </style>
