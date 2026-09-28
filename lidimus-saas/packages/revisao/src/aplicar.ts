@@ -91,6 +91,27 @@ function ocorrenciasDe(c: Candidato): Ocorrencia[] {
   return [principal, ...(c.repeticoes ?? [])]
 }
 
+/**
+ * A correção com o separador que o trecho lido levou junto.
+ *
+ * O offset de token do Document AI termina DEPOIS do espaço ou da quebra de
+ * linha que o separa do próximo, então o trecho lido chega como
+ * "e ESCEVAL CAPAGTLOSCOV⏎". O usuário digita só o nome — `sanear` nem deixaria
+ * a quebra entrar — e a emenda literal colava a correção na palavra seguinte:
+ * na matrícula 33.032 o jurídico recebeu "CARAGILESCOVe sua mulher".
+ *
+ * Quando o lido terminava em branco, a correção ganha um espaço no fim. Se esse
+ * branco tinha quebra de linha, a quebra volta depois do espaço: é ela que põe o
+ * próximo cabeçalho de ato no começo da linha, onde o parser jurídico o procura.
+ * Onde o lido não tinha separador nada é acrescentado — o original já vinha
+ * colado ali.
+ */
+function comSeparador(lido: string, para: string): string {
+  const perdido = lido.match(/\s+$/)?.[0]
+  if (!perdido) return para
+  return para + ' ' + (perdido.includes('\n') ? '\n' : '')
+}
+
 export function aplicarCorrecoes(
   texto: string,
   candidatos: Candidato[],
@@ -170,7 +191,8 @@ export function aplicarCorrecoes(
     // para o parser jurídico.
     if (r.para === '' && saida[fim] === ' ' && /\s/.test(saida[r.inicio - 1] ?? '')) fim += 1
 
-    saida = saida.slice(0, r.inicio) + r.para + saida.slice(fim)
+    const emenda = r.para === '' ? '' : comSeparador(r.candidato.textoLido, r.para)
+    saida = saida.slice(0, r.inicio) + emenda + saida.slice(fim)
     const registro = contagem.get(r.candidato.id)
     if (registro) {
       registro.ocorrencias += 1

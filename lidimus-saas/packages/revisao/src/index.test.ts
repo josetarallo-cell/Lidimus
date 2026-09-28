@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_CANDIDATOS, levantarCandidatos } from './index.ts'
+import { MAX_CANDIDATOS, aplicarCorrecoes, levantarCandidatos } from './index.ts'
 import { tokenizar } from './fixtures.ts'
 
 const ANO = 2026
@@ -92,6 +92,45 @@ describe('levantarCandidatos', () => {
     expect(c!.recorteLargo).toBe(true)
     // A caixa começa bem à esquerda do que sobrou — na margem do corpo de texto.
     expect(c!.caixa[0]).toBeLessThan(x0Sobrevivente - 0.3)
+  })
+
+  // A matrícula 33.032: o "R.8" lido como "R.e" tinha 70% de confiança e perdeu
+  // as oito vagas para rubricas de escrevente a 25%. Com o cabeçalho de linha
+  // reconhecido, ele entra como achado de peso próprio, e a sugestão aplicada
+  // devolve ao parser um cabeçalho que ele lê.
+  it('põe na tela o número do ato trocado por letra, mesmo com a tela cheia de palpites', () => {
+    const rubricas = Array.from({ length: 12 }, (_, i) => `ESC.AUTO; rubrica${i}`)
+    const texto = [
+      'R.1 USUCAPIÃO',
+      'Pelo Mandado. Mogi das Cruzes, 03 de novembro de 1.992.',
+      rubricas.slice(0, 6).join('\n'),
+      'Av.2',
+      'OBITO',
+      'Pelo Formal de Partilha verifica-se que faleceu. Mogi das Cruzes, 03 de novembro de 1.992.',
+      'Av.3 - CASAMENTO',
+      'Pela certidão de casamento. Mogi das Cruzes, 03 de novembro de 1.992.',
+      'R.e',
+      'VENDA E COMPRA',
+      'Pela escritura, TRANSMITIRAM POR VENDA a parte ideal. Mogi das Cruzes, 03 de novembro de 1.992.',
+      rubricas.slice(6).join('\n'),
+      'Av.5 - CADASTRO MUNICIPAL ATUAL',
+      'Pela escritura de 06 de julho de 2011. Mogi das Cruzes, 09 de agosto de 2011.',
+    ].join('\n')
+    const tokens = tokenizar(texto)
+    for (const t of tokens) {
+      const palavra = texto.slice(t.s, t.e)
+      if (/rubrica|ESC\.AUTO/.test(palavra)) t.c = 0.25
+      if (palavra.startsWith('R.e')) t.c = 0.7
+    }
+
+    const candidatos = levantarCandidatos(texto, tokens, { anoAtual: ANO })
+    const numero = candidatos.find((c) => c.motivo === 'cabecalho')
+    expect(numero).toBeDefined()
+    expect(numero!.textoLido).toBe('R.e')
+    expect(numero!.sugestao).toBe('R.4')
+
+    const r = aplicarCorrecoes(texto, candidatos, [{ id: numero!.id, texto: numero!.sugestao! }])
+    expect(r.texto).toContain('\nR.4\nVENDA E COMPRA')
   })
 
   it('nunca passa do teto de itens', () => {

@@ -219,6 +219,76 @@ describe('detectarAtos — cabeçalho encoberto pela tarja', () => {
   })
 })
 
+// A matrícula 33.032 do 1º RI de Mogi das Cruzes: o cartório datilografa o
+// cabeçalho sem a matrícula colada — "R.1 USUCAPIÃO", ou o assunto na linha de
+// baixo — e o OCR leu o "R.8" como "R.e". Sem ler esse formato, o detector
+// desistia no piso de três e o corretor não mostrou o ato cujo número sumiu.
+describe('detectarAtos — cabeçalho de linha, sem a matrícula colada', () => {
+  const linhas = [
+    'R.1 USUCAPIÃO',
+    'Pelo Mandado expedido aos 26 de outubro de 1987. Mogi das Cruzes, 03 de novembro de 1.992.',
+    'Av.2',
+    'OBITO',
+    'Pelo Formal de Partilha verifica-se que faleceu. Mogi das Cruzes, 03 de novembro de 1.992.',
+    'Av.3 - CASAMENTO',
+    'Pela certidão de casamento. Mogi das Cruzes, 03 de novembro de 1.992.',
+    'R.e',
+    'VENDA E COMPRA',
+    'Pela escritura, TRANSMITIRAM POR VENDA a parte ideal. Mogi das Cruzes, 03 de novembro de 1.992.',
+    'Av.5 - CADASTRO MUNICIPAL ATUAL',
+    'Pela escritura de 06 de julho de 2011. Mogi das Cruzes, 09 de agosto de 2011.',
+  ]
+  const texto = linhas.join('\n')
+
+  it('acusa o cabeçalho cujo número virou letra e sugere o número pela posição', () => {
+    const achado = detectarAtos(texto, ANO).find((a) => a.motivo === 'cabecalho')
+    expect(achado).toBeDefined()
+    expect(texto.slice(achado!.inicio, achado!.fim)).toBe('R.e')
+    expect(achado!.rotulo).toContain('ato 4')
+    // A letra é a que foi lida; só o número é deduzido
+    expect(achado!.sugestao).toBe('R.4')
+  })
+
+  it('substitui o aviso de salto em vez de somar a ele', () => {
+    const achados = detectarAtos(texto, ANO)
+    expect(achados.filter((a) => a.rotulo.includes('salta'))).toHaveLength(0)
+    expect(achados.filter((a) => a.motivo === 'cabecalho')).toHaveLength(1)
+  })
+
+  it('acusa salto quando não sobrou cabeçalho nenhum no vão', () => {
+    const semOito = linhas.filter((l) => l !== 'R.e' && l !== 'VENDA E COMPRA').join('\n')
+    const salto = detectarAtos(semOito, ANO).find((a) => a.rotulo.includes('salta'))
+    expect(salto).toBeDefined()
+    expect(salto!.rotulo).toContain('de 3 para 5')
+  })
+
+  it('cala sobre o número quando o vão salta mais de um', () => {
+    // Dois números possíveis e um cabeçalho só: deduzir seria adivinhar
+    const texto2 = texto.replace('Av.5 - CADASTRO', 'Av.6 - CADASTRO')
+    const achados = detectarAtos(texto2, ANO)
+    expect(achados.filter((a) => a.motivo === 'cabecalho')).toHaveLength(0)
+    expect(achados.filter((a) => a.rotulo.includes('salta'))).toHaveLength(1)
+  })
+
+  it('não confunde endereço nem sobra de carimbo com cabeçalho', () => {
+    const ruido = [
+      'R. DE MORAES, 120',
+      'AV. 9 JULHO, 500',
+      'R5',
+      'SOLICITADO POR: FULANO',
+      'Rua 25 de Março',
+      'objeto da Av.4 retro, e à vista da certidão',
+    ].join('\n')
+    expect(detectarAtos(ruido, ANO)).toHaveLength(0)
+  })
+
+  it('lê os dois formatos no mesmo documento sem perder o de matrícula', () => {
+    const misto = 'R.1/7.529 em 1998. Av.2/7529 em 2001. Av.3/7523 em 2005.\n' + texto
+    const divergente = detectarAtos(misto, ANO).find((a) => a.rotulo.includes('outra matrícula'))
+    expect(divergente).toBeDefined()
+  })
+})
+
 describe('detectarValores', () => {
   it('aceita valores e medidas bem formados', () => {
     const texto = 'pelo valor de R$ 1.234,56 e área de 10.000,00 m2, com 203,00 metros'

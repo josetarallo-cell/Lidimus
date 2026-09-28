@@ -206,6 +206,49 @@ describe('aplicarCorrecoes', () => {
     expect(r.aplicadas).toHaveLength(0)
   })
 
+  // Caso real, matrícula 33.032: o token do Document AI termina DEPOIS da
+  // quebra de linha, o trecho lido veio como "e ESCEVAL CAPAGTLOSCOV⏎" e o
+  // usuário digitou o nome certo sem a quebra. A emenda literal entregou ao
+  // jurídico "CARAGILESCOVe sua mulher".
+  describe('separador que o trecho lido levou junto', () => {
+    const t = 'residentes em São Paulo, e ESCEVAL CAPAGTLOSCOV\ne sua mulher MARIA'
+    const lido = 'e ESCEVAL CAPAGTLOSCOV\n'
+    const i = t.indexOf(lido)
+    const c = candidato({
+      id: 'r1', inicio: i, fim: i + lido.length, textoLido: lido,
+      ctxAntes: t.slice(i - 12, i), ctxDepois: t.slice(i + lido.length, i + lido.length + 12),
+    })
+
+    it('não cola a correção no texto seguinte e mantém a quebra de linha', () => {
+      const r = aplicarCorrecoes(t, [c], [{ id: 'r1', texto: 'e ESTEVAM CARAGILESCOV' }])
+      expect(r.texto).not.toContain('CARAGILESCOVe')
+      expect(r.texto).toBe('residentes em São Paulo, e ESTEVAM CARAGILESCOV \ne sua mulher MARIA')
+      // A auditoria guarda o que o usuário digitou, não o separador devolvido
+      expect(r.aplicadas[0].para).toBe('e ESTEVAM CARAGILESCOV')
+    })
+
+    it('devolve o espaço quando o trecho lido terminava em espaço', () => {
+      const t2 = 'CIRG. n° 638.145 do titular'
+      const lido2 = 'n° '
+      const j = t2.indexOf(lido2)
+      const c2 = candidato({ id: 'r1', inicio: j, fim: j + lido2.length, textoLido: lido2 })
+      const r = aplicarCorrecoes(t2, [c2], [{ id: 'r1', texto: 'nº' }])
+      expect(r.texto).toBe('CIRG. nº 638.145 do titular')
+    })
+
+    it('não acrescenta espaço onde o trecho lido não tinha separador', () => {
+      const r = aplicarCorrecoes(texto, [alvo], [{ id: 'r1', texto: '100,00' }])
+      expect(r.texto).toBe('Averbada a penhora de R$ 100,00 sobre o imóvel da matrícula 2.653.')
+    })
+
+    it('não duplica o espaço que o próprio usuário digitou', () => {
+      // `sanear` apara as pontas, então o espaço digitado não chega aqui; o
+      // separador devolvido é sempre um só.
+      const r = aplicarCorrecoes(t, [c], [{ id: 'r1', texto: 'e ESTEVAM CARAGILESCOV   ' }])
+      expect(r.texto).toContain('CARAGILESCOV \ne sua')
+    })
+  })
+
   it('corta correção absurdamente longa', () => {
     const r = aplicarCorrecoes(texto, [alvo], [{ id: 'r1', texto: 'x'.repeat(500) }])
     expect(r.aplicadas[0].para).toHaveLength(120)

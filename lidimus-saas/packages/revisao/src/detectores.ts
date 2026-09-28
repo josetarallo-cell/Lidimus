@@ -38,6 +38,13 @@ export const PESOS = {
    * exatamente o mesmo arquivo.
    */
   ato_cabecalho_perdido: 92,
+  /**
+   * Cabeçalho lido com uma letra no lugar do número ("R.e" por "R.8"), no único
+   * vão da numeração que ele pode ocupar. Mesma razão do cabeçalho encoberto:
+   * sem resposta, o salto suprime o relatório — e na 33.032 o palpite de
+   * confiança do token (70%) perdeu as oito vagas para rubricas a 25%.
+   */
+  ato_numero_ilegivel: 92,
   data_invalida: 90,
   data_fora_de_ordem: 72,
   ato_salto: 70,
@@ -235,7 +242,8 @@ const RE_ATO =
 
 type Cabecalho = {
   numero: number
-  matricula: number
+  /** `null` no cabeçalho de linha, que não traz a matrícula colada */
+  matricula: number | null
   /** Offsets do trecho da matrícula dentro do texto */
   mInicio: number
   mFim: number
@@ -243,6 +251,54 @@ type Cabecalho = {
   nInicio: number
   nFim: number
   fimDoMatch: number
+}
+
+// ─── Cabeçalho de linha, sem a matrícula colada ───────────────────────────────
+//
+// Nem todo cartório cola a matrícula no número do ato. O 1º RI de Mogi das
+// Cruzes datilografa "R.1 USUCAPIÃO", "Av.3 - CASAMENTO" ou o assunto na linha
+// de baixo ("Av.2⏎OBITO"). Na matrícula 33.032 isso deixou o detector abaixo do
+// piso de três cabeçalhos, e o "R.8" que o OCR leu como "R.e" nunca chegou à
+// tela — o parser jurídico, sem ele, declarou faltando o ato 8.
+//
+// Este formato SOMA ao de matrícula; não o substitui. Sem a matrícula como
+// âncora, o que segura o falso positivo é a forma: começo de linha, ponto
+// obrigatório entre a letra e o número (sem ele, o "R5" que o carimbo da ONR
+// deixa antes de "SOLICITADO POR" vira ato) e assunto em CAIXA ALTA logo depois,
+// que citação no corpo ("objeto da Av.4 retro") não tem. Mês por extenso fica
+// de fora porque "AV. 9 JULHO" abrindo linha é endereço.
+const MESES_CAIXA_ALTA =
+  '(?:JANEIRO|FEVEREIRO|MAR[ÇC]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)'
+const ASSUNTO_DO_ATO = String.raw`(?=[ \t]*[-–:]?[ \t]*\n?[ \t]*(?!${MESES_CAIXA_ALTA}\b)[A-ZÀ-Ü]{4,})`
+const RE_ATO_LINHA = new RegExp(
+  String.raw`(?<=^[ \t"']*)\b(R|AV|Av)[ \t]*\.[ \t]*(\d{1,3})(?!\d)` + ASSUNTO_DO_ATO,
+  'gm',
+)
+// O mesmo cabeçalho com UMA letra no lugar do número. Uma só: "R. DE MORAES"
+// abrindo linha é rua, e "AV. SÃO PAULO" também.
+const RE_ATO_MUTILADO = new RegExp(
+  String.raw`(?<=^[ \t"']*)\b(R|AV|Av)[ \t]*\.[ \t]*([A-Za-z])(?![A-Za-zÀ-ÿ\d])` + ASSUNTO_DO_ATO,
+  'gm',
+)
+
+function lerCabecalhosDeLinha(texto: string, jaLidos: Cabecalho[]): Cabecalho[] {
+  const lista: Cabecalho[] = []
+  for (const m of texto.matchAll(RE_ATO_LINHA)) {
+    const nInicio = m.index! + m[0].lastIndexOf(m[2])
+    // Onde o formato de matrícula já leu, ele manda
+    if (jaLidos.some((c) => nInicio >= c.nInicio && nInicio < c.fimDoMatch)) continue
+    const nFim = nInicio + m[2].length
+    lista.push({
+      numero: Number(m[2]),
+      matricula: null,
+      mInicio: nInicio,
+      mFim: nFim,
+      nInicio,
+      nFim,
+      fimDoMatch: m.index! + m[0].length,
+    })
+  }
+  return lista
 }
 
 function lerCabecalhos(texto: string): Cabecalho[] {
@@ -452,17 +508,18 @@ function umDigitoResolve(ano: number, piso: number, teto: number): boolean {
 }
 
 export function detectarAtos(texto: string, anoAtual = new Date().getFullYear()): Suspeita[] {
-  const cabecalhos = lerCabecalhos(texto)
+  const deMatricula = lerCabecalhos(texto)
+  const cabecalhos = [...deMatricula, ...lerCabecalhosDeLinha(texto, deMatricula)]
   if (cabecalhos.length < 3) return []
 
   const achados: Suspeita[] = []
-  const dominante = moda(cabecalhos.map((c) => c.matricula))
+  const dominante = moda(deMatricula.map((c) => c.matricula as number))
 
   // Matrícula divergente: numa certidão, todos os atos são da mesma matrícula.
   // Um número diferente do dominante é dígito lido errado — e é exatamente o
   // erro que faz o parser jurídico ver salto de numeração e declarar incompleta
   // uma certidão inteira.
-  for (const c of cabecalhos) {
+  for (const c of deMatricula) {
     if (dominante === null || c.matricula === dominante) continue
     achados.push({
       motivo: 'ato',
@@ -473,7 +530,10 @@ export function detectarAtos(texto: string, anoAtual = new Date().getFullYear())
     })
   }
 
-  const daMatricula = cabecalhos.filter((c) => c.matricula === dominante)
+  // O cabeçalho de linha não traz matrícula para divergir: entra direto na
+  // sequência, ao lado dos que são da matrícula dominante.
+  const daMatricula = cabecalhos.filter((c) => c.matricula === null || c.matricula === dominante)
+  const mutilados = [...texto.matchAll(RE_ATO_MUTILADO)]
 
   // Salto na numeração. Pode ser página faltando (o que a checagem de
   // integridade já apura) ou dígito lido errado — e só quem tem o documento na
@@ -484,6 +544,33 @@ export function detectarAtos(texto: string, anoAtual = new Date().getFullYear())
     const seguinte = porNumero[i]
     const salto = seguinte.numero - anterior.numero
     if (salto <= 1 || salto > 20) continue
+
+    // Número virado letra ("R.e" por "R.8") no único vão que ele pode ocupar:
+    // a numeração salta exatamente um e há um cabeçalho mutilado entre os dois
+    // vizinhos. Com dois números possíveis, ou dois mutilados, deduzir seria
+    // adivinhar — cai no aviso de salto. Como a cauda órfã, este achado
+    // SUBSTITUI o salto: é a mesma pergunta, e este mostra o recorte certo.
+    if (salto === 2) {
+      const noVao = mutilados.filter((m) => m.index! >= anterior.fimDoMatch && m.index! < seguinte.nInicio)
+      if (noVao.length === 1) {
+        const m = noVao[0]
+        const ausente = anterior.numero + 1
+        const comZero = texto.slice(anterior.nInicio, anterior.nFim).startsWith('0')
+        achados.push({
+          motivo: 'cabecalho',
+          rotulo: `Número do ato ilegível; pela posição é o ato ${ausente}`,
+          inicio: m.index!,
+          fim: m.index! + m[0].length,
+          peso: PESOS.ato_numero_ilegivel,
+          ajuda:
+            'O OCR leu uma letra no lugar do número deste cabeçalho, e sem o número o ato conta como ausente. '
+            + `Pela posição, entre o ato ${anterior.numero} e o ${seguinte.numero}, ele só pode ser o ${ausente}. `
+            + 'Confira na imagem — em especial a letra: AV é averbação, R é registro, e são coisas juridicamente diferentes.',
+          sugestao: `${m[1]}.${comZero ? String(ausente).padStart(2, '0') : ausente}`,
+        })
+        continue
+      }
+    }
 
     // Quando a cauda órfã explica a lacuna, ela SUBSTITUI o aviso de salto — os
     // dois são o mesmo achado. E é o aviso de salto que perde: ele ancora no
