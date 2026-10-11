@@ -41,7 +41,7 @@ const ROTA = '/lidimus-update'
 
 const envProducao = lerEnvProducaoBruto()
 const URL_APROVAR = valorDoEnv(envProducao, 'LIDIMUS_APROVAR_URL')
-  || 'https://n8n.gvlar.com/webhook/lidimus-aprovar'
+  || 'https://n8n.gvlar.com.br/webhook/lidimus-aprovar'
 
 const token = valorDoEnv(envProducao, 'LIDIMUS_UPDATE_TOKEN')
 if (!token || token.length < 32) {

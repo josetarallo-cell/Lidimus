@@ -7,7 +7,7 @@ Passo a passo para colocar (ou atualizar) o Lidimus em produção usando `docker
 > prática você valida no sandbox, roda `pnpm sandbox:ok` e a automação sobe às
 > 5h da manhã sozinha — ver [25-lidimus-update.md](25-lidimus-update.md).
 
-> **Estado atual: este caminho não está em uso.** A produção roda hoje na máquina de desenvolvimento, com o `docker-compose.yml` (que inclui o serviço `cloudflared` publicando o `web` em `https://lidimus.gvlar.com`). O `docker-compose.prod.yml` está escrito e pronto — PgBouncer, Redis com senha, réplicas, sem portas expostas —, mas nunca foi ativado. Leia este documento como "o plano para migrar para VPS", não como descrição do que está no ar.
+> **Estado atual: este caminho não está em uso.** A produção roda hoje na máquina de desenvolvimento, com o `docker-compose.yml` (que inclui o serviço `cloudflared` publicando o `web` em `https://lidimus.gvlar.com.br`). O `docker-compose.prod.yml` está escrito e pronto — PgBouncer, Redis com senha, réplicas, sem portas expostas —, mas nunca foi ativado. Leia este documento como "o plano para migrar para VPS", não como descrição do que está no ar.
 
 ## Os três composes
 
@@ -17,7 +17,7 @@ Passo a passo para colocar (ou atualizar) o Lidimus em produção usando `docker
 | Env | `.env` | `.env.sandbox` | `.env.prod` |
 | Imagens de `web`/`worker` | build local a cada `up --build` | idem | pré-construídas `lidimus-web:latest` / `lidimus-worker:latest` |
 | Portas publicadas | pg 5432, redis 6379, web 3000 | pg 5433, redis 6380, web 3100 | só `web` na 3000 |
-| Exposição pública | `cloudflared` → `lidimus.gvlar.com` | **nenhuma** | reverse proxy + Let's Encrypt |
+| Exposição pública | `cloudflared` → `lidimus.gvlar.com.br` | **nenhuma** | reverse proxy + Let's Encrypt |
 | Redis | sem senha | sem senha | `--requirepass ${REDIS_PASSWORD}` |
 | PgBouncer | não | não | sim (modo transaction) |
 | `restart` | `unless-stopped` | `no` | `always` |

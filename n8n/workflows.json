@@ -1,7 +1,7 @@
 {
   "_comentario": [
     "Mapa dos workflows do n8n que pertencem ao Lidimus e são versionados aqui.",
-    "Delimita o escopo do `pnpm n8n:diff`: a instância n8n.gvlar.com é compartilhada",
+    "Delimita o escopo do `pnpm n8n:diff`: a instância n8n.gvlar.com.br é compartilhada",
     "com outros projetos (DailyTasks, Gerar Estudo Onepage) que não entram no relatório.",
     "Para versionar um workflow novo, acrescente a entrada e exporte o JSON."
   ],

@@ -245,7 +245,7 @@ const SECOES = [
         Escritório e Enterprise:
       </p>
       <div class="bloco">
-        <pre v-pre><code>curl -X POST https://lidimus.gvlar.com/api/v1/matriculas \
+        <pre v-pre><code>curl -X POST https://lidimus.gvlar.com.br/api/v1/matriculas \
   -H "Authorization: Bearer $LIDIMUS_API_KEY" \
   -F "file=@matricula.pdf"</code></pre>
       </div>

@@ -29,7 +29,7 @@ lidimus-saas/
 ├── packages/db/src/schema.ts      # schema Drizzle — única fonte de verdade do banco
 ├── packages/queue/src/index.ts    # nomes de filas e tipos de payload (compartilhado web/worker)
 ├── packages/workers/src/index.ts  # ponto de entrada dos workers, valida env vars obrigatórias
-├── docker-compose.yml             # PRODUÇÃO (inclui cloudflared → lidimus.gvlar.com)
+├── docker-compose.yml             # PRODUÇÃO (inclui cloudflared → lidimus.gvlar.com.br)
 ├── docker-compose.sandbox.yml     # sandbox de desenvolvimento — ver docs/15-sandbox.md
 ├── scripts/sandbox-*.mjs          # up/migrate/seed do sandbox + validação do .env.sandbox
 ├── scripts/dev-local.mjs          # hot reload contra PRODUÇÃO (hotfix); dev-sandbox.mjs é o isolado

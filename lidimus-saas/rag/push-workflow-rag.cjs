@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Aplica o RAG ao workflow lidimus-Juridico (n8n.gvlar.com):
+// Aplica o RAG ao workflow lidimus-Juridico (n8n.gvlar.com.br):
 //   1. garante as credenciais httpHeaderAuth (Qdrant + Mistral RAG)
 //   2. faz backup do workflow
 //   3. insere/atualiza os 4 nós de retrieval e religa as conexões

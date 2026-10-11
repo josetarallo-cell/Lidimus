@@ -1,6 +1,6 @@
 # Sandbox — desenvolver sem tocar em produção
 
-O `docker-compose.yml` **não é um compose de dev**: ele inclui o serviço `cloudflared`, que publica o container `web` em `https://lidimus.gvlar.com`. O `.env` ao lado dele é o de produção. Consequência: `pnpm dev`, `pnpm dev:local` e qualquer `docker compose up` naquele arquivo mexem no site no ar — mesmo banco, mesma fila, mesmo bucket, mesmo Resend.
+O `docker-compose.yml` **não é um compose de dev**: ele inclui o serviço `cloudflared`, que publica o container `web` em `https://lidimus.gvlar.com.br`. O `.env` ao lado dele é o de produção. Consequência: `pnpm dev`, `pnpm dev:local` e qualquer `docker compose up` naquele arquivo mexem no site no ar — mesmo banco, mesma fila, mesmo bucket, mesmo Resend.
 
 Este documento descreve o ambiente paralelo, isolado, para trabalhar em alterações de código.
 
@@ -13,11 +13,11 @@ Este documento descreve o ambiente paralelo, isolado, para trabalhar em alteraç
 | Ambiente | `.env` | `.env.sandbox` |
 | Postgres | 5432 (`lidimus-saas_pgdata`) | **5433** (`lidimus-sandbox_pgdata`) |
 | Redis | 6379 | **6380** |
-| Web | 3000 → `lidimus.gvlar.com` | **3100**, só localhost |
+| Web | 3000 → `lidimus.gvlar.com.br` | **3100**, só localhost |
 | Túnel Cloudflare | sim | **não existe** |
 | Bucket GCS | `lidimus-job-files` | `lidimus-sandbox-files` |
 | Resend / Stripe / Google OAuth / Sentry | ligados | **chaves vazias** — degradam para console/503/oculto |
-| n8n | `n8n.gvlar.com` | **o mesmo** (ver abaixo) |
+| n8n | `n8n.gvlar.com.br` | **o mesmo** (ver abaixo) |
 
 **O n8n é compartilhado de propósito.** Os workflows recebem `callbackUrl` e `fileUrl` pelo payload do webhook, então atendem o sandbox sem duplicação: o worker manda `http://host.docker.internal:3100/...` e o n8n — que roda em container nesta mesma máquina — alcança o processo local por esse endereço. O `N8N_CALLBACK_SECRET` do sandbox é diferente do de produção, então um callback que chegasse ao ambiente errado seria rejeitado.
 

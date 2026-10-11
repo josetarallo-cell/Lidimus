@@ -20,7 +20,7 @@ import { jsonBody, jsValidar, trechoTelemetria } from './n8n-migrar-croqui-corpo
 
 const simulacao = process.argv.includes('--dry-run')
 const env = lerEnvProducaoBruto()
-const base = (valorDoEnv(env, 'N8N_BASE_URL') || 'https://n8n.gvlar.com').replace(/\/+$/, '')
+const base = (valorDoEnv(env, 'N8N_BASE_URL') || 'https://n8n.gvlar.com.br').replace(/\/+$/, '')
 const chave = valorDoEnv(env, 'N8N_API_KEY')
 
 if (!chave) {

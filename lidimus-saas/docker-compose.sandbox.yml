@@ -1,7 +1,7 @@
 # Ambiente de sandbox — isolado do site em produção.
 #
 # O docker-compose.yml deste mesmo diretório NÃO é um compose de dev: ele inclui
-# o serviço `cloudflared`, que publica o container `web` em lidimus.gvlar.com.
+# o serviço `cloudflared`, que publica o container `web` em lidimus.gvlar.com.br.
 # Este arquivo é o par de desenvolvimento: banco, Redis, worker e web próprios,
 # portas próprias, volumes próprios (via `name:`), e nenhum túnel.
 #

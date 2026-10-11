@@ -140,7 +140,7 @@ docker compose up -d --build web worker
 **Não é queda do serviço.** Os containers seguem rodando — é a API de gerenciamento do daemon que emperra. Confirme por HTTP, que é a medida que importa:
 
 ```powershell
-curl -s -o /dev/null -w "%{http_code}" https://lidimus.gvlar.com/
+curl -s -o /dev/null -w "%{http_code}" https://lidimus.gvlar.com.br/
 curl -s http://localhost:3000/api/health     # consulta Postgres e Redis
 ```
 

@@ -47,7 +47,7 @@ const alvo = escolherAlvo()
 // Onde o link de aprovação do WhatsApp aponta (webhook do workflow
 // "Lidimus Aprovar"). Vive no .env de produção junto do LIDIMUS_UPDATE_TOKEN.
 const URL_APROVAR = valorDoEnv(lerEnvProducaoBruto(), 'LIDIMUS_APROVAR_URL')
-  || 'https://n8n.gvlar.com/webhook/lidimus-aprovar'
+  || 'https://n8n.gvlar.com.br/webhook/lidimus-aprovar'
 
 // SQL que não pode rodar sozinho às 5h. O histórico tem casos reais: a
 // migration 0015_papeis_equipe faz DELETE FROM organizations e dropa

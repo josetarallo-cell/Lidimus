@@ -2,7 +2,7 @@
 
 Como subir o Lidimus do zero nesta máquina (Windows + Docker Desktop).
 
-> **Este documento descreve o ambiente de PRODUÇÃO.** O `docker-compose.yml` e o `.env` tratados aqui são os que servem `https://lidimus.gvlar.com` — o compose inclui o `cloudflared`, que publica o container `web` na internet. Para desenvolver sem tocar no site no ar, use o ambiente paralelo descrito em **[15-sandbox.md](15-sandbox.md)**.
+> **Este documento descreve o ambiente de PRODUÇÃO.** O `docker-compose.yml` e o `.env` tratados aqui são os que servem `https://lidimus.gvlar.com.br` — o compose inclui o `cloudflared`, que publica o container `web` na internet. Para desenvolver sem tocar no site no ar, use o ambiente paralelo descrito em **[15-sandbox.md](15-sandbox.md)**.
 
 ## Pré-requisitos
 
@@ -26,7 +26,7 @@ Edite `.env` e preencha pelo menos:
 
 `DATABASE_URL` e `REDIS_URL` já vêm certos para rodar tudo dentro do Docker (hostnames `postgres` e `redis`).
 
-Se `PUBLIC_BASE_URL` for um domínio público (é o caso aqui: o `cloudflared` publica o container em `https://lidimus.gvlar.com`), mantenha também `BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000`. O Better Auth deriva as origens confiáveis do `PUBLIC_BASE_URL`, e sem essa linha login e cadastro em `http://localhost:3000` respondem 403 `Invalid origin` antes mesmo de checar a senha.
+Se `PUBLIC_BASE_URL` for um domínio público (é o caso aqui: o `cloudflared` publica o container em `https://lidimus.gvlar.com.br`), mantenha também `BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000`. O Better Auth deriva as origens confiáveis do `PUBLIC_BASE_URL`, e sem essa linha login e cadastro em `http://localhost:3000` respondem 403 `Invalid origin` antes mesmo de checar a senha.
 
 ## 2. Subir os containers
 

@@ -21,7 +21,7 @@ Fora do monorepo, na raiz do repositório:
 
 ## Containers e portas (`docker-compose.yml`)
 
-Apesar do nome, **este compose é o que está servindo produção** nesta máquina: o serviço `cloudflared` publica o `web` em `https://lidimus.gvlar.com`. Para desenvolver isolado, ver [15-sandbox.md](15-sandbox.md).
+Apesar do nome, **este compose é o que está servindo produção** nesta máquina: o serviço `cloudflared` publica o `web` em `https://lidimus.gvlar.com.br`. Para desenvolver isolado, ver [15-sandbox.md](15-sandbox.md).
 
 | Serviço | Imagem | Porta | Volume | Observações |
 |---|---|---|---|---|
@@ -31,7 +31,7 @@ Apesar do nome, **este compose é o que está servindo produção** nesta máqui
 | `worker` | build local (`packages/workers/Dockerfile`) | — | — | consumidores BullMQ |
 | `cloudflared` | cloudflare/cloudflared | — | — | túnel que publica o `web` no domínio (`CLOUDFLARE_TUNNEL_TOKEN`) |
 
-**Nota sobre o n8n:** ele **não** faz parte deste compose — é externo, apontado por `N8N_BASE_URL` no `.env` (`https://n8n.gvlar.com`). Nesta máquina existem também containers `n8n`, `cloudflared` (avulso) e `evolution-api` que pertencem a **outros projetos** — não são gerenciados pelo compose do Lidimus.
+**Nota sobre o n8n:** ele **não** faz parte deste compose — é externo, apontado por `N8N_BASE_URL` no `.env` (`https://n8n.gvlar.com.br`). Nesta máquina existem também containers `n8n`, `cloudflared` (avulso) e `evolution-api` que pertencem a **outros projetos** — não são gerenciados pelo compose do Lidimus.
 
 Sandbox (`docker-compose.sandbox.yml`, projeto `lidimus-sandbox`): mesmos serviços **sem** `cloudflared`, em 5433/6380/3100, volumes próprios, env em `.env.sandbox`. Ver [15-sandbox.md](15-sandbox.md).
 
@@ -150,7 +150,7 @@ Ver `lidimus-saas/.env.example` (produção) e `.env.sandbox.example` (sandbox) 
 | `RESEND_API_KEY`, `EMAIL_FROM` | e-mail transacional (Fase 4 — recuperação de senha); sem chave, o link é logado no console |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | login com Google (Fase 4) — botão só aparece quando configurados |
 | `USD_BRL_RATE` (padrão 5.45) | câmbio do painel `/admin/costs` (custo de modelos é cobrado em USD) |
-| `CLOUDFLARE_TUNNEL_TOKEN` | túnel que publica o `web` em `lidimus.gvlar.com` — **só no `.env` de produção**; o compose de sandbox não tem o serviço |
+| `CLOUDFLARE_TUNNEL_TOKEN` | túnel que publica o `web` em `lidimus.gvlar.com.br` — **só no `.env` de produção**; o compose de sandbox não tem o serviço |
 
 **Prefixo `NUXT_`.** No container, o `web` roda o Nuxt buildado: os `process.env` do `runtimeConfig` já viraram valor fixo no build, e em runtime só `NUXT_<CHAVE>` sobrescreve. Por isso o `docker-compose.yml` tem o bloco `environment:` remapeando as críticas, e o `.env.sandbox` repete cada uma nas duas formas. O worker é o oposto — lê `process.env` direto, pelos nomes sem prefixo. Ver [90-troubleshooting.md](90-troubleshooting.md).
 

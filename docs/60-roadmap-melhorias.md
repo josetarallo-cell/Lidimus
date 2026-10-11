@@ -233,7 +233,7 @@ provedor oferecer HMAC nativo). Tratar no mínimo:
 - [x] Upload sem saldo suficiente retorna 402 com mensagem clara, sem criar job "fantasma"
 - [x] Pagamento confirmado no gateway reflete no saldo em poucos segundos — verificado com
       pagamento de teste real (cartão 4242) em 07/07/2026: assinatura ativa + 500 créditos via
-      `invoice.paid`, entregue pelo endpoint de webhook `https://lidimus.gvlar.com/api/webhooks/stripe`
+      `invoice.paid`, entregue pelo endpoint de webhook `https://lidimus.gvlar.com.br/api/webhooks/stripe`
       criado na conta Stripe (test mode)
 - [x] Job que termina em erro devolve o crédito automaticamente — verificado nos dois caminhos
       (callback de erro do n8n e handler `failed` do worker), com estorno idempotente

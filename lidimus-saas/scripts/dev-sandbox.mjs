@@ -52,7 +52,7 @@ console.log(`banco:        ${semSegredo(env.DATABASE_URL)}`)
 console.log(`redis:        ${env.REDIS_URL}`)
 console.log(`bucket:       ${env.GCS_BUCKET_NAME}`)
 console.log(`callback n8n: ${env.PUBLIC_BASE_URL}/api/webhooks/n8n-callback`)
-console.log(`produção:     intacta — nada aqui toca lidimus.gvlar.com\n`)
+console.log(`produção:     intacta — nada aqui toca lidimus.gvlar.com.br\n`)
 
 const filho = spawn(
   'pnpm',

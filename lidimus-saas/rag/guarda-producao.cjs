@@ -15,7 +15,7 @@
 //   QDRANT_COLLECTION=manual_teste node rag/index-manual.cjs
 // Alvo diferente do padrão dispensa a confirmação — a trava é para o padrão.
 
-const N8N_HOST_PADRAO = 'https://n8n.gvlar.com';
+const N8N_HOST_PADRAO = 'https://n8n.gvlar.com.br';
 const WORKFLOW_ID_PADRAO = 'XakDkY7aCjCYkyqt';
 const COLLECTION_PADRAO = 'manual_registro_imoveis';
 

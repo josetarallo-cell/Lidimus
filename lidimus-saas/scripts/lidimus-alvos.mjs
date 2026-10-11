@@ -34,12 +34,12 @@ function producao() {
     nome: 'producao',
 
     // O compose de produção é o único que inclui o cloudflared, que publica o
-    // `web` em lidimus.gvlar.com. Mexer nele é mexer no site.
+    // `web` em lidimus.gvlar.com.br. Mexer nele é mexer no site.
     compose: ['compose', '-f', 'docker-compose.yml'],
     cwd: raizSaas,
 
     urlWeb: 'http://127.0.0.1:3000',
-    urlPublica: 'https://lidimus.gvlar.com',
+    urlPublica: 'https://lidimus.gvlar.com.br',
     // Saúde do sandbox é gate de preflight: promover algo que não está de pé em
     // 3100 é promover algo que ninguém validou.
     urlSandbox: 'http://127.0.0.1:3100',
